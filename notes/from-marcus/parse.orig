@@ -1,0 +1,658 @@
+(declare (macros t))
+(declare (include declr))
+(comment top-level bindings)
+;;arrays                  
+(array \:buffer t 10.)
+(array \:1stfvec fixnum 512.)
+(array \:2ndfvec fixnum 512.)
+(array \:3rdfvec fixnum 512.)
+
+(setq \:1stfvec (getd '\:1stfvec ))
+(setq \:2ndfvec (getd '\:2ndfvec ))
+(setq \:3rdfvec (getd '\:3rdfvec ))
+(setq \:index-to-fvec-alist (list (cons 0  \:1stfvec)
+                                (cons 1  \:2ndfvec)
+                                (cons 2  \:3rdfvec)))
+
+;;switch settings
+(setq \:ntrace nil) 
+(setq \:findex-counter 0)
+(setq \:ptrace nil) 
+(setq ctrace nil)
+(setq \:crtrace nil)
+(setq \:buffer-gc t)
+(setq \:pstatus nil)
+(setq \:ruletrap nil)
+(setq \:carefulsw nil) 
+(setq \:breaksw nil) 
+(setq \:psych-sw nil)
+(setq \:nodelist nil)
+(setq \:word-entry-switch nil)
+(setq \:displayflag nil)
+;;tree printing utilities
+(setq ntab 3 ftab 3) 
+;;if set non-nil, causes reexpansion of "jlike" words every time
+(setq \:always-expand nil) 
+(setq \:newdeffile '~mitch/lisp/parsifal/newdef.l)
+
+(putprop '\:gram-stats (ncons nil) 'packetcontents)
+
+(setq \:sent nil)
+(setq \:sent-list nil)
+(setq openframe nil)
+(setq \:1stfeat nil)
+(setq \:2ndfeat nil)
+(setq \:3rdfeat nil)
+(ifnot (boundp '\:create-rules) (setq \:create-rules nil))
+(ifnot (boundp '\:attach-rules) (setq \:attach-rules nil))
+
+(comment macro definitions)
+;;the cdr of a node is a fixnum which contains its flags.
+(defmacro flags (node) `(cdr ,node))
+
+(defmacro setflags (node val) `(rplacd ,node ,val))
+
+(defmacro setup** (nname nfeat nfvec)
+          ;;clear appropriate feature vector.
+   `(progn
+     (do ((findex ,nfeat (cdr findex))) 
+	 ((null findex))
+	 (store (,nfvec (car findex)) 0.))
+          ;;signal that ,nfvec is in inconsistent state.
+          ;;(Just in case this routine interrupted out of)
+          (setq ,nfeat 'changing)
+          ;;set apppropriate positions and save indices.
+          (do ((f (fe node) (cdr f))
+               (result) (temp))
+              ((null f) (setq ,nfeat result))
+              (if* (setq temp (get (car f) '\:findex))
+                  (store (,nfvec temp) 1)
+                  (setq result (cons temp result))))
+          (setq ,nname node)))
+
+(defmacro clear-current-s nil `(if* \:current-s (setq \:current-s nil \:wh-comp nil)))
+
+(defmacro activatenode (node)
+	  `(progn (if* c (push (cons c \:activepackets) \:activenodestak))
+		 (setq \:activepackets nil)
+		 (clear-current-s)
+		 (setq c ,node)))
+
+
+(defun fast-is macro (l)
+       (displace l
+                  (list 'testindices
+                       (cadr l)
+                       (list 'quote (featindexify (caddr l))))))
+
+(defmacro setfe (node features) `(set (car ,node) ,features)) 
+
+(defmacro fe (node) `(symeval (car ,node)))
+
+(defmacro setr (reg value node) `(putprop (car ,node) ,value ,reg))  
+
+(defmacro getr (register node)
+          `(get (car ,node) ,register))
+
+
+(comment the parsifal interpreter)
+;;;Truly global state-holding variables\: S \:1stfeat \:2ndfeat \:3rdfeat 
+;;;\:sent-list \:savewstring  \:ptime \:gctime \:realtime
+;;Global switches\: \:pstatus \:breaksw \:ruletrap
+
+(defun parse nil
+       (prog (\:activepackets \:activerule \:activenodestak \:nextrule 
+		 \:bufpntr \:bufpntrstak \:bufmax \:parsecomplete 1st 
+		 2nd 3rd \:ttemp \:ttemp1 \:current-s)
+	     (if* (> (length \:nodelist) 100.)
+		 (say |Garbage collecting nodes|)
+		 (node-reset))
+	     (or (setq \:savewstring (setq \:wstring (sentin)))
+		 (return nil))
+	     (ifnot (equal (car \:sent-list) \:sent)
+		     (setq \:sent-list (cons \:sent \:sent-list)))
+	     (setq \:deriv nil)
+	     (if* \:pstatus (cursorpos 'c))
+             (if* \:displayflag
+		 (fixs)
+		 (for (poport top-tty)
+		      (cursorpos 'c)))
+	     (princ 'PARSING)
+	     (drain poport)
+	     (starttime)
+	     (setq \:activepackets nil
+		   \:activerule  '(initial-rule \:\:act-of-initial-rule)
+		   \:activenodestak  nil
+		   \:bufpntr  0
+                   \:bufmax -1
+		   \:bufpntrstak nil
+		   s nil
+		   c nil)
+             (fillarray '\:buffer '(nil))
+             (if* (eq \:1stfeat 'changing)
+		 (fillarray \:1stfvec '(0))
+		 (setq \:1stfeat nil))
+             (if* (eq \:2ndfeat 'changing)
+		 (fillarray \:2ndfvec '(0))
+		 (setq \:2ndfeat nil))
+             (if* (eq \:3rdfeat 'changing)
+		 (fillarray \:3rdfvec '(0))
+		 (setq \:3rdfeat nil))
+	     (go runrule)
+nextrule     (if* \:buffer-gc (buffer-gc))
+             (setq \:activerule nil 1st nil 2nd nil 3rd nil)
+             (or (cond (\:psych-sw nil) ((not (set* 0))))
+		 (testrules 'normal \:bufpntr)
+		 (progn (warn 1. |No rule applies.|) (go nextrule)))
+runrule      (break beforerun
+		    (or \:breaksw
+			(if* (eq \:ruletrap (car \:activerule))
+			    (say RULE TRAP)
+                            (if* (and (boundp 'rule-func) rule-func)
+				(eval rule-func))
+			    t)))
+             (push (car \:activerule) \:deriv)
+             (if* \:displayflag (display-trace nil))
+             (funcall (cadr \:activerule))
+             (if* \:ptrace (say $ (car \:activerule)
+                             |done with| $ (1+ \:bufmax) |nodes in buffer.\|))
+             (cond (\:nextrule (if* \:ptrace
+				 (say On advice of $ (car \:activerule) |...|)
+				 (say Running rule $ \:nextrule))
+			     (setq \:activerule
+				   (list \:nextrule (cat '\:\:act-of- \:nextrule))
+				   \:nextrule
+				   nil)
+                             (go runrule))
+		   (\:parsecomplete (closeframe openframe)
+                                   (endtime)
+				  (say DONE)
+				  (terpri)
+				  (return t)))
+             (go nextrule)))
+
+
+(defun buffer-gc nil
+       (do ((i \:bufpntr (1+ i)) (node)  )
+           ((> i \:bufmax) nil)
+           (cond ((zerop (logand 1 (flags  (setq node (\:buffer i))))))
+                     ;;The node at this position is attached, 
+                     ;;but may trigger a NR rule, so return immediately.
+                 ((and (zerop (logand 2 (flags node)))
+		       (memq (getr 'type node) \:nr-types))
+		  (return nil))
+                 ;;Remove the node and continue
+                 ((remove-index-pos i)  (setq i (1- i))))))
+                  
+	     
+(defmacro testrules2 (type bpnt buckets)
+          `(do ((b (cdr ,buckets) (cdr b))
+	       (buckettail ,buckets)
+	       (hpriority (caaar ,buckets)))
+	      ((null b)
+	       (cond ((funcall (cadaar buckettail))
+		      (setq \:activerule (cddaar buckettail))
+		      (if* \:ptrace
+                          (say |Running| $ ,type |rule| $ (car \:activerule)))
+		      t)
+                     ;;If the ruletype is normal, \:activerule may have been set
+                     ;;by an AS or NR rule run during the pattern test.
+		     ((and (eq ,type 'normal) \:activerule))
+                     ;;Splice out the tested rule. If its bucket is empty,
+		     ((car (rplaca buckettail (cdar buckettail))) nil)
+                     ;;then splice out the empty bucket.
+		     ((setq ,buckets (delq nil ,buckets 1)) nil)))
+	      (declare (fixnum hpriority))
+	      (if* (< (caaar b) hpriority)
+		  (setq hpriority (caaar (setq buckettail b))))))
+
+(defmacro testrules1 (type bpnt bucket)
+         `(do ((rlist ,bucket (cdr rlist)))
+           ((null rlist) nil)
+           (if* (funcall (cadar rlist))
+               (setq \:activerule (cddar rlist))
+               (if* \:ptrace
+                   (say |Running| $ ,type |rule| $ (car \:activerule)))
+               (return t))
+           (if* (and \:activerule (eq ,type 'normal)) (return t))))
+
+;KWC - bpnt is a buffer pointer
+(defun testrules (type bpnt)
+       (declare (fixnum bpnt))          
+       (do ((buckets (fetchrules type bpnt)))
+            ((null (cdr buckets))
+             (testrules1 type bpnt (car buckets)))
+           (if* (testrules2 type bpnt buckets) (return t))))
+
+(defun fetchrules (type bpnt)
+       (do ((f (cons 'noindexf (cond ((not \:psych-sw)
+                                      (fe (\:buffer bpnt)))
+                                     ((get '\:gram-stats 'indexfs))))
+               (cdr f))
+            (temp) (result) (plist))
+           ((null f) result)
+           (if* (setq plist (get (car f) type))
+               (do ((packet
+                     ;;This is a partial hack for now.  It just may be right.
+                     (cond ((eq type 'normal) \:activepackets)
+			   ((eq type 'as)
+			    (meet1 '(cpool npool) \:activepackets))
+			   ((eq type 'nr) '(cpool)))
+                     (cdr packet)))
+                   ((null packet))
+                   (if* (setq temp (get plist (car packet)))
+                       (setq result (cons temp result)))))))
+
+
+(comment buffer maintaining functions)
+;KWC \:buffer is an array
+;KWC index, abs-index, \:bufpntr are offsets into the \:buffer
+;KWC a node is an element of the \:buffer
+;KWC the \:bufpntrstak is the offset stack of \:bufpntr's mentioned as
+;KWC the third data structure in the thesis.
+(defun set* (index)
+       (declare (fixnum index))
+       ;;Returns nil if a AS or NR rule has matched while setting up.
+       ;;1 flag indicates node attached, 2 flag that node checked for NR rules
+       (prog (node abs-index)
+	     (declare (fixnum abs-index))
+	     (setq abs-index (+ index \:bufpntr))
+             ;;if this node is not the first after the buffer start,  and the
+             ;;previous node hasn't been checked for NR rules, check it.
+             (and (plusp index)
+		  (zerop (logand 2 (flags (setq node nth))))
+		  (setflags node (logor 2 (flags node)))
+                  (memq (getr 'type node) \:nr-types)
+		  (testrules 'nr (1- abs-index))
+		  (go nr-rule-setup))
+     loop    (cond ((null (setq node (\:buffer abs-index)))
+                    ;;If there is no node at this position, then pull a new 
+                    ;;word into the buffer.
+                    (go getnext))
+		   ((zerop (logand 1 (flags node)))
+                    ;;If the node at this position is not attached, check to see 
+                    ;;if it fires an AS rule. If so, do that rule;
+                    ;;if not, return.
+                    (setup* node index)
+                    (cond ((is-any-of node \:as-types) (go as-check))
+                          ((return t))))
+		   ((prog1
+                     ;;The node at this position is attached and should be removed.
+                     ;;If it matches an NR rule, remove the node and then do that rule,
+                     ;;else, remove the node and recheck this buffer position.
+                     (not (and (zerop (logand 2 (flags node)))
+                                     (memq (getr 'type node) \:nr-types)
+                                     (setup* node index)
+				     (testrules 'nr abs-index)))
+			   (remove-index-pos abs-index))
+		    (go loop)))
+     nr-rule-setup
+	     (activatenode node)
+	     (setq 1st nil)
+     as-rule-setup
+	     (setq 2nd nil 3rd nil)
+	     (push \:bufpntr \:bufpntrstak)
+	     (setq \:bufpntr abs-index)
+	     (return nil)
+     getnext (insert-index-pos abs-index (setq node (nextword)))
+	     (setup* node index)
+     as-check(cond ((testrules 'as abs-index) (setq 1st node) (go as-rule-setup))
+		   ((return t)))))
+
+
+
+(defun setup* (node index)
+       (setq \:int-index index nth node)
+       ;;setup feature vector for fast feature checking.
+       (cond ((= index 0) (setup** 1st \:1stfeat \:1stfvec))
+             ((= index 1) (setup** 2nd \:2ndfeat \:2ndfvec))
+             ((= index 2) (setup** 3rd \:3rdfeat \:3rdfvec))))
+
+(defun bufrestore nil 
+       (cond (\:bufpntrstak (setq \:bufpntr (pop \:bufpntrstak)))
+             (t (warn 1. |Attempting to pop empty buffer pointer stack.|))))
+
+(defun remove-index-pos (index)
+       (do ((i index (1+ i)))
+           ((= i \:bufmax)
+            (store (\:buffer \:bufmax) nil)
+            (setq \:bufmax (1- \:bufmax)) t)
+           (declare (fixnum i))
+           (store (\:buffer i) (\:buffer (1+ i)))))
+
+(defun insert-index-pos (index node)
+       ;;if bufmax is 4, there are now 5 items in the buffer
+       (if* (> \:bufmax 3)
+	   (warn 0. |Inserting| $ node |makes| $ (+ 2 \:bufmax) |items in buffer|)
+	   (if* (> (+ 2 \:bufmax)
+		  (cadr (arraydims '\:buffer)))
+	       (warn 1. |Inserting| $ node |will overflow buffer array|)))
+       (do ((i (setq \:bufmax (1+ \:bufmax)) (1- i)))
+	   ((= i index) (store (\:buffer index) node) t)
+           (declare (fixnum i))
+	   (store (\:buffer i) (\:buffer (1- i)))))
+
+(comment utilities)
+(defun ruletrap fexpr (l)
+       (cond ((get (car l) '\:indexinfo)
+	      (setq \:ruletrap (car l)))
+	     ((null (car l))
+	      (if* (and (boundp 'rule-unfunc) rule-unfunc) (eval rule-unfunc))
+	      (setq \:ruletrap nil))
+	     (t (say |No such rule as| $ (car l)))))
+
+
+(defun breaksw (x) (setq \:breaksw x))
+
+(defun starttime nil
+	     (setq \:ptime-begin (ptime)
+		   \:localtime-begin (status localtime)))
+
+(defun endtime nil
+	     (setq \:ptime-end (ptime)
+		   \:localtime-end (status localtime)))
+
+(defun s-type (node) (meet (fe node) \:sentence-types))
+
+(defun head (node)
+       (setq node (binding node))
+       ;;This function depends upon the phrase structure rules of the grammar.
+       (cond ((null node) nil)
+	     ((cond ((is node '(np))
+		     (or (head (find-node1 'nbar node))
+			 (find-node1 'pronoun node)
+			 (find-node1 's node)
+                         ;;the following is for old-style nps
+                         (find-node1 'noun node)))
+		    ((is node '(nbar)) (find-node1 'noun node))
+		    ((is node '(s))
+		     (find-node1 'verb (find-node1 'vp node)))))
+	     ((warn 0 |failed to find the head of | $ (nid node) |.|))))
+
+
+
+(defun word (node)
+       (for (temp (getr 'word node)) (or (get temp 'root) temp)))
+
+(defun root-of (word)
+       (or (get word 'root) word))
+
+
+(defun nid (node)
+       (list (car node) (fe node) '\\: (phrasify node)))
+
+(defun nid1 (node)
+       (list (car node) (fe node)))
+
+(defun node-id (node)
+       (for (prinlength 5)(mapc 'print2 (nid node))))
+
+(defun daughters (type node) (get (getr 'daughters node) type))
+
+(defun daughter (type node) 
+       (for (daughter (daughters type node))
+            (cond ((null (cdr daughter)) (car daughter))
+                  ('error))))
+
+(comment the rule indexer)
+
+
+(defun rule-index (type packets indexf item)
+       (prog (type-plist name)
+             (consprop '\:gram-stats
+                       (setq name (caddr item))
+                       type)
+             (setq type-plist (or (get indexf type)
+                             (putprop indexf (ncons nil) type)))
+             (ifnot (memq indexf (get '\:gram-stats 'indexfs))
+                    (consprop '\:gram-stats indexf 'indexfs))
+             (if* (get name '\:indexinfo) (rem-index name))
+             (putprop name (list indexf type packets item) '\:indexinfo)
+             (do ((ptail packets (cdr ptail)) (packet) (rlist))
+                 ((null ptail))
+                 (ifnot (memq (setq packet (car ptail))
+                              (get '\:gram-stats 'packets))
+                        (consprop '\:gram-stats packet 'packets))
+                 (consprop (get '\:gram-stats 'packetcontents)
+                           name packet)
+                 (putprop type-plist
+			  (cond ((null (setq rlist (get type-plist packet)))
+				 (list item))
+				((le (car item) (caar rlist))
+				 (cons item rlist))
+				((do ((rtail rlist (cdr rtail)))
+				     ((null (cdr rtail))
+				      (rplacd rtail (ncons item))
+				      rlist)
+				     (if* (le (car item) (caadr rtail))
+					 (rplacd rtail
+						 (cons item (cdr rtail)))
+					 (return rlist)))))
+			  packet))))
+(defun rem-index (rule)
+       ;;indexinfo= indexf type packets item
+       (prog (type-plist indexinfo item)
+             (setq indexinfo (get rule '\:indexinfo))
+             (setq item (cadddr indexinfo))
+             (setq type-plist (get (car indexinfo) (cadr indexinfo)))
+             (say |Re-indexing| $ rule |in packets| $ (caddr indexinfo))
+             (do ((ptail (caddr indexinfo) (cdr ptail)))
+                 ((null ptail))
+                 (putprop type-plist
+                          (delete item (get type-plist (car ptail)))
+                          (car ptail)))))
+
+
+(comment feature hacking functions)
+;;;Fast feature checking hack
+
+(defun testindices (index findices)
+       (do ((fis findices (cdr fis))
+            (nfvec (cdr (assq index \:index-to-fvec-alist))))
+           ((null fis) t)
+           (and (zerop (arraycall fixnum nfvec (car fis))) (return nil))))
+
+(defun featindexify (feats)
+       (do ((fs feats (cdr fs)) (findices))
+           ((null fs) findices)
+           (setq findices
+                 (cons (cond ((get (car fs) '\:findex))
+                             (t (consprop '\:gram-stats (car fs) 'flist)
+                                (putprop (car fs)
+                                         (prog1 \:findex-counter
+                                                (setq \:findex-counter
+                                                      (1+ \:findex-counter)))
+                                         '\:findex)))
+                       findices))))
+
+(defun addf1 (node feats) (setfe node (append feats (fe node)))) 
+
+(defun remf1 (feats node) 
+       ;;the order of arguments is opposite that of addf1 so that
+       ;;the syntax of "remove the features foo, bar of zorch" is easier to 
+       ;;decode.
+       (setfe node (setminus (fe node) feats))) 
+
+;;node must have all features
+(defun is (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) t)
+	   (or (memq (car testfs) fset) (return nil))))
+
+;;node must be lacking in one of the features
+(defun is-not-all-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) nil)
+	   (or (memq (car testfs) fset) (return t))))
+
+;;node must have none of the features
+(defun is-none-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) t)
+	   (and (memq (car testfs) fset) (return nil))))
+
+;;node must have one of
+(defun is-any-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) nil)
+	   (and (memq (car testfs) fset) (return t))))
+
+(defun transfer (features source dest) 
+       (addf1 dest (meet1 features (fe source))))
+
+(defun liftr (reg source dest) (setr reg (getr reg source) dest))
+
+(comment node creating & attaching functions)
+(defun nextword nil
+       (cond (\:wstring (if* \:word-entry-switch
+			   (setr '\:time (runtime) (car \:wstring))
+                            (if* \:ptrace
+                                (say [ $ (getr 'word (car \:wstring))
+                                     | entering the buffer at position|
+                                     $ (1+ \:bufmax) \. ]))))
+	     (t (warn 1. run off end of input - nextword)))
+       (pop \:wstring))
+
+(defun newnode (type flist)
+       (for (node (makenode type))
+	    (setr 'type type node)
+            (push node \:nodelist)
+	    (setfe node (cons type flist))
+	    (activatenode node)
+            (create-monitor type)
+            node))
+
+(defun setup-current-s nil
+       (ifnot \:current-s
+	      (setq \:current-s (node-above 's c))
+	      (setq \:wh-comp (getr '\:wh-comp \:current-s))))
+
+(defun current-s nil (setup-current-s) \:current-s)
+
+(defun wh-comp nil (setup-current-s) \:wh-comp)
+
+(defun nodegc nil
+       (for (count 1)
+	     (mapc '(lambda (x)
+			    (remob (car x))
+			    (setq count (1+ count)))
+		   \:nodelist)
+	     count))
+
+(defun node-reset nil
+       (for (total 0)
+	    (mapc
+	     '(lambda (prefix)
+		      (do ((i 0 (1+ i)) (limit (get prefix 'gennum))
+			   (node))
+			  ((> i limit)
+			   (remprop prefix 'gennum)
+			   (setq total (+ total i -1)))
+			  (setplist (setq node (cat prefix i)) nil)
+			  (makunbound node)
+			  (remob node)))
+	     (prog1 (get 'makesym 'prefixes) (remprop 'makesym 'prefixes)))
+	    (for (base 10.) (say |Total\:| $ total)
+		 (setq \:nodelist nil)
+		 (gctwa))
+		 t))
+
+;;the purpose of attach1 is to reverse the order of evaluation of
+;;the arguments to attach, so that "C" will not be changed (relative to this attach)
+;;by creating a new node.
+(defun attach1 (dn fn type) (attach fn dn type))
+
+(defun \:last nil
+       (and (not (zerop \:bufpntr)) (\:buffer (1- \:bufpntr))))
+
+
+(defun attach (fn dn type)
+       (for (daughters (or (getr 'daughters fn)
+                           (setr 'daughters (ncons nil) fn)))
+            (setr 'father fn dn)
+            (if* (and \:carefulsw (not (eq type (getr 'type dn))))
+                   (warn 0. $ dn being attached as $ type 
+                         but claims to be $ (getr 'type dn)))
+            (putprop daughters (cons dn (get daughters type)) type)
+            (setflags dn (logor 1 (flags dn)))
+            (if* \:ntrace 
+                (for (prinlength 5)
+                (say ** $ (nid dn) |attached to| $ (nid fn))))
+            (attach-monitor fn dn type)))
+
+(defun alt-attach (dn fn type)
+       (setr 'ambig-attach (list dn fn type) s))
+
+(defun alt-fillslot (a b c)
+       (putc  'ambig-fillslot (list a b c) s))
+
+(defun drop (index)
+       (ifnot (or (getr 'father c)
+                  (do ((i \:bufmax (1- i)))
+                      ((minusp i))
+                      (if* (eq (\:buffer i) c) (return t))))
+              (insert-index-pos (+ \:bufpntr index) c))
+       (setq \:activepackets (cdar \:activenodestak))
+       (setq c (car (pop \:activenodestak)))
+       (clear-current-s))
+
+(defun insert-node (node index)
+       (activatenode node)
+       (drop index))
+
+
+(defun makenode (type) 
+       (prog (nname) 
+	     (set (setq nname (makesym type)) nil)
+	     (return (cons nname 0.)))) 
+
+(defun makesym (prefix)
+       (for (gennum (or (get prefix 'gennum)
+			(prog1 0 (consprop 'makesym prefix 'prefixes))))
+	    (declare (fixnum gennum))
+	    (cat prefix (putprop prefix (1+ gennum) 'gennum)))) 
+
+
+(comment tree searching functions)
+
+(defun node-above (type node)
+       (cond ((null node) nil)
+             ((memq type (fe node)) node)
+             ((node-above type (father-node node)))))
+
+(defun father-node (node)
+       (or (getr 'father node)
+           (do ((nodes (cons (ncons c) \:activenodestak) (cdr nodes)))
+               ((null nodes))
+               (if* (eq node (caar nodes))
+                   (return (caadr nodes))))))
+
+(defun io (node)
+       (cadr (get (getr 'daughters node) 'np)))
+
+(defun binding (node) 
+       (cond ((null node) nil)
+             ((is-any-of node '(trace *)) (binding (getr 'binding node)))
+             (node)))
+
+
+(defun find-node (dest start)
+       (cond ((car (get (getr 'daughters  start) dest)))
+             ((and \:carefulsw
+                   (warn 0 |Cannot find the| $ dest |of| $ start)))))
+
+(defun find-node1 (dest start) (binding (find-node dest start)))
+
+
+(defun deactivate (packets)
+       (setq \:activepackets (setminus \:activepackets  packets)))
+
+(defun activate (packets)
+       (setq \:activepackets (cond ((null \:activepackets) packets)
+                                 ((atom packets)
+                                  (cond ((memq packets \:activepackets)
+                                         \:activepackets)
+                                        ((cons packets \:activepackets))))
+                                 ((union1 packets \:activepackets))))) 
+
+

@@ -1,0 +1,3646 @@
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:25:52 1987
+Posted-Date: Sun, 22 Nov 87 13:53 EST
+Received-Date: Sun, 22 Nov 87 14:24:03 EST
+Message-Id: <8711221924.AA00979@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:22 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15047; 22 Nov 87 14:20 EST
+Received: from btl by csnet-relay.csnet id aa13624; 22 Nov 87 14:13 EST
+Date: Sun, 22 Nov 87 13:53 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: parse.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(declare (macros t))
+(declare (include declr))
+(comment top-level bindings)
+;;arrays                  
+(array :buffer t 10.)
+(array :1stfvec fixnum 512.)
+(array :2ndfvec fixnum 512.)
+(array :3rdfvec fixnum 512.)
+
+(setq :1stfvec (getd ':1stfvec ))
+(setq :2ndfvec (getd ':2ndfvec ))
+(setq :3rdfvec (getd ':3rdfvec ))
+(setq :index-to-fvec-alist (list (cons 0  :1stfvec)
+                                (cons 1  :2ndfvec)
+                                (cons 2  :3rdfvec)))
+
+;;switch settings
+(setq :ntrace nil) 
+(setq :findex-counter 0)
+(setq :ptrace nil) 
+(setq ctrace nil)
+(setq :crtrace nil)
+(setq :buffer-gc t)
+(setq :pstatus nil)
+(setq :ruletrap nil)
+(setq :carefulsw nil) 
+(setq :breaksw nil) 
+(setq :psych-sw nil)
+(setq :nodelist nil)
+(setq :word-entry-switch nil)
+(setq :displayflag nil)
+;;tree printing utilities
+(setq ntab 3 ftab 3) 
+;;if set non-nil, causes reexpansion of "jlike" words every time
+(setq :always-expand nil) 
+(setq :newdeffile '/usr/mitch/lisp/parsifal/newdef.l)
+
+(putprop ':gram-stats (ncons nil) 'packetcontents)
+
+(setq :sent nil)
+(setq :sent-list nil)
+(setq openframe nil)
+(setq :1stfeat nil)
+(setq :2ndfeat nil)
+(setq :3rdfeat nil)
+(ifnot (boundp ':create-rules) (setq :create-rules nil))
+(ifnot (boundp ':attach-rules) (setq :attach-rules nil))
+
+(comment macro definitions)
+;;the cdr of a node is a fixnum which contains its flags.
+(defmacro flags (node) `(cdr ,node))
+
+(defmacro setflags (node val) `(rplacd ,node ,val))
+
+(defmacro setup** (nname nfeat nfvec)
+          ;;clear appropriate feature vector.
+   `(progn
+     (do ((findex ,nfeat (cdr findex))) 
+	 ((null findex))
+	 (store (,nfvec (car findex)) 0.))
+          ;;signal that ,nfvec is in inconsistent state.
+          ;;(Just in case this routine interrupted out of)
+          (setq ,nfeat 'changing)
+          ;;set apppropriate positions and save indices.
+          (do ((f (fe node) (cdr f))
+               (result) (temp))
+              ((null f) (setq ,nfeat result))
+              (if* (setq temp (get (car f) ':findex))
+                  (store (,nfvec temp) 1)
+                  (setq result (cons temp result))))
+          (setq ,nname node)))
+
+(defmacro clear-current-s nil `(if* :current-s (setq :current-s nil :wh-comp nil)))
+
+(defmacro activatenode (node)
+	  `(progn (if* c (push (cons c :activepackets) :activenodestak))
+		 (setq :activepackets nil)
+		 (clear-current-s)
+		 (setq c ,node)))
+
+
+(defun fast-is macro (l)
+       (displace l
+                  (list 'testindices
+                       (cadr l)
+                       (list 'quote (featindexify (caddr l))))))
+
+(defmacro setfe (node features) `(set (car ,node) ,features)) 
+
+(defmacro fe (node) `(symeval (car ,node)))
+
+(defmacro setr (reg value node) `(putprop (car ,node) ,value ,reg))  
+
+(defmacro getr (register node)
+          `(get (car ,node) ,register))
+
+
+(comment the parsifal interpreter)
+;;;Truly global state-holding variables: S :1stfeat :2ndfeat :3rdfeat 
+;;;:sent-list :savewstring  :ptime :gctime :realtime
+;;Global switches: :pstatus :breaksw :ruletrap
+
+(defun parse nil
+       (prog (:activepackets :activerule :activenodestak :nextrule 
+		 :bufpntr :bufpntrstak :bufmax :parsecomplete 1st 
+		 2nd 3rd :ttemp :ttemp1 :current-s)
+	     (if* (> (length :nodelist) 100.)
+		 (say |Garbage collecting nodes|)
+		 (node-reset))
+	     (or (setq :savewstring (setq :wstring (sentin)))
+		 (return nil))
+	     (ifnot (equal (car :sent-list) :sent)
+		     (setq :sent-list (cons :sent :sent-list)))
+	     (setq :deriv nil)
+	     (if* :pstatus (cursorpos 'c))
+             (if* :displayflag
+		 (fixs)
+		 (for (poport top-tty)
+		      (cursorpos 'c)))
+	     (princ 'PARSING)
+	     (drain poport)
+	     (starttime)
+	     (setq :activepackets nil
+		   :activerule  '(initial-rule ::act-of-initial-rule)
+		   :activenodestak  nil
+		   :bufpntr  0
+                   :bufmax -1
+		   :bufpntrstak nil
+		   s nil
+		   c nil)
+             (fillarray ':buffer '(nil))
+             (if* (eq :1stfeat 'changing)
+		 (fillarray :1stfvec '(0))
+		 (setq :1stfeat nil))
+             (if* (eq :2ndfeat 'changing)
+		 (fillarray :2ndfvec '(0))
+		 (setq :2ndfeat nil))
+             (if* (eq :3rdfeat 'changing)
+		 (fillarray :3rdfvec '(0))
+		 (setq :3rdfeat nil))
+	     (go runrule)
+nextrule     (if* :buffer-gc (buffer-gc))
+             (setq :activerule nil 1st nil 2nd nil 3rd nil)
+             (or (cond (:psych-sw nil) ((not (set* 0))))
+		 (testrules 'normal :bufpntr)
+		 (progn (warn 1. |No rule applies.|) (go nextrule)))
+runrule      (break beforerun
+		    (or :breaksw
+			(if* (eq :ruletrap (car :activerule))
+			    (say RULE TRAP)
+                            (if* (and (boundp 'rule-func) rule-func)
+				(eval rule-func))
+			    t)))
+             (push (car :activerule) :deriv)
+             (if* :displayflag (display-trace nil))
+             (funcall (cadr :activerule))
+             (if* :ptrace (say $ (car :activerule)
+                             |done with| $ (1+ :bufmax) |nodes in buffer.\|))
+             (cond (:nextrule (if* :ptrace
+				 (say On advice of $ (car :activerule) |...|)
+				 (say Running rule $ :nextrule))
+			     (setq :activerule
+				   (list :nextrule (cat '::act-of- :nextrule))
+				   :nextrule
+				   nil)
+                             (go runrule))
+		   (:parsecomplete (closeframe openframe)
+                                   (endtime)
+				  (say DONE)
+				  (terpri)
+				  (return t)))
+             (go nextrule)))
+
+
+(defun buffer-gc nil
+       (do ((i :bufpntr (1+ i)) (node)  )
+           ((> i :bufmax) nil)
+           (cond ((zerop (logand 1 (flags  (setq node (:buffer i))))))
+                     ;;The node at this position is attached, 
+                     ;;but may trigger a NR rule, so return immediately.
+                 ((and (zerop (logand 2 (flags node)))
+		       (memq (getr 'type node) :nr-types))
+		  (return nil))
+                 ;;Remove the node and continue
+                 ((remove-index-pos i)  (setq i (1- i))))))
+                  
+	     
+(defmacro testrules2 (type bpnt buckets)
+          `(do ((b (cdr ,buckets) (cdr b))
+	       (buckettail ,buckets)
+	       (hpriority (caaar ,buckets)))
+	      ((null b)
+	       (cond ((funcall (cadaar buckettail))
+		      (setq :activerule (cddaar buckettail))
+		      (if* :ptrace
+                          (say |Running| $ ,type |rule| $ (car :activerule)))
+		      t)
+                     ;;If the ruletype is normal, :activerule may have been set
+                     ;;by an AS or NR rule run during the pattern test.
+		     ((and (eq ,type 'normal) :activerule))
+                     ;;Splice out the tested rule. If its bucket is empty,
+		     ((car (rplaca buckettail (cdar buckettail))) nil)
+                     ;;then splice out the empty bucket.
+		     ((setq ,buckets (delq nil ,buckets 1)) nil)))
+	      (declare (fixnum hpriority))
+	      (if* (< (caaar b) hpriority)
+		  (setq hpriority (caaar (setq buckettail b))))))
+
+(defmacro testrules1 (type bpnt bucket)
+         `(do ((rlist ,bucket (cdr rlist)))
+           ((null rlist) nil)
+           (if* (funcall (cadar rlist))
+               (setq :activerule (cddar rlist))
+               (if* :ptrace
+                   (say |Running| $ ,type |rule| $ (car :activerule)))
+               (return t))
+           (if* (and :activerule (eq ,type 'normal)) (return t))))
+
+;KWC - bpnt is a buffer pointer
+(defun testrules (type bpnt)
+       (declare (fixnum bpnt))          
+       (do ((buckets (fetchrules type bpnt)))
+            ((null (cdr buckets))
+             (testrules1 type bpnt (car buckets)))
+           (if* (testrules2 type bpnt buckets) (return t))))
+
+(defun fetchrules (type bpnt)
+       (do ((f (cons 'noindexf (cond ((not :psych-sw)
+                                      (fe (:buffer bpnt)))
+                                     ((get ':gram-stats 'indexfs))))
+               (cdr f))
+            (temp) (result) (plist))
+           ((null f) result)
+           (if* (setq plist (get (car f) type))
+               (do ((packet
+                     ;;This is a partial hack for now.  It just may be right.
+                     (cond ((eq type 'normal) :activepackets)
+			   ((eq type 'as)
+			    (meet1 '(cpool npool) :activepackets))
+			   ((eq type 'nr) '(cpool)))
+                     (cdr packet)))
+                   ((null packet))
+                   (if* (setq temp (get plist (car packet)))
+                       (setq result (cons temp result)))))))
+
+
+(comment buffer maintaining functions)
+;KWC :buffer is an array
+;KWC index, abs-index, :bufpntr are offsets into the :buffer
+;KWC a node is an element of the :buffer
+;KWC the :bufpntrstak is the offset stack of :bufpntr's mentioned as
+;KWC the third data structure in the thesis.
+(defun set* (index)
+       (declare (fixnum index))
+       ;;Returns nil if a AS or NR rule has matched while setting up.
+       ;;1 flag indicates node attached, 2 flag that node checked for NR rules
+       (prog (node abs-index)
+	     (declare (fixnum abs-index))
+	     (setq abs-index (+ index :bufpntr))
+             ;;if this node is not the first after the buffer start,  and the
+             ;;previous node hasn't been checked for NR rules, check it.
+             (and (plusp index)
+		  (zerop (logand 2 (flags (setq node nth))))
+		  (setflags node (logor 2 (flags node)))
+                  (memq (getr 'type node) :nr-types)
+		  (testrules 'nr (1- abs-index))
+		  (go nr-rule-setup))
+     loop    (cond ((null (setq node (:buffer abs-index)))
+                    ;;If there is no node at this position, then pull a new 
+                    ;;word into the buffer.
+                    (go getnext))
+		   ((zerop (logand 1 (flags node)))
+                    ;;If the node at this position is not attached, check to see 
+                    ;;if it fires an AS rule. If so, do that rule;
+                    ;;if not, return.
+                    (setup* node index)
+                    (cond ((is-any-of node :as-types) (go as-check))
+                          ((return t))))
+		   ((prog1
+                     ;;The node at this position is attached and should be removed.
+                     ;;If it matches an NR rule, remove the node and then do that rule,
+                     ;;else, remove the node and recheck this buffer position.
+                     (not (and (zerop (logand 2 (flags node)))
+                                     (memq (getr 'type node) :nr-types)
+                                     (setup* node index)
+				     (testrules 'nr abs-index)))
+			   (remove-index-pos abs-index))
+		    (go loop)))
+     nr-rule-setup
+	     (activatenode node)
+	     (setq 1st nil)
+     as-rule-setup
+	     (setq 2nd nil 3rd nil)
+	     (push :bufpntr :bufpntrstak)
+	     (setq :bufpntr abs-index)
+	     (return nil)
+     getnext (insert-index-pos abs-index (setq node (nextword)))
+	     (setup* node index)
+     as-check(cond ((testrules 'as abs-index) (setq 1st node) (go as-rule-setup))
+		   ((return t)))))
+
+
+
+(defun setup* (node index)
+       (setq :int-index index nth node)
+       ;;setup feature vector for fast feature checking.
+       (cond ((= index 0) (setup** 1st :1stfeat :1stfvec))
+             ((= index 1) (setup** 2nd :2ndfeat :2ndfvec))
+             ((= index 2) (setup** 3rd :3rdfeat :3rdfvec))))
+
+(defun bufrestore nil 
+       (cond (:bufpntrstak (setq :bufpntr (pop :bufpntrstak)))
+             (t (warn 1. |Attempting to pop empty buffer pointer stack.|))))
+
+(defun remove-index-pos (index)
+       (do ((i index (1+ i)))
+           ((= i :bufmax)
+            (store (:buffer :bufmax) nil)
+            (setq :bufmax (1- :bufmax)) t)
+           (declare (fixnum i))
+           (store (:buffer i) (:buffer (1+ i)))))
+
+(defun insert-index-pos (index node)
+       ;;if bufmax is 4, there are now 5 items in the buffer
+       (if* (> :bufmax 3)
+	   (warn 0. |Inserting| $ node |makes| $ (+ 2 :bufmax) |items in buffer|)
+	   (if* (> (+ 2 :bufmax)
+		  (cadr (arraydims ':buffer)))
+	       (warn 1. |Inserting| $ node |will overflow buffer array|)))
+       (do ((i (setq :bufmax (1+ :bufmax)) (1- i)))
+	   ((= i index) (store (:buffer index) node) t)
+           (declare (fixnum i))
+	   (store (:buffer i) (:buffer (1- i)))))
+
+(comment utilities)
+(defun ruletrap fexpr (l)
+       (cond ((get (car l) ':indexinfo)
+	      (setq :ruletrap (car l)))
+	     ((null (car l))
+	      (if* (and (boundp 'rule-unfunc) rule-unfunc) (eval rule-unfunc))
+	      (setq :ruletrap nil))
+	     (t (say |No such rule as| $ (car l)))))
+
+
+(defun breaksw (x) (setq :breaksw x))
+
+(defun starttime nil
+	     (setq :ptime-begin (ptime)
+		   :localtime-begin (status localtime)))
+
+(defun endtime nil
+	     (setq :ptime-end (ptime)
+		   :localtime-end (status localtime)))
+
+(defun s-type (node) (meet (fe node) :sentence-types))
+
+(defun head (node)
+       (setq node (binding node))
+       ;;This function depends upon the phrase structure rules of the grammar.
+       (cond ((null node) nil)
+	     ((cond ((is node '(np))
+		     (or (head (find-node1 'nbar node))
+			 (find-node1 'pronoun node)
+			 (find-node1 's node)
+                         ;;the following is for old-style nps
+                         (find-node1 'noun node)))
+		    ((is node '(nbar)) (find-node1 'noun node))
+		    ((is node '(s))
+		     (find-node1 'verb (find-node1 'vp node)))))
+	     ((warn 0 |failed to find the head of | $ (nid node) |.|))))
+
+
+
+(defun word (node)
+       (for (temp (getr 'word node)) (or (get temp 'root) temp)))
+
+(defun root-of (word)
+       (or (get word 'root) word))
+
+
+(defun nid (node)
+       (list (car node) (fe node) '\: (phrasify node)))
+
+(defun nid1 (node)
+       (list (car node) (fe node)))
+
+(defun node-id (node)
+       (for (prinlength 5)(mapc 'print2 (nid node))))
+
+(defun daughters (type node) (get (getr 'daughters node) type))
+
+(defun daughter (type node) 
+       (for (daughter (daughters type node))
+            (cond ((null (cdr daughter)) (car daughter))
+                  ('error))))
+
+(comment the rule indexer)
+
+
+(defun rule-index (type packets indexf item)
+       (prog (type-plist name)
+             (consprop ':gram-stats
+                       (setq name (caddr item))
+                       type)
+             (setq type-plist (or (get indexf type)
+                             (putprop indexf (ncons nil) type)))
+             (ifnot (memq indexf (get ':gram-stats 'indexfs))
+                    (consprop ':gram-stats indexf 'indexfs))
+             (if* (get name ':indexinfo) (rem-index name))
+             (putprop name (list indexf type packets item) ':indexinfo)
+             (do ((ptail packets (cdr ptail)) (packet) (rlist))
+                 ((null ptail))
+                 (ifnot (memq (setq packet (car ptail))
+                              (get ':gram-stats 'packets))
+                        (consprop ':gram-stats packet 'packets))
+                 (consprop (get ':gram-stats 'packetcontents)
+                           name packet)
+                 (putprop type-plist
+			  (cond ((null (setq rlist (get type-plist packet)))
+				 (list item))
+				((le (car item) (caar rlist))
+				 (cons item rlist))
+				((do ((rtail rlist (cdr rtail)))
+				     ((null (cdr rtail))
+				      (rplacd rtail (ncons item))
+				      rlist)
+				     (if* (le (car item) (caadr rtail))
+					 (rplacd rtail
+						 (cons item (cdr rtail)))
+					 (return rlist)))))
+			  packet))))
+(defun rem-index (rule)
+       ;;indexinfo= indexf type packets item
+       (prog (type-plist indexinfo item)
+             (setq indexinfo (get rule ':indexinfo))
+             (setq item (cadddr indexinfo))
+             (setq type-plist (get (car indexinfo) (cadr indexinfo)))
+             (say |Re-indexing| $ rule |in packets| $ (caddr indexinfo))
+             (do ((ptail (caddr indexinfo) (cdr ptail)))
+                 ((null ptail))
+                 (putprop type-plist
+                          (delete item (get type-plist (car ptail)))
+                          (car ptail)))))
+
+
+(comment feature hacking functions)
+;;;Fast feature checking hack
+
+(defun testindices (index findices)
+       (do ((fis findices (cdr fis))
+            (nfvec (cdr (assq index :index-to-fvec-alist))))
+           ((null fis) t)
+           (and (zerop (arraycall fixnum nfvec (car fis))) (return nil))))
+
+(defun featindexify (feats)
+       (do ((fs feats (cdr fs)) (findices))
+           ((null fs) findices)
+           (setq findices
+                 (cons (cond ((get (car fs) ':findex))
+                             (t (consprop ':gram-stats (car fs) 'flist)
+                                (putprop (car fs)
+                                         (prog1 :findex-counter
+                                                (setq :findex-counter
+                                                      (1+ :findex-counter)))
+                                         ':findex)))
+                       findices))))
+
+(defun addf1 (node feats) (setfe node (append feats (fe node)))) 
+
+(defun remf1 (feats node) 
+       ;;the order of arguments is opposite that of addf1 so that
+       ;;the syntax of "remove the features foo, bar of zorch" is easier to 
+       ;;decode.
+       (setfe node (setminus (fe node) feats))) 
+
+;;node must have all features
+(defun is (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) t)
+	   (or (memq (car testfs) fset) (return nil))))
+
+;;node must be lacking in one of the features
+(defun is-not-all-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) nil)
+	   (or (memq (car testfs) fset) (return t))))
+
+;;node must have none of the features
+(defun is-none-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) t)
+	   (and (memq (car testfs) fset) (return nil))))
+
+;;node must have one of
+(defun is-any-of (node feats) 
+       (do ((fset (fe node)) (testfs  feats (cdr testfs)))
+	   ((null testfs) nil)
+	   (and (memq (car testfs) fset) (return t))))
+
+(defun transfer (features source dest) 
+       (addf1 dest (meet1 features (fe source))))
+
+(defun liftr (reg source dest) (setr reg (getr reg source) dest))
+
+(comment node creating & attaching functions)
+(defun nextword nil
+       (cond (:wstring (if* :word-entry-switch
+			   (setr ':time (runtime) (car :wstring))
+                            (if* :ptrace
+                                (say [ $ (getr 'word (car :wstring))
+                                     | entering the buffer at position|
+                                     $ (1+ :bufmax) \. ]))))
+	     (t (warn 1. run off end of input - nextword)))
+       (pop :wstring))
+
+(defun newnode (type flist)
+       (for (node (makenode type))
+	    (setr 'type type node)
+            (push node :nodelist)
+	    (setfe node (cons type flist))
+	    (activatenode node)
+            (create-monitor type)
+            node))
+
+(defun setup-current-s nil
+       (ifnot :current-s
+	      (setq :current-s (node-above 's c))
+	      (setq :wh-comp (getr ':wh-comp :current-s))))
+
+(defun current-s nil (setup-current-s) :current-s)
+
+(defun wh-comp nil (setup-current-s) :wh-comp)
+
+(defun nodegc nil
+       (for (count 1)
+	     (mapc '(lambda (x)
+			    (remob (car x))
+			    (setq count (1+ count)))
+		   :nodelist)
+	     count))
+
+(defun node-reset nil
+       (for (total 0)
+	    (mapc
+	     '(lambda (prefix)
+		      (do ((i 0 (1+ i)) (limit (get prefix 'gennum))
+			   (node))
+			  ((> i limit)
+			   (remprop prefix 'gennum)
+			   (setq total (+ total i -1)))
+			  (setplist (setq node (cat prefix i)) nil)
+			  (makunbound node)
+			  (remob node)))
+	     (prog1 (get 'makesym 'prefixes) (remprop 'makesym 'prefixes)))
+	    (for (base 10.) (say |Total:| $ total)
+		 (setq :nodelist nil)
+		 (gctwa))
+		 t))
+
+;;the purpose of attach1 is to reverse the order of evaluation of
+;;the arguments to attach, so that "C" will not be changed (relative to this attach)
+;;by creating a new node.
+(defun attach1 (dn fn type) (attach fn dn type))
+
+(defun :last nil
+       (and (not (zerop :bufpntr)) (:buffer (1- :bufpntr))))
+
+
+(defun attach (fn dn type)
+       (for (daughters (or (getr 'daughters fn)
+                           (setr 'daughters (ncons nil) fn)))
+            (setr 'father fn dn)
+            (if* (and :carefulsw (not (eq type (getr 'type dn))))
+                   (warn 0. $ dn being attached as $ type 
+                         but claims to be $ (getr 'type dn)))
+            (putprop daughters (cons dn (get daughters type)) type)
+            (setflags dn (logor 1 (flags dn)))
+            (if* :ntrace 
+                (for (prinlength 5)
+                (say ** $ (nid dn) |attached to| $ (nid fn))))
+            (attach-monitor fn dn type)))
+
+(defun alt-attach (dn fn type)
+       (setr 'ambig-attach (list dn fn type) s))
+
+(defun alt-fillslot (a b c)
+       (putc  'ambig-fillslot (list a b c) s))
+
+(defun drop (index)
+       (ifnot (or (getr 'father c)
+                  (do ((i :bufmax (1- i)))
+                      ((minusp i))
+                      (if* (eq (:buffer i) c) (return t))))
+              (insert-index-pos (+ :bufpntr index) c))
+       (setq :activepackets (cdar :activenodestak))
+       (setq c (car (pop :activenodestak)))
+       (clear-current-s))
+
+(defun insert-node (node index)
+       (activatenode node)
+       (drop index))
+
+
+(defun makenode (type) 
+       (prog (nname) 
+	     (set (setq nname (makesym type)) nil)
+	     (return (cons nname 0.)))) 
+
+(defun makesym (prefix)
+       (for (gennum (or (get prefix 'gennum)
+			(prog1 0 (consprop 'makesym prefix 'prefixes))))
+	    (declare (fixnum gennum))
+	    (cat prefix (putprop prefix (1+ gennum) 'gennum)))) 
+
+
+(comment tree searching functions)
+
+(defun node-above (type node)
+       (cond ((null node) nil)
+             ((memq type (fe node)) node)
+             ((node-above type (father-node node)))))
+
+(defun father-node (node)
+       (or (getr 'father node)
+           (do ((nodes (cons (ncons c) :activenodestak) (cdr nodes)))
+               ((null nodes))
+               (if* (eq node (caar nodes))
+                   (return (caadr nodes))))))
+
+(defun io (node)
+       (cadr (get (getr 'daughters node) 'np)))
+
+(defun binding (node) 
+       (cond ((null node) nil)
+             ((is-any-of node '(trace *)) (binding (getr 'binding node)))
+             (node)))
+
+
+(defun find-node (dest start)
+       (cond ((car (get (getr 'daughters  start) dest)))
+             ((and :carefulsw
+                   (warn 0 |Cannot find the| $ dest |of| $ start)))))
+
+(defun find-node1 (dest start) (binding (find-node dest start)))
+
+
+(defun deactivate (packets)
+       (setq :activepackets (setminus :activepackets  packets)))
+
+(defun activate (packets)
+       (setq :activepackets (cond ((null :activepackets) packets)
+                                 ((atom packets)
+                                  (cond ((memq packets :activepackets)
+                                         :activepackets)
+                                        ((cons packets :activepackets))))
+                                 ((union1 packets :activepackets))))) 
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:34:32 1987
+Posted-Date: Sun, 22 Nov 87 13:54 EST
+Received-Date: Sun, 22 Nov 87 14:34:17 EST
+Message-Id: <8711221934.AA01050@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:32 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15127; 22 Nov 87 14:26 EST
+Received: from btl by csnet-relay.csnet id ab13624; 22 Nov 87 14:19 EST
+Date: Sun, 22 Nov 87 13:54 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: case.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(declare (include declr))
+;;This file greatly cleaned up and commented by Kurt Van Lehn.
+
+;;;****************************************************************
+;;;
+;;;		the Case Frame data type
+;;;
+;;;  Instances of case frames live on the CASE-FRAME prop of their head.
+;;;  There are only instances of case frames since the constant 
+;;;  information lives on the lexical entry of the head. Each cf
+;;;  is a gensym with the following properties:
+;;;	CASE-FRAME	NORMAL or MOD, to indicate caseframe type
+;;;     ASSOC-NODE	The node this is a cf for.
+;;;	SPEC		The aux or q-det of the head.
+;;;	CASES		The filled <slot>s of the cf.
+;;;	PRED		The root of the word that heads the cf
+;;;	HYPO-SLOTS	A list of <slotframe>s showing the different
+;;;			ways to use the rest of the NPs in filling 
+;;;			the cf's slots.
+;;;	OBJS-NEEDED	The number of obligatory slots left unfilled.
+;;;  CASES, PRED, and HYPO-SLOTS are cached in variables of the same name
+;;;  by the functions openframe, closeframe and openchek. The relevant 
+;;;  properties on the pred are
+;;;	CASE-FRAME	An ordered list of <case>s. This prop is set up
+;;;			by morphology from the CF prop when the pred is first
+;;;			used. CF's are in the lexicon.
+;;;	PREPS		An alist of prepositions and the cases they mark.
+;;;	<casename>	The semantic markers for the case, in two sets,
+;;;			separated by #. First set is OK, second is great.
+;;;  The relevant registers on the nodes are
+;;;	MARKERS		The semantic marker set for the node.
+;;;	CASE-FRAME	The cf for this node, if any.
+;;;  
+;;;  The internal data structures are as follows:
+;;;	<hypoframe>	::= ( <case> <open-cases> <full-slots> )
+;;;			::= ( <case> )
+;;;	<slotframe>	::= ( <open-cases> <full-slots> )
+;;;	<open-cases>	::= ( ... <case> ... )
+;;;	<full-slots>	::= ( ... <slot> ... )
+;;;	<case>		::= ( <name> <optionality> )
+;;;	<slot>		::= ( <case> <node> <role> )
+;;;	<role>		::= one of SUBJ, OBJ or PP.
+;;;  There is a small hack -- nil is consed onto the front of <open-cases> when
+;;;  no more slots may be filled by nodes with the syntactic <role> of OBJ. 
+;;;
+;;;****************************************************************
+
+
+;;; creation and access utilities -- all of these can be called externally
+;;; to this file
+(comment creation and access utilities)
+(defun newcf (type)
+       (clearcf)
+       (for (cf (makesym 'casefr))
+            (setq openframe cf)
+            (putprop cf type 'case-frame)
+            cf))
+
+(defun case-frame (node) (getr 'caseframe node))
+
+(defun associate-cf (cf node)
+       (setr 'caseframe cf node)
+       (ifnot (get cf 'assoc-node)
+	      (putprop cf node 'assoc-node)
+	      (semcall 'newframe cf node (get cf 'case-frame)))) 
+
+(defun assoc-node (cf) (get cf 'assoc-node))
+
+(defun maxunls (node)
+       (openchek node) 
+       (do ((sfs hypo-slots (cdr sfs)) (i 0.))
+	   ((null sfs) i)
+	   (setq i (max i (open-obj-cases (car sfs))))))
+
+
+(defun minunls (node)
+       (openchek node)
+       (do ((sfs hypo-slots (cdr sfs)) (i 64.))
+	   ((null sfs) i)
+	   (setq i (min i (open-obj-cases (car sfs))))))
+
+
+
+;;;****************************************************************
+;;;
+;;;	the major case frame functions
+;;;
+;;;	NEED-SLOTS -- tells the cf to expect n objs. 
+;;;	FITS  -- see if the  node will fits somewhere in the cf
+;;;	FILLSLOT -- stick the node into the cf somewhere
+;;;	FINALIZE-FRAME -- check that all the necessary cases are filled
+;;;	PASSIVIZE-CF -- make cases that an obj could be obligatory. 
+;;;
+;;;****************************************************************
+(comment the major case frame functions)
+
+
+
+(defun need-slots (node n) 
+;;; called from the grammar
+       (set-objs-needed n node)
+       (consolidate-frame))
+
+(defun set-objs-needed (n node)
+       (openchek node)
+       (setq objs-needed n)
+       (if* hypo-slots
+	      (do ((sfrs hypo-slots (cdr sfrs)) (result))
+		  ((null sfrs)
+		   (setq hypo-slots result))
+		  (or (< (open-obj-cases (car sfrs)) n)
+		      (setq result (cons (car sfrs) result))))))
+
+(defun open-obj-cases (slotfr) 
+;;; also called from MAXUNLS and MINUNLS
+          (cond ((or (null (car slotfr))
+                     (null (caar slotfr))) 0.)
+		((eq (caaar slotfr) '*obj) 2.)
+		(1.)))
+
+(defun fits (lower gfunc upper)
+       (cond ((and (eq gfunc 'pp) (eq (getr 'type upper) 's))
+              (cond ((getr 'caseframe lower) (fits* upper 'subj lower))
+		    (t (associate-cf (newcf 'dummy-mod) '(dummy-node))
+		       (fillslot (find-node 'prep lower) 'pred '(dummy-node))
+		       (fillslot (find-node 'np lower) 'obj '(dummy-node))
+		       (fits* upper 'subj '(dummy-node)))))
+             ((eq gfunc 'pp)
+	      (fits* (find-node 'np lower)
+		     (word (find-node 'prep lower))
+		     upper))
+             ((fits* lower gfunc upper))))
+
+(defun fits* (lower gfunc upper)
+      (openchek upper)
+      (do ((hyposet (cases upper nil gfunc) (cdr hyposet)))
+          ;;; since mode is nil, cases just returns a list of <case>s. 
+          ((null hyposet) nil)
+          (if* (smqchek (car hyposet) upper lower) (return t))))
+
+
+(defun fillslot (lower gfunc upper)
+       (cond ((memq gfunc '(subj obj)) (fillcase lower gfunc upper))
+             ((and (eq gfunc 'pp) (eq (getr 'type upper) 's))
+              (pp-cf-check lower)
+              (fillmod lower upper)
+              (fillcase upper 'subj lower))
+             ((eq gfunc 'pp)
+              (fillcase (find-node 'np lower)
+			(word (find-node 'prep lower))
+			upper))
+             ((eq gfunc 'pred) (fillpred lower upper))
+             ((eq gfunc 'mod) (fillmod lower upper))
+             ((eq gfunc 'spec) (fillspec lower upper))))
+
+(defun fillmod (lower upper)
+       (openchek upper)
+       (consprop openframe lower 'mods)
+       (putprop (getr 'caseframe lower) openframe 'mod-of)
+       (semcall 'mod lower openframe))
+
+(defun fillcase (lower gfunc upper)
+       (openchek upper)
+       (do ((hypos (cases upper t gfunc) (cdr hypos)) (result) (thehypo))
+	   ((null hypos) (setq hypo-slots result))
+           ;;; keep all hypotheses whose markers agree
+	   (if* (smqchek (car (setq thehypo (car hypos))) upper lower)
+	       (push (list (cadr thehypo)
+			   (cons (list (caar thehypo) lower gfunc)
+				 (caddr thehypo)))
+		     result)))
+       (if* (and (plusp objs-needed) (eq gfunc 'obj))
+	   (set-objs-needed (1- objs-needed) upper))
+       (consolidate-frame)
+       (if* ctrace
+	   (closeframe openframe)
+	   (terpri)
+	   (print '|-----------|)
+	   (say |New frames for| $ upper)
+	   (dp1 (getr 'caseframe upper))
+	   (terpri)
+	   (print '|-----------|)))
+
+(defun fillpred (lower upper)
+       (openchek upper)
+       (setq pred
+	     (or (get (getr 'word lower) 'root) (getr 'word lower))
+	     hypo-slots
+	     (ncons (ncons (get pred 'case-frame))))
+       (semcall 'head lower openframe))
+
+(defun fillspec (lower upper)
+       (openchek upper)
+       (putprop openframe
+		(list (cond ((is-any-of upper '(s vp)) 'aux)
+			    ((is-any-of upper '(np)) 'q-det)
+			    (t (warn 0 $ lower
+                                     |can 't be a spec for| $ upper)))
+		      lower)
+		'spec)
+       (semcall 'spec (get openframe 'spec) openframe))
+
+
+(defun finalize-frame (node)
+;;; Removes hypotheses that still have obligatory cases left open if node is an s node.
+             (openchek node)
+       (if* (is-any-of node '(s))
+             (do ((hypos hypo-slots (cdr hypos))
+		  (badf nil)
+	          (result nil))
+	         ((null hypos)
+		  (cond (result (setq hypo-slots result))
+			(t (warn 0. some oblig slots left unfilled in $ openframe -- finalize-frame\.\
+ $ badf)
+			   (break badf :carefulsw))))
+        	 (do ((casetail (caar hypos) (cdr casetail))
+                         (case))
+                        ((null casetail)
+		         (push (car hypos) result))
+                        (cond  ((null (setq case (car casetail))))
+			       ((eq 'oblig (cadr case))
+				(cond ((and (eq (car case) 'agt)
+					    (is c '(np-preposed))))
+				      (t (push  (car hypos) badf)
+                                         (return nil))))
+			       ((atom (cadr case)))
+			       ((eq 'opt\\oblig (caadr case))
+				(push (car hypos) badf)
+                                (return nil)))))
+	     (consolidate-frame))
+             (semcall 'finalize-the-frame openframe)
+             (closeframe openframe))
+
+(defun passivize-cf (node)
+       (openchek node)
+       (passivize-cf1 nil))
+
+(defun passivize-cf1 (mode)
+       (setq 
+	hypo-slots
+        (nconc (if* mode hypo-slots)
+               (mapcan
+                '(lambda (slotfr)
+                         (mapcar
+                          '(lambda (hypo)
+				   (list (append (cadr hypo)
+						 (ncons (list
+							 (caar hypo)
+							 'oblig)))
+					 nil))
+   			  (objcasegen slotfr t)))
+	       hypo-slots))))
+
+
+;;;****************************************************************
+;;;
+;;;		Hypothesis generation
+;;;
+;;;  These return a list of possible ways to fill the given cf.  The
+;;;  list has the element of the form ( <case> . <slotframe> ) where
+;;;  <slotframe> is what you would have left if you filled the <case>,
+;;;  unless mode is nil, in which case it <slotframe> is nil.
+;;;  These triples are called <hypoframe>s above. 
+;;;
+;;;****************************************************************
+(comment hypothesis generation)
+
+(defun cases (node mode gfunc)
+        (openchek node)
+        (cond ((eq gfunc 'obj) (objcases mode))
+	      ((eq gfunc 'subj) (subjcases  mode))
+	      (t (ppcases gfunc mode))))
+
+(defun subjcases (mode)
+       (mapcan '(lambda (fr) (subjcasegen fr mode)) hypo-slots))
+
+(defun objcases (mode)
+       (mapcan '(lambda (fr) (objcasegen fr mode)) hypo-slots))
+
+(defun ppcases (gfunc mode)
+       (mapcan '(lambda (fr) (ppcasegen fr gfunc mode)) hypo-slots))
+
+
+
+
+(defun subjcasegen (slotfr mode)
+;;; reads the open-cases in reverse order! Quits at the first oblig case, if
+;;; any, since that has to be filled before any following optional ones(?).  It
+;;; is also carefull to avoid that nil marker that objcasegen sometimes puts on.
+;;; (car nil) = (cdr nil) = nil  nowadays. 
+       (do ((open-cases (reverse (car slotfr)) (cdr open-cases)) (result) (next))
+           ((or (eq (cadr next) 'oblig)
+                (null (car open-cases))) result)
+           (setq next (car open-cases))
+           (push (cond (mode (list next (reverse (cdr open-cases)) (cadr slotfr)))
+		       (next))
+		 result)))
+
+(defun objcasegen (slotfr mode)
+;;; usually just returns first empty case. 
+       (prog (result open-cases)
+             (if* (null (car (setq open-cases (car slotfr)))) (return nil))
+	     ;;; when nil is the car of <open-cases>, the sf can't take anymore objs
+             (if* (eq (caar open-cases) '*obj)
+		 ;;; (*obj dat) means the dat case can be an indirect object, so
+		 ;;; pull it out and put it in front.
+                 (do ((l (cdr open-cases) (cdr l))
+		      (head nil (cons (car l) head))
+		      (*objcase (cadar open-cases)))
+		     ((or (null l)
+			  (if* (eq (caar l) *objcase)
+			      (push (cond
+				     (mode (list (car l)
+						 (append (nreverse
+							  head)
+							 (cdr l))
+						 (cadr slotfr)))
+				     ((car l)))
+				    result)
+			      t))
+		      ;;whether found or not, flush the *obj entry
+		      (setq open-cases (cdr open-cases)))))
+             (ifnot (< (open-obj-cases (ncons open-cases)) objs-needed)
+ 		    (push (cond (mode (list (car open-cases)
+					    (cons nil (cdr open-cases))
+					    ;;; see comment on nil hack above
+					    (cadr slotfr)))
+				((car open-cases)))
+			  result))
+             (return result)))
+
+
+(defun ppcasegen (slotfr prep mode)
+;;; Fronts the cases marked by the pp, reading forward down open-cases.
+;;; If the case is refillable (a global attribute of a casename!) then it is 
+;;; not removed from the open-cases.
+       (do ((open-cases (car slotfr) (cdr open-cases))
+	    (csave nil (cons (car open-cases) csave))
+            (result)
+            (ppcases (or (get (get pred 'preps) prep)
+	      		 (get prep 'cases-marked-by))))
+           ((null open-cases) result)
+           (if* (memq (caar open-cases) ppcases)
+               (push (cond (mode
+                            (list (car open-cases)
+                                  (append  (reverse csave)
+                                           (cond ((memq (caar open-cases)
+                                                        refillables)
+                                                  open-cases)
+                                                 ((cdr open-cases))))
+                                  (cadr slotfr)))
+                           ((car open-cases)))
+                     result))))
+
+
+
+;;;****************************************************************
+;;;
+;;; 		CONSOLIDATE-FRAME
+;;;  Updates CASES so that it remains the intersection
+;;;  of the filled slots over the hypthetical slotsframes.  
+;;;
+;;;****************************************************************
+(comment consolidate-frame)
+
+(defun consolidate-frame nil 
+       (cond
+        ((null hypo-slots)
+	 (warn 0. no consistent hypo-slot)
+	 (break badfr :carefulsw))
+        ((null (cdr hypo-slots))
+         (bind-slots (filter-out-filled (car hypo-slots))))
+        ((do ((pcercs (filter-out-filled (car hypo-slots))(cdr pcercs))
+  	      (cert-slots))
+	     ((null pcercs) (bind-slots cert-slots))
+	     (do ((otherslotfrs (cdr hypo-slots) (cdr otherslotfrs))
+		  (slot (car pcercs)))
+		 ((null otherslotfrs) (push slot cert-slots))
+		 (ifnot (member slot (cadar otherslotfrs))
+	 	        (return nil)))))))
+
+(defun filter-out-filled (hslotfr)
+        (do ((hslots (cadr hslotfr) (cdr hslots)) 
+	     (result)
+	     (cases (get openframe 'cases)))
+	    ((null hslots) result)
+            (ifnot (member (car hslots) cases)
+		   (push (car hslots) result))))
+
+(defun bind-slots (cert-slots)
+  (putprop openframe (append cert-slots (get openframe 'cases)) 'cases)
+  (mapc
+     (function (lambda (slot)(semcall 'case slot openframe)))
+     cert-slots))
+
+
+;;;****************************************************************
+;;;
+;;; 		SEMANTIC  MARKERS
+;;;  since this is all going away soon, no comment
+;;;
+;;;****************************************************************
+(comment semantic markers)
+
+(defun smqval (case node) 
+       (do ((marktail (or (get pred (car case))
+                          (get (car case) 'markerset))
+		      (cdr marktail))
+	    (nmarkers (smarkers node))
+	    (value 0.)
+            (marker)
+	    (#sw))
+	   ((null marktail) -2.)
+	   (cond ((eq (car marktail) 'all) (return 1.))
+                 ((null nmarkers)
+                  (if* :carefulsw 
+                      (warn 0. |NO markers for| $ node \.))
+                  (return 0))
+                 ((memq (setq marker (car marktail)) nmarkers)
+		  (return value))
+		 ((eq marker '#)
+		  (setq value (cond (#sw 0.) ((setq #sw t) 1.))))))) 
+
+(defun smqchek (case upper node) (signp ge (smqval case node))) 
+
+
+(defun smarkers (node)
+  (cond ((is node '(pp))
+         (getr 'markers (nead (find-node 'np node))))
+        ((getr 'markers (head node)))
+	((getr 'markers node)))) 
+
+(defun maxsmqval (caseset node) 
+       (apply 'max
+	      (mapcar '(lambda (case) (smqval case node))
+		      caseset)))
+(defun fit-of (lower gfunc upper) (fit-of-1 lower (cases upper nil gfunc)))
+
+
+(defun fit-of-1 (node caseset) (maxsmqval caseset node)) 
+
+(setq much 2. somewhat 1. no 0.)
+
+;;the following is the syntax/"smart semantics" interface
+
+(setq super-clears t)
+
+(defun super-smqval (case node frame)
+       (prog (temp ^q)
+             (if* (eq super-clears 'no-super) (return 0))
+             (if* super-clears (cursorpos 'c))
+	     (terpri)
+             (print '|________________|)
+             (say |How much do you like|  $ (phrasify node) |as| $ case |with|)
+       (cfprint frame)
+huh?   (say |
+            0 - bad
+            1 - ok
+            2 - good
+            --->|)
+       (setq temp (read))
+       (ifnot (and (numberp temp) (lessp -1 temp 4))
+               (go huh?))
+       (terpri)
+       (print '|________________|)
+       (return (cond ((= temp 0) -2)
+                     ((= temp 1) 0)
+                     ((= temp 2) 1)))))
+
+(defun super-fit-of fexpr (l)
+       (super-fit1-of (eval (car l)) (eval (cadr l)) (eval (car (last (cadr l))))))
+
+(defun super-fit1-of (node caseset framenode)
+       (apply 'max
+              (mapcar '(lambda (case) (super-smqval case node framenode))
+                      (do ((temp (fitspg1 node caseset t)))
+                          (t (append (car temp) (cdr temp)))))))
+
+
+
+;;; Cache functions
+(comment cache functions)
+
+(defun openchek (node)
+       (for (cf (getr 'caseframe node))
+	    (ifnot (equal openframe cf)
+		    (if* openframe (closeframe openframe))
+		    (openframe cf))))
+
+(defun closeframe (cf) 
+       (if* cf
+       (putprop cf hypo-slots 'hypo-slots)
+       (putprop cf pred 'pred)
+       (putprop cf objs-needed 'objs-needed)))
+
+(defun openframe (cf)
+       (setq openframe cf)
+       (cond (cf (setq hypo-slots (get cf 'hypo-slots)
+		       pred       (get cf 'pred)
+		       objs-needed  (get cf 'objs-needed)))
+	     (t (clearcf))))
+
+(defun clearcf nil
+;;;also called from newcf
+       (closeframe openframe)
+       (setq hypo-slots '((nil nil)))
+       (setq objs-needed 0)
+       (setq pred nil))
+
+
+;;;  miscelaneous stuff
+(comment random stuff)
+
+(defun prefer (value1 degree value2)
+       (not (> degree (- value1 value2))))
+
+(defun domf (node)
+       (closeframe openframe)
+       (do ((tnode (or (getr 'father node) (getr 'highercl node))
+		   (or (getr 'father tnode) (getr 'highercl tnode))))
+	   ((or (null tnode) (getr 'case-frame tnode)) tnode)))
+
+(defun dom-cf (node)
+       (do ((n (getr 'father node) (getr 'father n)))
+           ((null n))
+           (for (temp (getr 'caseframe n)) (if* temp (return temp)))))
+
+(defun real-caseset (caseset sourcenode)
+       (append (car caseset)
+               (do ((possc-tail (poss-pg-cases sourcenode) (cdr possc-tail))
+                    (result) (markers (cadr caseset)))
+                   ((null possc-tail) result)
+                   (and (meet (get (car possc-tail) 'genl-case-for) markers)
+                        (setq result (cons (list (car possc-tail) 'genlc) result))))))
+
+
+(defun putc (reg value node)
+       (and (get (car node) 'caseframe)
+	    (putprop (get (car node) 'case-frame) value reg)))
+
+
+(defun getc (reg node)
+       (get (or (get (car node) 'caseframe)
+                '***total-dumm***y) reg))
+              
+
+(defun semcall l
+       (ifnot (memq (get openframe 'case-frame) '(nil dummy-mod))
+              (if* ctrace (apply 'say-it
+				   (cons '|To semantics:| (node-w-feats (listify l)))))))
+
+ (defun nodep (foo) (and (listp foo) (atom (car foo)) (numberp (cdr foo))))
+
+(defun node-w-feats (list)
+       (do ((l list (cdr l)) (result))
+	   ((null l) (nreverse result))
+	   (push (cond ((nodep (car l))
+			(list (caar l) '\\ (fe (car l))))
+		       ((car l)))
+		 result)))
+
+
+
+
+(defun pgof (prep np)
+       (for (faknode (makesym 'dummypg))
+	    (putprop faknode
+		     (list nil 'np (ncons np) 'prep (ncons prep))
+		     'daughters)
+	    (ncons faknode))) 
+
+(comment surface structure monitoring)
+
+(defun crule-index (type indexinfo)
+       (cond ((eq type 'attachment)
+	      (for (ftype (caar indexinfo))
+                   (for (typebucket (get ':attach-rules ftype))
+                        (setq indexinfo (rplaca indexinfo (cdar indexinfo)))
+                        (ifnot (member indexinfo typebucket)
+                               (putprop ':attach-rules 
+                                        (cons indexinfo typebucket)
+                                        ftype)))))
+	     ((eq type 'creation) (push indexinfo :create-rules))))
+
+(defun create-monitor (type)
+       (for (crule (assq type :create-rules))
+	    (if* crule
+		(if* :crtrace (say |Running create-rule| $ (caddr crule)))
+		(funcall (cadr crule)))))
+
+(defun attach-monitor (fn dn type)
+            (for (attach-rules (get ':attach-rules (getr 'type fn))
+                               crule nil)
+                 (if* (if* attach-rules (setq crule (assoc type attach-rules)))
+                     (if* :crtrace (say |Running attach-rule| $ (caddr crule)))
+                     (setq fnode fn snode dn)
+                     (funcall (cadr crule))))
+       t)
+
+
+            
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:46:40 1987
+Posted-Date: Sun, 22 Nov 87 13:54 EST
+Received-Date: Sun, 22 Nov 87 14:46:33 EST
+Message-Id: <8711221946.AA01095@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:45 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ab15198; 22 Nov 87 14:32 EST
+Received: from btl by csnet-relay.csnet id ad13624; 22 Nov 87 14:28 EST
+Date: Sun, 22 Nov 87 13:54 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: gram1.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+ (declare (setq fasload nil)
+          (requiredf '((parsfl) @declr))
+	  (fasload @parse)
+	  (fasload @glang))
+(declare (muzzled t))
+(declare (eval (read)))
+(glang-setup)
+
+;;%THE PARSER, BY CONVENTION, INITIALLY CALLS THE RULE INITAL-RULE.%
+
+{RULE INITIAL-RULE IN NOWHERE
+[t] -->
+Create a new s node.
+!(setq s {the current s}). % So we have a handle on the topmost s from lisp.%
+Activate cpool,ss-start.}
+
+;;%A RULE TO GRAB SINGLE NPS AS UTTERANCES%
+
+{RULE NP-UTTERANCE IN SS-START
+[=np] [=finalpunc] -->
+Label c np-utterance.
+Attach 1st to c as np.
+Attach 2nd to c as finalpunc.
+The parse is finished.}
+
+{RULE PP-UTTERANCE IN SS-START
+[=pp] [=finalpunc] -->
+Label c pp-utterance.
+Attach 1st to c as pp.
+Attach 2nd to c as finalpunc.
+The parse is finished.}
+
+;;%RULES TO INITIATE MAJOR CLAUSES.%
+(comment Initiate major clauses)
+{RULE MAJOR-DECL-S IN SS-START
+[=np] [=verb] -->
+Label c decl, major.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE YES-NO-Q IN SS-START
+[=auxverb] [=np] -->
+Label c quest, ynquest, major.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE IMPERATIVE IN SS-START
+[=tnsless] -->
+Label c imper, major.
+Insert the word 'you' into the buffer.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE HAVE-DIAG PRIORITY: 5 IN SS-START
+[=*have, tnsless] [=np] [t] -->
+%If can't prove it's not a yes-no-q then assume it is.%
+If 2nd is ns, n3p or 3rd is not verb or 3rd is tnsless
+	then run imperative next else
+	run yes-no-q next.}
+
+{RULE WH-QUEST PRIORITY: 5 IN SS-START
+[=wh] [=verb] -->
+Label c major, quest, wh-quest.
+Attach 1st to c as whcomp.
+If 1st is a pp then label c pp-quest else
+If 1st is a np then label c np-quest.
+Deactivate ss-start. Activate parse-subj, wh-pool.}
+
+
+(comment Subject parsing)
+{RULE UNMARKED-ORDER IN PARSE-SUBJ
+[=np] [=verb] -->
+Attach 1st to c as np.
+Deactivate parse-subj. Activate parse-aux.}
+
+{RULE AUX-INVERSION IN PARSE-SUBJ
+[=auxverb] [=np] -->
+Attach 2nd to c as np.
+Deactivate parse-subj. Activate parse-aux.}
+
+{RULE SUBJ-QUEST? PRIORITY: 5 IN PARSE-SUBJ
+[=verb]  [** c; * is np-quest] [=np] [t] -->
+If 1st is not auxverb or 3rd is not verb
+   then create a new np node labelled trace, not-modifiable;
+	set the binding of c to wh-comp;
+	drop c;
+	label wh-comp utilized
+   else run aux-inversion next.}
+
+(comment RULES FOR BUILDING AUXILIARIES)
+;;%RULES FOR BUILDING AUXILIARIES%
+;;%predicate adjectives and prepositions should be parsed as verbs%
+
+{RULE STARTAUX IN PARSE-AUX
+[=verb] -->
+Create a new aux node.
+Transfer vspl, v1s, v+13s, vpl+2s, v-3s, v3s from 1st to c.
+%(The above features are "person/number codes", e.g. "vpl+2s"
+means that this verb goes with any plural or  2nd person singular
+np as subject.  The verb "are" has this feature.)%
+Transfer pres, past, future, tnsless from 1st to c.
+Activate build-aux, cpool.}
+
+{RULE TO-INFINITIVE PRIORITY: 7 IN PARSE-AUX
+[=*to, auxverb] [=tnsless] -->
+Label a new aux node inf.
+Attach 1st to c as to.
+Activate build-aux, cpool.}
+
+{RULE AUX-ATTACH IN PARSE-AUX
+[=aux] -->
+Attach 1st to c as aux.
+Activate parse-vp. Deactivate parse-aux.}
+
+{RULE PERFECTIVE IN BUILD-AUX
+[=*have] [=en] --> Attach 1st to c as perf.  Label c perf.}
+
+{RULE PROGRESSIVE IN BUILD-AUX
+[=*be] [=ing] --> Attach 1st to c as prog.  Label c prog.}
+
+{RULE PASSIVE-AUX IN BUILD-AUX
+[=*be] [=en] --> Attach 1st to c as passive.  Label 2nd passive.}
+
+{RULE MODAL IN BUILD-AUX
+[=modal] [=tnsless] --> Attach 1st to c as modal.  Label c modal.}
+
+{RULE FUTURE IN BUILD-AUX
+[=*will] [=tnsless] --> Attach 1st to c as will. Label c future.}
+
+{RULE DO-SUPPORT IN BUILD-AUX
+[=*do] [=tnsless] --> Attach 1st to c as do.}
+
+
+
+{RULE AUX-COMPLETE PRIORITY: 15 IN BUILD-AUX
+[t] --> Drop c into the buffer.}
+
+{RULE THERE priority: 5 IN BUILD-AUX
+[=*be] [=np]
+[** c; the noun of the nbar of the binding of the np of the current s is *there]  -->
+Label the current s existential.
+Attach 2nd to the current s as np.}
+
+(comment Verb processing)
+
+{RULE main-verb IN PARSE-VP
+[=verb] -->
+
+%Set up state of S node%
+Deactivate parse-vp.
+If c is major then activate ss-final else
+If c is sec then activate emb-s-final.
+
+%Attach VP and V.%
+Attach a new vp node to c as vp.
+Attach 1st to c %which is now the vp% as verb.
+Activate cpool.
+
+%Activate packets to parse objects and complements.%
+If there is a verb of c and it is passive
+   then activate passive; run passive next.
+%The following is close to an explicit system of verb types.%
+If it is inf-obj then
+   if it is to-less-inf-obj then activate to-less-inf-comp andthen
+   if it is to-be-less-inf-obj then activate to-be-less-inf-comp andthen
+   if it is 2-obj-inf-obj then activate 2-obj-inf-comp
+        else activate inf-comp;
+	if it is subj-less-inf-obj then activate subj-less-inf-comp else
+	if it is no-subj then activate no-subj.
+If it is that-obj then activate that-comp.
+
+
+%Activate correct packet for regular objects.%
+If there is a wh-comp and it is not utilized
+   then activate wh-vp else
+If the current s is major then activate ss-vp else
+Activate embedded-s-vp.}
+
+
+
+
+{ATTACHMENT CRULE VP-VERB  VP OVER VERB
+Associate a new case frame with the upper node.
+Associate the case frame of the upper node with the s above upper.
+The aux of the s above upper fills the spec slot of  upper.      
+The lower node fills the pred slot of  upper.
+If the lower node is none of no-subj, passive
+    and there is a binding of the np of the s above upper
+    then it fills the subj slot of upper.}
+
+{ATTACHMENT CRULE PRED-PP PRED OVER PP
+Associate a new case frame with the upper node.
+Associate the case frame of the upper node with the current s.
+The aux of the current s fills the spec slot of the current s.
+The prep of the lower node fills the pred slot of upper.
+The np of the current s fills the subj slot of upper.
+The np of the lower node fills the obj slot of upper.}
+
+{RULE PREDP IN parse-verb
+[* is any of pp %more to come%] -->
+Deactivate parse-verb.
+If c is major then activate ss-final else
+If c is sec then activate emb-s-final.
+Label 1st predp.
+Attach 1st to c as predp.}
+
+{RULE PASSIVE PRIORITY: 5 IN PASSIVE
+%Activated by MVB if verb is labelled passive.%
+t -->
+Label the current s np-preposed.
+Create a new np node labelled trace, not-modifiable.
+Set the binding of c to the np of the current s.
+Drop c.
+Deactivate passive.}
+
+{RULE SEEMS IN NO-SUBJ
+[=*to] [=tnsless] -->
+Deactivate no-subj.
+Run passive next.}
+
+
+(comment Parse simple objects)
+;;%Parsing the objects of simple sentences%
+
+{RULE OBJECTS IN SS-VP
+[=np] -->
+Attach 1st to c as np.}
+
+{RULE VP-DONE PRIORITY: 20 IN SS-VP
+[t] --> Drop c.}
+
+{RULE S-DONE  IN SS-FINAL
+[=finalpunc] -->
+Attach 1st to c as finalpunc.
+Finalize the cf of c.
+Parse is finished.}
+
+;;%Parsing the objects of embedded clauses.%
+
+{RULE OBJ-IN-EMBEDDED-S IN EMBEDDED-S-VP
+[=np] -->
+If 1st fits an obj slot of the cf of c
+	then attach 1st to c as np
+      else run embedded-vp-done next.}
+
+{ATTACHMENT CRULE VP-NP VP OVER NP
+The lower node fills an obj slot of the upper.
+%With no-subj verbs, can't know that the subject really is the subject until
+we see the complement.%
+If the verb of the upper node is no-subj
+    and the s above the upper node is not np-preposed
+    then the np of the s above the upper node
+        fills the subj slot of upper.
+%We can bind delta subjects and finalize the case frames of infinitive
+clauses only after they are attached to the clause, allowing all the
+wh-placement stuff to have done whatever it will do.
+See the rules on infinitives with delta subjects for more on this.%
+If there is an s of lower and the np of it is delta then
+    if the verb of the upper node is obj-binds-delta then
+        set the binding of the np of the s of lower
+            to the indirect object of upper
+	else
+   if the verb of the upper node is subj-binds-delta
+       or
+       the verb of the upper node is subj-less-inf-obj
+       and it isn't true that
+           there is a binding of the np of the s of the lower node
+       then set the binding of the np of the s of lower
+           to the np of the current s.
+If there is an s of lower and the np of it is delta then
+    the np of the s of lower fills the subj slot of the s of lower;
+    finalize the cf of the s of lower.}
+
+{RULE EMBEDDED-VP-DONE PRIORITY: 15 IN EMBEDDED-S-VP
+[t] -->
+Drop c.
+Activate embedded-s-final.}
+
+{RULE EMBEDDED-S-DONE PRIORITY: 20 IN EMBEDDED-S-FINAL
+[t] -->
+Finalize the cf of c.
+Drop c.}
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:47:13 1987
+Posted-Date: Sun, 22 Nov 87 13:54 EST
+Received-Date: Sun, 22 Nov 87 14:46:59 EST
+Message-Id: <8711221946.AA01101@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:45 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15200; 22 Nov 87 14:32 EST
+Received: from btl by csnet-relay.csnet id ac13624; 22 Nov 87 14:24 EST
+Date: Sun, 22 Nov 87 13:54 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: com.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(declare
+ (special :noharddef :nodef :savenewdefsw :wrd :ordercounter poport
+ more
+  :newdeffile :cr :comma :space :altmode :rubout :consos :vowels :numbers
+  :endpuncs :liquids :puncs :noend :rt :specregs :modfelist :nextmorph :word
+  :always-expand :caseorder))
+(declare (include declr.l))
+;(version)
+(setq :nodef nil :noharddef nil :savenewdefsw t) 
+(declare (setq ibase 8))
+
+(defun sentin nil 
+       (prog (word char :wrd :nextmorph ^w :ordercounter) 
+             (declare (fixnum :space :cr :rubout :altmode :comma))
+	     (setq :osent :sent :sent nil)
+	      (prin1 '>)
+	newwrd
+             (if* (setq word 
+		       (do ((temp word (cdr temp))
+			    (temp1 :nextmorph (cdr temp1))
+			    (result))
+			   ((or (null temp) (null temp1))
+			    (nreverse result))
+			   (push (car temp) result)))
+		 (setq :nextmorph nil)
+		 (go word))
+	char (cond ((or (= (setq char (tyi t)) :space)
+                        (= char :nl))
+		    (go word))
+                   ;;;rubout rubs out 1 char within word.  
+                   ;;;After word break, rubs out a word
+		   ((= char :rubout)
+		    (cond (word (cursorpos 'x)
+				(setq word (cdr word)))
+			  (:sent (setq :sent (cdr :sent))
+				(cursorpos (car (cursorpos)) 0.)
+				(cursorpos '\])
+				(cursorpos 'u)
+                                (say-sent nil))))
+                   ;;;$c--restart input.  $s--repeat last s. 
+                   ;;;$<rubout>--reprint current input
+		   ((= char :altmode)
+		    (cond((eq (lowcaseify (setq char (tyi t))) 'c)
+                          (setq :sent nil word nil)
+                          (go clean))
+			  ((eq (lowcaseify char) 's)
+			   (setq :sent :osent)
+                           (mapc 'print2 (origcase :sent))
+                           (terpri)
+                           (setq :ordercounter 0)
+                           (return (nodify* :sent)))
+			  ((= char :rubout) (go clean))
+			  ((princ '?) (go clean))))
+                   ;;;flush commas if preceded and followed by number.
+                   ((and (= char :comma)
+			 word
+                         (numberp (readlist word))
+                         (memq (ascii (tyipeek nil t)) :numbers)))
+                   ;;;Hack for PA.  Breaks up 2:30 into 2 : 30
+                   ((and (eq (ascii char) ':)
+                         (numberp (readlist word))
+                         (memq (ascii (tyipeek nil t)) :numbers))
+                    (setq word (cons char word))
+                    (go word))
+		   ((setq word (cons char word))))
+	     (go char)
+	clean(say-sent word)
+	     (go char)
+	word (cond ((null word) (go char))
+		   ((not (morpho word))
+		    (cond ((memq :wrd :wstring-list))
+			  ((define? word) (go word))
+			  (t (setq word nil) (go clean)))))
+	     (setq :sent (cons :wrd :sent))
+             (putprop :wrd
+                      (do ((w word (cdr w)) (i (length :nextmorph) (1- i)))
+			  ((zerop i)  (maknam (reverse w))))
+                      'origword)
+             (cond ((if* (memq :wrd :endpuncs)
+			(setq :sent (nreverse :sent))
+			(setq :ordercounter 0)
+			(return (nodify* :sent))))
+		   ((go newwrd)))))
+
+             
+
+ 
+
+(defun morpho (:word) 
+       (prog (:rt first secnd third :modfelist) 
+             (setq :word (mapcar 'lowcaseify :word))
+             (setq :rt :word)
+             (cond ((expandsim (setq :wrd (implode (reverse :word)))) (return t))
+                    ((strip-if-any '((n \' t) (\' s) (\' d) (\' m)
+                                     (\' l l) (\') (\,) (\.) (\?) (\!)
+                                     (\:) (\;) (\-)))
+                     (if* (expandsim (setq :wrd (implode (reverse :word))))
+                         (return t))))
+	     (setq :modfelist '(nil nil))
+	     (cond
+	      ((ends-in '(s))
+	       (modfe '(npl pres  v3s) '(ns tnsless v-3s))
+	       (cond ((try) (return t)) ((go esend))))
+	      ((ends-in '(l y))  (go lyend))
+	      ((ends-in '(i n g))
+	       (modfe '(ing part adj) '(tnsless past pres)))
+	      ((ends-in '(e d))
+	       (modfe '(past ed) '(tnsless pres)))
+	      ((ends-in '(e n))
+	       (modfe '(en part adj) '(tnsless past pres)))
+	      ((ends-in '(e r))
+	       (modfe '(comp) nil))
+	      ((ends-in '(e s t))
+	       (modfe '(supr) nil))
+              ((and (memq (caddr :rt) :numbers)
+		    (or (ends-in '(s t))
+			(ends-in '(n d))
+			(ends-in '(r d))
+			(ends-in '(t h))))
+	       (modfe '(ord) nil)))
+	     (and (try) (return t))
+	     (setq first (car :rt) secnd (cadr :rt))
+	     (cond ((memq first :vowels)
+		    (cond ((eq first 'i)
+			   (setq :rt (cons 'y (cdr :rt)))
+			   (go test))
+			  ((eq first 'y) (go test))
+			  ((not (eq first 'e)) (go adde))
+			  ((eq secnd 'e) (go test))
+			  ((cond ((try) (return t)) ((go adde))))))
+		   ((eq first 'h)
+		    (or (eq secnd 't) (go test))
+		    (cond ((try) (return t)) ((go adde))))
+		   ((eq first secnd)
+		    (and (memq first :liquids) (and (try) (return t)))
+		    (setq :rt (cdr :rt))
+		    (go test))
+		   ((memq secnd :vowels)
+		    (or (memq (cdddr :rt) :vowels) (go adde))
+		    (and (memq first :noend) (go adde))
+		    (go test))
+		   ((memq first :liquids)
+		    (and (eq first 'l)
+			 (eq secnd 'r)
+			 (go test))
+		    (go adde))
+		   ((memq first :noend) (go adde))
+		   ((go test)))
+	adde (setq :rt (cons 'e :rt))
+	     (go test)
+	esend(setq first (car :rt) secnd (cadr :rt) third (caddr :rt))
+	     (or (eq first 'e) (go test))
+	     (cond ((eq secnd 'i)
+		    (setq :rt (cons 'y (cddr :rt)))
+		    (go test))
+		   ((eq secnd 'h)
+		    (or (eq third 't) (go ecut))
+		    (go test))
+		   ((eq secnd 'x) (go ecut))
+		   ((memq secnd '(s z))
+		    (and (eq third secnd) (go ecut))
+		    (go test))
+		   ((eq secnd 'v)
+		    (setq :rt (cons 'f (cddr :rt)))
+		    (and (memq (cadr :rt) :vowels)
+			 (not (memq (caddr :rt) :vowels))
+			 (setq :rt (cons 'e :rt)))
+		    (go test))
+		   ((return nil)))
+	ecut (setq :rt (cdr :rt))
+	     (go test)
+	lyend(modfe '(adv manner) '(adj ns npl ngstart))
+	     (and (eq (car :rt) 'i)
+		  (setq :rt (cons 'y (cdr :rt)))
+		  (go test))
+	     (and (try) (return t))
+	     (setq :rt (append '(e l) :rt))
+	     (go test)
+	test (and (try) (return t))))
+
+(defun define? (word)
+       (prog (temp)
+             (say |Sorry, I don't know the word|
+		  $ :wrd |.|)
+             (drain piport)
+	     (if* :nodef (return nil))
+	againjl
+	     (say |Tell me a word like|
+		  $ :wrd
+		  |(or type n if none): |)
+	     (cond ((memq (setq temp (read)) '(N no NO n No)))
+		   ((not (expandsim temp))
+		    (say |Oops! I don't know that one either.|)
+		    (go againjl))
+		   (t (apply 'jlike (list :wrd temp))
+		      (if* :savenewdefsw
+                          (errset
+			   (let ((more nil) (poport nil)
+				 (defport (outfile :newdeffile 'append)))
+				(setq poport defport)
+				(terpri)
+				(print (list 'jlike :wrd temp))
+				(close defport))))
+		      (say-sent word)
+		      (return t)))
+	     (return nil)  ;for now
+;;;	     (if* :nohardDEF  (return nil))
+;;;	     (SAY |Define| $ :wrd |? Y or N -|)
+;;;	     (COND ((eq (READ) 'Y)
+;;;		    (break |For defining| T)
+;;;		    (SAY |Thanks - Go on-|)
+;;;		    (SAY-SENT word)
+;;;		    (return t))
+;;;		   (T  (return nil)))
+             ))
+
+(defun origcase (stuff)
+       (cond ((atom stuff) (get stuff 'origword))
+             (t (mapcar 'origcase stuff))))
+
+(defun lowcaseify (char)
+       ;(declare (fixnum char))
+       (ascii (cond ((greaterp 91. char 64.) (+ char 32.))
+                    (char))))
+
+(defun ends-in (l)
+       (for (temp (sta l)) (if* temp (setq :rt (cdr temp)))))
+
+
+(defun strip-if-any (l)
+       (do ((nxt (car l) (car tail))
+            (tail (cdr l) (cdr tail)))
+           ((null tail) nil)
+           (if* (strip-if nxt) (return t))))
+
+(defun strip-if (l)
+       (for (temp (sta l))
+	    (if* temp
+		(setq :nextmorph (reverse (car temp)))
+		(setq :rt (setq :word (cdr temp))))))
+
+                           
+            
+
+(ifnot (boundp ':wstring-tree)
+       (setq :wstring-list nil)
+       (setq :wstring-tree (ncons nil)))
+
+(defun get-string (string tree)
+       (cond ((null tree) nil)
+	     ((get-string (cdr string) (get tree (car string))))
+	     ((car tree) (cons (car tree) string))))
+
+(defun put-string (string tree word)
+       (for (temp nil)
+	    (cond ((null string) (rplaca tree word))
+		  ((setq temp
+			 (or (get tree (car string))
+			     (putprop tree (ncons nil) (car string))))
+		   (put-string (cdr string) temp word)))))
+
+
+(defun df+ fexpr (l)
+       (prog (wlist canonword wlist1)
+	     (setq wlist (mapcar 'lowcaseify (exploden (car l))))
+	     (setq canonword (implode wlist))
+	     (setq wlist1 (readlist (append '(|(|) wlist '(|)|))))
+	     (put-string wlist1 :wstring-tree canonword)
+	     (setq :wstring-list (union1 wlist1 :wstring-list))
+	     (putprop canonword canonword 'origword)
+	     (apply 'df (cons canonword (cdr l)))))
+
+
+(defun say-sent (word) 
+       (prints '>)
+       (mapc '(lambda (x) (print2 x)) (reverse (origcase :sent)))
+       (princ '\ )
+       (if* word (princ (maknam (reverse word)))))
+ 
+
+(defun wordify (word)
+       (putprop word word 'origword)
+        (expandsim word)
+        (for (:ordercounter 1000) (nodify word)))
+
+(defun nodify (word) 
+       (prog (node) 
+	     (setplist (setq node (makesym 'word))
+		       (list 'daughters
+			     'word
+			     'word
+			     word
+                             'inputpos
+                             (setq :ordercounter (1+ :ordercounter))
+                             'markers
+                             (get word 'markers)))
+             (set node (get word 'features))
+             (mapc '(lambda (regtype)
+			    (for (temp (get word regtype))
+				 (if* temp (putprop node temp regtype))))
+		   :specregs)
+	     (return (cons node 0))))
+
+(defun nodify* (wstring)
+       (do ((wtail wstring (cdr wtail))
+	    (result nil (cons (car wtail) result)) (temp))
+	   ((null wtail) (mapcar 'nodify (nreverse result)))
+	   (if* (setq temp (get-string wtail :wstring-tree))
+	       (expandsim (car temp))
+	       (setq wtail temp)))) 
+
+(defun sta (l) 
+       ;;note that sta returns nil if the root is the same length as the ending
+       (do ((rtail :rt (cdr rtail))
+            (ltail (reverse l) (cdr ltail))
+            (tail nil (push (car ltail) tail)))
+	   ((null ltail) (if* rtail (cons tail rtail)))
+	   (ifnot (eq (car rtail) (car ltail)) (return nil))))
+
+(defun modfe (a b) 
+       (setq :modfelist (list (union1 (car :modfelist) a)
+			     (union1 (cadr :modfelist) b))))
+
+(defun buildword (word feat markers root) 
+       (expandsim root)
+       (putprop word feat 'features)
+       (putprop word markers 'markers)
+       (putprop word root 'root)
+       (mapc '(lambda (regtype)
+			    (for (temp (get root regtype))
+				 (if* temp (putprop word temp regtype))))
+		   :specregs)) 
+
+(defun buildnumber (numword number) 
+       (declare (fixnum number))
+       (buildword numword
+		  (cons (cond ((< number 10.) 'ones)
+                              ((zerop (\\ number 10.)) 'tens)
+                              ((= number 100.) '*hundred)
+                              ((< number 100.) '99s)
+                              ((< number 1000.) '999s))
+                        (cons (cond ((= number 1.) 'ns)
+			      ('npl))
+			(add-redunds '(1234num num adj))))
+		  nil
+		  nil)
+       (putprop numword number 'quant)) 
+
+(defun buildirregword (word) 
+       (prog (irregl root fe) 
+	     (setq irregl (get word 'irreg))
+	     (expandsim (setq root (car irregl)))
+	     (buildword word
+			(setq fe (mod (get root 'features)
+				      (cdr irregl)))
+			(get root 'markers)
+			root)
+	     (return word))) 
+
+(defun df fexpr  (l) 
+       (do ((word (car l)) (plist (cdr l) (cddr plist)))
+	   ((null plist) word)
+	   (putprop word (cadr plist) (car plist))))
+(defun df1 fexpr (l) nil) 
+ 
+
+(defun jlike fexpr (l) 
+       (prog (nword) 
+	     (cond
+	      ((atom (car l))
+	       (putprop (setq nword (car l)) (cadr l) 'jlike))
+	      (t (putprop (setq nword (caar l))
+			  (caadr l)
+			  'jlike)
+		 (mapc '(lambda (newirreg oirreg) 
+				(putprop newirreg
+					 (cons (caar l)
+					       (cdr (get oirreg
+							 'irreg)))
+					 'irreg))
+		       (cdar l)
+		       (cdadr l))))
+	     (if* (cddr l) (putprop nword (cddr l) 'except))
+	     (return nword))) 
+
+
+
+(defun expanddef (word)
+       (prog (temp)
+             (if* (and (get word 'features)
+		      (not (get word 'feats)))
+		 (return t))
+	     (if* (setq temp (get word 'markers))
+		 (putprop word (add-redunds (expandm temp)) 'markers))
+             (if* (setq temp (get word 'feats))
+                 (for (features
+                       (cons (implode (cons '* (explodec word)))
+			     (add-redunds (expandm temp))))
+		      (putprop word features 'features)
+                      (for (poses (meet1 features :parts-of-speech))
+                           (ifnot poses
+				  (if* :carefulsw
+                                      (warn 0. $ word
+                                            |is not a known part of speech.|)))
+                           (putprop word (car poses) 'type))))
+             (if* (setq temp (get word 'cf))
+                       (putprop word (expandcf (expandm temp)) 'case-frame))
+             (remprop word 'feats)
+             (remprop word 'cf)
+             (if* (setq temp (get word 'neut))
+		 (putprop word (expandm temp) 'neut))
+             (if* (setq temp (get word 'preps))
+                 (putprop word (cons nil temp) 'preps))))
+
+
+(defun expandsim (word) 
+       (prog (simw temp)
+	     (cond ((and :always-expand
+			 (or (and (setq simw (get word 'jlike)) (expandsim simw))
+			     (and (get word 'irreg) 
+				  (buildirregword word) 
+				  (return t))
+			     (and (get word 'root) (return nil)))))
+		   ((get word 'feats) (expanddef word) (return t))
+                   ((get word 'features) (return t))
+		   ((get word 'irreg)
+		    (buildirregword word)
+		    (return t))
+                   ((and (setq simw (get word 'jlike))
+			  (expandsim simw)))
+                   ((and (memq (getchar word (flatc word)) :numbers)
+			 (setq temp 
+			       (for (ibase 10.) (readlist (explodec word))))
+			 (numberp temp)
+			 (buildnumber word temp)
+			 (return t)))
+		     ((return nil)))
+             (putprop word t 'expanded)
+	     (putprop word
+		      (cons (implode (cons '* (explodec word)))
+			    (setminus (get simw 'features)
+				      (ncons (implode (cons '* (explodec simw))))))
+		      'features)
+	     (putprop word (get simw 'markers) 'markers)
+             (mapc '(lambda (regtype)
+			    (for (temp (get simw regtype))
+				 (if* temp (putprop word temp regtype))))
+		   :specregs)
+	     (do
+	      ((plist (get word 'except) (cddr plist))
+	       (prop)(value))
+	      ((null plist))
+	      (cond
+	       ((eq (setq prop (car plist)) 'feats)
+		(putprop word
+			 (cond ((eq (cadr (setq value (cadr plist)))
+				    'all)
+				(car value))
+			       ((setminus (union (car value)
+						 (get word
+						      'features))
+					  (cadr value))))
+			 'features))
+             ((eq prop 'cf)
+	      (putprop word
+		       (expandcf (expandm (cadr plist)))
+		       'case-frame))
+	       ((eq prop 'cases)
+		(putprop word
+			 (modcasef (get simw 'case-frame)
+				   (car (setq value (cadr plist)))
+				   (cadr value))
+			 'case-frame))
+	       ((putprop word (cadr plist) prop))))
+	     (return t))) 
+
+(defun modcasef (basecf addcs remcs) 
+       (prog (result) 
+	     (mapc 
+	      '(lambda (case) 
+		       (do nil
+			   ((after (caar addcs) (car case) :caseorder))
+			   (setq result (cons (car addcs) result) 
+				 addcs (cdr addcs)))
+		       (or (memq (car case) remcs)
+			   (setq result (cons case result))))
+	      basecf)
+	     (return (append (nreverse result) addcs)))) 
+
+(defun after (case1 case2 standard) 
+       (not (memq case2 (memq case1 standard)))) 
+
+
+(defun redund fexpr (l)
+       (do ((rtail (listfy (cadr l)) (cdr rtail)))
+                    ((null rtail) (car l))
+                    (putprop (car rtail)
+			     (union1 (ncons (car l))
+				     (get (car rtail) ':redunds))
+			     ':redunds)))
+
+(defun listfy (a) (cond ((atom a) (ncons a)) (a)))
+
+ 
+
+(defun add-redunds (feats)
+       (do ((fset feats)
+            (newfs feats
+                   (do ((fs newfs (cdr fs)) (result))
+                       ((null fs) result)
+                       (mapc
+                        '(lambda (f)
+                           (ifnot (memq f fset)
+				  (push f result)
+				  (push f fset)))
+                         (get (car fs) ':redunds)))))
+           ((null newfs) fset)))
+
+(defun expandcf (cf)
+       (mapcar '(lambda (case)
+                        (cond ((null case) case)
+                              ((atom case) (list case 'oblig))
+                              ((null (cdr case)) (list (car case) 'opt))
+                              (case)))
+               cf))
+
+(defun expandm (prop)
+       (cond ((and (atom prop) (get prop ':abbrev)))
+             (prop)))
+(defun abbrev fexpr (l) (putprop (car l) (cadr l) ':abbrev))
+
+                        
+                                      
+(defun mod (a b) 
+       (if* (and (memq 'ed=en a) (memq 'ed (car b)))
+	      (setq a (append a '(en part))))
+       (union (setminus a (cadr b)) (car b))) 
+
+(defun try nil 
+       (prog (x root features)
+	     (expandsim (setq root (implode (reverse :rt))))
+	     (cond ((setq features
+			  (or (get root 'features)
+			      (and (setq x (get root 'irreg))
+				   (setq root (car x))
+				   (mod (get 'features x)
+					(cdr x)))))
+		    (buildword :wrd
+			       (mod features :modfelist)
+			       (get root 'markers)
+			       root))
+		   ((return nil)))
+	     (return t))) 
+
+(setq :nl 10.)
+(setq :comma 44.) 
+(setq :space 32.)
+(setq :altmode 27. :rubout 127.) 
+
+(setq :consos '(b c d f g h j k l m n p q r s t v w x z)) 
+
+(setq :vowels '(a e i o u y)) 
+
+(setq :numbers '(\0 \1 \2 \3 \4 \5 \6 \7 \8 \9)) 
+
+(setq :endpuncs '(\. ? !)) 
+
+(setq :liquids '(l r s z v)) 
+
+(setq :puncs '(\. \, ? : \; ! -)) 
+
+(setq :noend '(c g s j v z)) 
+
+(defun remnodes (num) 
+       (do i 1. (1+ i) (> i num) (remnode i))
+       (or (> (get 'node 'gennum) num)
+	   (putprop 'node 0. 'gennum))) 
+
+(defun remnode (num) 
+       (prog (node) 
+	     (reclaim (plist (setq node
+				   (implode (append '(n o d e)
+						     (explodec num)))))
+		      nil)
+	     (makunbound node)
+	     (remob node))) 
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:48:55 1987
+Posted-Date: Sun, 22 Nov 87 13:55 EST
+Received-Date: Sun, 22 Nov 87 14:48:48 EST
+Message-Id: <8711221948.AA01106@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:47 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15244; 22 Nov 87 14:38 EST
+Received: from btl by csnet-relay.csnet id af13624; 22 Nov 87 14:32 EST
+Date: Sun, 22 Nov 87 13:55 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: gram3.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+
+;;%NP CREATING RULES%
+(comment Mainline np parsing)
+
+{AS RULE STARTNP IN CPOOL
+[=ngstart] -->
+Create a new np node.
+If 1st is det then activate parse-det
+	else activate parse-qp-1.
+Activate npool.}
+
+{CREATION CRULE NP-START NP
+if c is none of propn-np, pron-np, name, complex-noun-np, trace, *,
+          comp-np
+  and 1st is not pronoun %a hack patch%
+          then associate a new case frame with c.}
+
+;;this should be a finalize rule.
+;;for the moment faked by having the attach noun guy send this
+;;message as well.  
+;;{ATTACHMENT CRULE NP-QP  NP OVER QP
+;;The lower node fills the spec slot of upper.}
+
+;THE PRIORITY OF THE NEXT RULE IS A CROCK.  THE FEATURE "NAME"
+;GIVEN TO NAME NPS MUST BE CHANGED TO "NAME-NP" OR SUCH.  NOT
+;DONE HERE FOR THE SAKE OF COMPATIBILITY WITH SEMANTICS.
+
+{AS RULE POSSESSIVE-DET priority: 5 IN CPOOL
+[=poss-np] -->
+%While the rules that form poss-nps may be simple-minded, this
+rule isn't too bad.%
+Create a new det node labelled ngstart, poss-det, ns, npl, n3p, def.
+Attach 1st to c as np.
+Drop c into the buffer.
+Restore the buffer.}
+
+{RULE DETERMINER IN PARSE-DET
+[=det] -->
+Attach 1st to c as det.
+Label c det.
+Transfer the features indef, def, wh from 1st to c.
+Deactivate parse-det. Activate parse-qp-2.}
+
+{RULE A-HUNDRED-DIAG PRIORITY: 5 IN PARSE-DET
+[=*a]
+[=num, bignumg; the num1 of the num1 of * is any of *hundred, bignum] [t] -->
+If 3rd is noun, ns, measure
+    then run determiner next
+    else attach 1st to the num1 of 2nd as num0;
+	deactivate parse-det;
+	activate parse-qp-1.}
+
+{RULE ALL-THE PRIORITY: 5 IN PARSE-QP-1
+[=*all] [=det,def] -->
+%Another similar rule needed to cover "half the boys", "half A bottle"
+Also there may be a timing problem with "all G-d's children".%
+Insert the word 'of' into the buffer before 2nd.}
+
+{RULE QUANT IN PARSE-QP-1
+[=quant] -->
+Attach a new qp node to c as qp.
+Attach 1st to c as quant.
+If 1st is num then label c numqp.
+Transfer ns, npl from 1st to c.
+Transfer the feature wh from 1st to the np above c.
+Drop c.
+Run quant-done next.}
+
+{RULE QUANT-DONE PRIORITY: 15 IN PARSE-QP-1
+[t] -->
+Deactivate parse-qp-1. Activate parse-adj.}
+
+{RULE NEXT-WEEK IN PARSE-QP-1
+[=ord] [=noun, time] -->
+%To handle "next tuesday", "next week", etc.%
+%This and the following rule must be modified when the 
+grammar is to handle "Next, take two eggs and ..."%
+Attach a new qp node labelled ordqp to c as qp.
+Attach 1st to c as ord.
+Drop c.
+Deactivate parse-qp-1. Activate parse-noun.}
+
+{RULE ORDINAL IN PARSE-QP-2
+[=ord] [t] -->
+%Handles  "the first three boys", "the next three boys".%
+Attach a new qp node labelled ordqp to c as qp.
+Attach 1st to c as ord.
+If 2nd is num then attach 2nd to c as num; 
+	label c numqp;
+	 transfer ns, npl from 1st to c
+      else label c ns, npl.
+Drop c.
+Deactivate parse-qp-2. activate parse-adj.}
+
+{RULE DET-QUANT IN PARSE-QP-2
+[=quant; * is any of detq, num] -->
+%There should be a less ad-hoc way than the feature "detq" to distinguish
+quantifiers that can follow determiners (like "many") from those which don't
+(like "some)...%
+Attach a new qp node to c as qp.
+Attach 1st to c as quant.
+If 1st is num then label c numqp.
+Transfer ns, npl from 1st to c.
+Drop c.
+Run det-quant-done next.}
+
+{RULE DET-QUANT-DONE PRIORITY: 15 IN PARSE-QP-2
+[t] -->
+Deactivate parse-qp-2. Activate parse-adj.}
+
+;;will need a rule that does "next <time> " when np stuff is nixed.
+
+
+
+{RULE ADJ IN PARSE-ADJ
+[t] -->
+If 1st is adj then attach 1st to c as adj
+      else if 1st is punc then attach 1st to c as punc
+	else deactivate parse-adj; activate parse-noun.}
+
+{ATTACHMENT CRULE NP-ADJ NP OVER ADJ
+%Note that this does not handle non-attributive adjectives like "main"%
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The lower node fills the pred slot of lower.
+Create a new * node labelled np.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{RULE NOUN IN PARSE-NOUN
+[=noun] -->
+Attach 1st to a new nbar node as noun.
+Transfer the features massn, time, ns, npl,
+	n1p, n2p, n3p from 1st to c.
+Drop c.}
+
+{RULE NBAR IN PARSE-NOUN
+[=nbar] -->
+Attach 1st to c as nbar.
+If the noun of 1st is any of propnoun, pseudopropnoun then label c not-modifiable.
+Transfer the features time, place, n1p, n2p, n3p from 1st to c.
+Deactivate npool, parse-noun.
+Drop c into the buffer.
+Restore the buffer.}
+
+{ATTACHMENT CRULE NP-NBAR NP OVER NBAR
+Associate the case frame of the upper node with the lower node.
+!'Something-or-other %(it doesn't matter what because of a hack
+	in the semantics which uses this message to say that the det
+	and qp are finished)% fills the spec slot of the upper node.
+If there is a case frame of upper and
+ there is a noun of the lower node 
+	then it fills the pred slot of upper.}
+
+
+(comment Incomplete nps)
+{RULE INCOMPLETE-NP PRIORITY: 15 IN PARSE-NOUN
+[t] -->
+Attach a new nbar node to c as nbar.
+Attach a new noun node labelled trace, not-modifiable, delta to c as noun.
+Drop c.
+Drop c.
+Deactivate npool, parse-noun.
+If there is a qp of c
+      then label c quant-np, npl; activate quant-np-complete, cpool
+	else drop c;
+	restore the buffer.}
+
+{RULE ALL-OF-THE-BOYS IN QUANT-NP-COMPLETE
+[=pp; the prep of * is *of]  -->
+Attach 1st to c as pp.
+Set the binding of the noun of the nbar of c to
+       the noun of the nbar of the np of 1st.
+Label the np of 1st npl.
+Run quant-np-done next.}
+
+{RULE QUANT-NP-DONE PRIORITY: 15 IN QUANT-NP-COMPLETE
+t -->
+Deactivate quant-np-complete.
+Activate np-complete.}
+
+
+(comment NBAR-reactivation)
+
+{NR RULE NBAR-COMPLETE IN CPOOL
+[=nbar] -->
+Activate cpool, nbar-complete.}
+
+{RULE NBAR-DONE PRIORITY: 15 IN NBAR-COMPLETE
+t -->
+Drop c.
+Restore the buffer.}
+
+(comment Np-reactivation)
+{NR RULE NP-COMPLETE IN CPOOL
+[=np; * is none of modified, not-modifiable] -->
+%NUMBER AGREEMENT%
+If there is not a det of c and there is not a qp of c then
+	if the nbar of c is npl then label c npl else
+        if the noun of the nbar of c is  propnoun then label c prop-np else
+	if the nbar of c is massn, ns then label c massnp else
+        if the nbar of c is time and the ord of the qp of c is general-ord 
+		then label c next-time-np else
+      if the noun of the nbar of c is none of pseudopropnoun then
+	label c bad.
+If there is a det of c or there is a qp of c then
+      transfer the meet of
+      		 (if there is a det of c then the features of it else ns,npl)
+		 and (if there is a qp of c then the features of it else ns,npl)
+         from the nbar of c to c;
+	if c is none of ns,npl then label c bad.
+Activate cpool, np-complete.}
+
+{RULE POSS-NP IN NP-COMPLETE
+[=poss] -->
+%This is the simple-minded possessive.  It assumes that the possessive
+goes with the immediately previous NP, which is wrong for
+	My aunt from Peoria's dog.%
+Attach 1st to c as poss.
+Label c poss-np.
+Run np-done next.}
+
+{RULE NP-DONE PRIORITY: 15 IN NP-COMPLETE
+t -->
+If there is a case frame of c then finalize the cf of c.
+Drop c.
+Restore the buffer.}
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 14:49:37 1987
+Posted-Date: Sun, 22 Nov 87 13:54 EST
+Received-Date: Sun, 22 Nov 87 14:49:26 EST
+Message-Id: <8711221949.AA01112@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:47 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15246; 22 Nov 87 14:38 EST
+Received: from btl by csnet-relay.csnet id ae13624; 22 Nov 87 14:30 EST
+Date: Sun, 22 Nov 87 13:54 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: gram2.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+;;Rules to start relative clauses
+(comment Relative clauses)
+
+{RULE WH-RELATIVE-CLAUSE IN NP-COMPLETE
+[=relpron-np] [t] -->
+Label c modified.
+Attach a new s node labelled sec, relative to c as s.
+Activate cpool, parse-subj, wh-pool.
+%Note that the node is attached as "whcomp"; "wh-comp" refers to
+the special wh register.%
+Attach 1st to c as whcomp.
+Set the binding of 1st to the np above c.
+If 2nd is a verb then 
+	create a new np node labelled trace, not-modifiable;
+	Set the binding of c to wh-comp;
+	Label the binding of c utilized;
+	Drop c into the buffer.}
+
+{RULE REDUCED-RELATIVE IN NP-COMPLETE
+[=np; * is not relpron-np][=verb] -->
+Insert the word 'wh-' into the buffer before 1st.}
+
+{RULE WHICH-DIAGN IN CPOOL
+[=*which; * is not any of  quant, relpron] -->
+If there is an np above c and it is not modified then
+	label 1st pronoun, relpron, wh, ngstart
+	else label 1st quant, ngstart, ns, npl, wh.}
+
+{RULE WHAT-DIAG priority: 15 IN npool
+[=*what] [t] -->
+%This won't work for cleft sentences: what little fish eat is little worms
+(but are these garden paths?)%
+If 2nd is ngstart and 2nd is not det
+    then label 1st det, ns, npl, n3p, wh;
+    activate parse-det
+    else label 1st pronoun, relpron, wh.}
+
+
+
+(comment The wh-comp mechanism of the grammar interpreter)
+
+{ATTACHMENT CRULE S-WHCOMP S OVER WHCOMP
+%This crule and the next should really be a part of the grammar
+interpreter, hardwired and universal.  I put them here so that 
+they are clearly visible.  The effect is exactly equivalent.
+This rule primes the wh-comp mechanism.%
+Set the :wh-comp of the upper node to the lower node.}
+
+{CREATION CRULE S-CREATE S
+%This is ugly and adhoc.  It simply embodies a form of
+the complex NP constraint, which is adhoc and ugly.
+That this rule should be a putative universal doesn't help much.
+The rule: scan up the active node stack until you come to either an NP
+or an S.  If an NP, that's it.  If an S, copy its wh-comp.  This IS
+really a piece of the interpreter, and must be written in LISP.%
+
+Set the :wh-comp of c to find-wh-comp (the node above c)}
+
+
+(defun find-wh-comp (node-variable)
+;Now into PIDGIN
+{if there is not a node-variable or
+    the node-variable is an np then nil else
+if the node-variable is an S
+    then the :wh-comp register of the node-variable else
+find-wh-comp (the node above node-variable)})
+
+(comment WH placement)
+
+{RULE WH-WITH-END-NEXT PRIORITY: 15 IN wh-vp
+t -->
+If the greatest possible number of objects of c is equal to 0
+        or
+    it isn't true that the wh-comp fits an obj slot of the cf of the current s
+    and the verb of c is not comp-obj
+	then run too-many-nps next
+	else run create-wh-trace next.}
+
+{RULE WH-WITH-NP-NEXT IN WH-VP
+[=np] -->
+%This rule decides whether or not to use the wh-comp if there is an NP
+next.  Note that if the NP is followed by a PP, then a different rule
+will run.  Running an object rule next indicates that the wh-comp is not
+to be used, while running create-wh-trace indicates the wh-comp is to be
+used.%
+
+If the greatest possible number of objects of c is less than 2
+    %i.e. the current verb can only take 1 object%
+    then if the current s is major then run objects next
+             else run obj-in-embedded-s next
+    else
+%There are 2 object slots available; we'll use both.%
+The number of objects of c will be 2;
+If semantics prefers 1st filling an obj slot of c somewhat
+    better than wh-comp filling an obj slot of c then
+        run objects next else
+If semantics prefers the wh-comp filling an obj slot of c much
+    better than 1st filling an obj slot of c then
+    label the current s slightly-bad;
+    run create-wh-trace next else
+If semantics prefers 1st filling an obj slot of c no
+    better than the wh-comp filling an obj slot of c then
+    label the current s slightly-bad;
+    run objects next else
+    label the current s very-bad;
+    run create-wh-trace next.}
+
+{RULE WH-WITH-NP-PP-NEXT PRIORITY: 7 IN WH-VP
+[=np] [=prep] -->
+If the greatest possible number of objects of c is greater than 1
+    and a prepositional phrase of 2nd and the wh-comp fits a pp slot of c
+    or
+    the greatest possible number of objects of c is equal to 1
+    and a prepositional phrase of 2nd and the wh-comp fits a pp slot of the current s
+    then run objects next else
+If the greatest possible number of objects of c is greater than 1
+    then run wh-with-np-next next else
+Run too-many-nps next.}
+
+
+
+{RULE WH-WITH-PP-NEXT PRIORITY: 5 IN WH-VP
+[=prep] [=np] -->
+If a prepositional phrase of 1st and 2nd fits a pp slot of c 
+%The syntactic preference is for simple pps.%
+    then run pp next else
+If it isn't true that
+    a prepositional phrase of 1st and the wh-comp fits a pp slot of c
+    %i.e it's true that the wh-comp can't serve as the object of the prep%
+    then if greatest possible number of objects of c is greater than 0
+        %i.e. if the wh-comp can serve as an object then%
+	then run create-wh-trace next
+	else %Hopefully the trace is a time word%
+	     run too-many-nps next
+    else
+If the lowest possible number of objects of c is greater than 0
+    %i.e. this verb MUST take an object%
+    then run create-wh-trace next else
+    run wh-pp-build next}
+
+
+{RULE WH-PP-BUILD IN CPOOL
+[=prep] [* is not np]
+[** c; there is a wh-comp and it is not utilized] -->
+Attach 1st to a new pp node as prep.
+Attach a new np node labelled trace to c as np.
+Set the binding of c to the wh-comp.
+Label the wh-comp utilized.
+Drop c %i.e. the trace%.
+Drop c %i.e. the pp%.}
+
+{RULE WH-WITH-PP-2 IN CPOOL
+[=prep] [=np]
+[** c; there is a wh-comp and it is not utilized] -->
+If c is any of nbar, np and
+     a prepositional phrase of 1st and 2nd fits a pp slot of c
+     then run pp next %building the simple pp%
+     else
+If a prepositional phrase of 1st and the wh-comp fits a pp slot of c
+    then run wh-pp-build next %building a pp with the wh-comp% else
+%the current constituent is done%
+If c is an nbar then run nbar-done next else
+If c is an np then run np-done next else
+run pp next.}
+
+
+{RULE WH-RESOLVED PRIORITY: 5 IN wh-vp
+[** c; the wh-comp is utilized ] -->
+Deactivate wh-vp.
+If the current s is major
+	then activate ss-vp
+	else activate embedded-s-vp.}
+
+{RULE TOO-MANY-NPS PRIORITY: 15 IN WP-VP
+[=np] 
+[** c; the greatest possible number of objects of c is less than 2] -->
+%This is just a start, clearly%
+if there is not a whcomp of the current s
+    %i.e the wh-comp originated from higher up%
+    then run wh-resolved next
+    else !(warn 1 too-many-nps loses).}
+
+{RULE CREATE-WH-TRACE PRIORITY: 14 IN WH-POOL
+T -->
+Create a new np node labelled trace, not-modifiable. 
+Set the binding of c to the wh-comp. 
+Label the wh-comp utilized. 
+Drop c into the buffer.}
+
+{RULE WH-RESOLVED-1 PRIORITY: 5 IN WH-POOL
+[** c; the wh-comp is utilized] -->
+Deactivate wh-pool.}
+
+
+;;Rules for that clauses
+(comment That clauses)
+
+{RULE THAT-S-START PRIORITY: 5 IN CPOOL
+[=comp, *that] [=np] [=verb] -->
+%Handles the marked case;always active.%
+Label a new s node sec, comp-s, that-s.
+Attach 1st to c as comp.
+Attach 2nd to c as np.
+Activate cpool, parse-aux.}
+
+{RULE THAT-S-START-1 PRIORITY: 5 IN THAT-COMP
+[=np] [=verb] -->
+Label a new s node sec, comp-s, that-s.
+Attach 1st to c as np.
+Activate cpool, parse-aux.}
+
+{RULE COMP-TO-NP IN CPOOL
+[=COMP-S] -->
+Attach 1st to a new NP node labelled comp-np, not-modifiable as s.
+Drop c into the buffer.}
+
+{RULE that-diag-1 in cpool
+[=*that; * is none of comp, det, pronoun] [=np] -->
+%This rule diagnoses whether "that" is a comp or a determiner or a
+relative pronoun.  This rule will misdiagnose
+"That deer ate everything in my garden surprised me."
+but then again so did you.
+The diagnostic is: if "that" must be a det, it is.
+If c is nbar, i.e. we're under an np, assume "that" starts a relative clause.%
+If there is not a det of 2nd
+        and there is not a qp of 2nd
+	and the nbar of 2nd is none of npl, massn
+	and 2nd is not not-modifiable
+ then   attach 1st to 2nd as det;
+        label 1st det, ns
+ else   if c is a nbar then label 1st pronoun, relpron
+ else   label 1st comp.}
+
+{RULE THAT-DIAG-2 PRIORITY: 13 IN CPOOL
+%If there's nothing else to do with that, it's a pronoun.%
+[=*that; * is not pronoun] -->
+Label 1st pronoun.}
+
+
+{RULE THAT-DIAG-3 PRIORITY: 5 IN NBAR-COMPLETE
+[=*that; * is none of pronoun, comp] [=np] 
+[** c; the verb of the vp of the current s is that-obj;
+the lowest possible number of objects of the current s is equal to 2]
+-->
+Label 1st comp.}
+
+;;%Rules to do infinitive clauses.%
+(comment Infinitive clauses)
+
+{RULE TO-DIAG PRIORITY: 5 IN INF-COMP, 2-OBJ-INF-COMP
+[=*to, auxverb, prep] [=tnsless]
+[** c; there is a wh-comp and it is not utilized] -->
+%Does this really belong in this packet or in cpool? 
+Should the fact that an inf-comp is expected serve as evidence?%
+if a pp of 1st and wh-comp
+	fits a pp slot of the cf of the current s
+then remove the feature auxverb from 1st 
+else remove the feature prep from 1st.}
+
+{RULE INF-S-START PRIORITY: 5 IN CPOOL 
+[=*for] [=np] [=*to] -->
+%Handles the marked case; always active%
+Label a new s node sec, comp-s, inf-s.
+Attach 1st to c as comp.
+Attach 2nd to c as np.
+Activate cpool, parse-aux.}
+
+{RULE INF-S-START1 PRIORITY: 5 IN INF-COMP
+%The COMP can only be dropped if the complement is expected.%
+[=np] [=*to,auxverb] [=tnsless] -->
+Label a new s node sec, comp-s, inf-s.
+Attach 1st to c as np.
+Activate cpool, parse-aux.}
+
+{RULE INSERT-TO IN TO-LESS-INF-COMP
+%This rule and INSERT-TO-BE must be in different packets 
+- consider "help" vs. "seems"%
+[=np] [=tnsless] -->
+Insert the word 'to' into the buffer before 2nd.}
+
+{RULE INSERT-TO-1 IN TO-LESS-INF-COMP
+%I've clearly missed a generalization somewhere.%
+[=tnsless] -->
+Insert the word 'to' into the buffer before 1st.}
+
+{RULE INSERT-TO-BE IN TO-BE-LESS-INF-COMP
+[=np] [* is any of en, adj] -->
+%won't work for adjectives until interpreter changed%
+Insert the word 'be' into the buffer before 2nd.
+Insert the word 'to' into the buffer before 2nd.}
+
+{RULE INSERT-TO-BE-1 IN TO-BE-LESS-INF-COMP
+[* is any of en, adj] -->
+%Again, I've missed the generalization%
+Insert the word 'be' into the buffer before 1st.
+Insert the word 'to' into the buffer before 1st.}
+
+
+
+(comment Infinitives with delta subjects)
+
+{RULE CREATE-DELTA-SUBJ IN 2-OBJ-INF-COMP
+[=*to, auxverb] [=tnsless] -->
+%This rule handles verbs like promise and persuade.  The analysis
+I'm adopting assumes that the subject of the complement is a delta
+(i.e. a "base-generated" trace), which is not bound by syntactic rules, 
+but by later semantic processing.  The binding is done in the crule
+vp-np%
+Create an np node labelled trace, not-modifiable, delta.
+Drop c into the buffer.
+Deactivate 2-obj-inf-comp. Activate inf-comp.}
+
+{RULE create-delta-subj-1 IN SUBJ-LESS-INF-COMP
+[=*to, auxverb] [=tnsless] -->
+%Handles verbs like "want" that may have an explicit subject
+or may have a delta subject.  These cases are hard
+if they interact with wh-movement.%
+Create an np node labelled trace, not-modifiable.
+Drop c into the buffer.}
+
+{RULE SUBJECT-IS-DELTA-DIAG PRIORITY: 15 IN EMBEDDED-S-FINAL
+[** c; the np of c is trace; the np of c is not delta;
+      there is not a binding of the np of c] -->
+%This rule finishes the analysis of embedded clauses of verbs like 
+"want", deciding whether the subject is a bound trace or a delta.%
+If there is a wh-comp and it is not utilized
+    then set the binding of the np of c to wh-comp;
+    %This next belongs in the case mechanism, but its simpler here.
+    Life would be simpler if "want" took 2 objects.%
+    the np of c fills the subj slot of the cf of c;
+    label the wh-comp utilized
+    else label the np of c delta.}
+
+{RULE DELTA-SUBJ-S-DONE PRIORITY: 15 IN EMBEDDED-S-FINAL
+[** C; THE NP OF C IS DELTA] -->
+%This rule overrides embedded-s-done; and does not finalize the cf.%
+Drop c into the buffer.}
+
+{ATTACHMENT CRULE NP-S  NP OVER S
+If lower is inf-s then set the markers register of upper to !'(inf-comp).
+If lower is that-s then set the markers of upper to !'(that-comp).
+If lower is relative
+	then lower fills a mod slot of the upper node
+	else associate the case frame of lower with the upper node.}
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 15:04:17 1987
+Posted-Date: Sun, 22 Nov 87 13:55 EST
+Received-Date: Sun, 22 Nov 87 15:04:10 EST
+Message-Id: <8711222004.AA01176@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 15:02 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa15296; 22 Nov 87 14:43 EST
+Received: from btl by csnet-relay.csnet id ah13624; 22 Nov 87 14:36 EST
+Date: Sun, 22 Nov 87 13:55 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: gram5.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+
+;;%Pronouns, proper names, etc.%
+(comment Pronouns proper names etc)
+
+{RULE PRONOUN IN npool 
+[=pronoun] -->
+Attach 1st to c as pronoun.
+Label c pron-np, not-modifiable.
+Transfer ns, npl, n1p, n2p, n3p, wh from 1st to c.
+If 1st is relpron then label c relpron-np.
+If 1st is poss-pronoun then label c poss-np.
+Run np-done next.}
+
+{AS RULE PROPNAME PRIORITY: 5 IN CPOOL
+[=name; * is not np] -->
+Create a np node labelled name, ns ,n3p, not-modifiable.
+Activate build-name.}
+
+{AS RULE TITLE PRIORITY: 5 IN CPOOL
+[=title] -->
+Create a np node labelled name, ns, n3p, not-modifiable.
+Attach 1st to c as title.
+Set the title register of c to 1st. %set register for PA semantics%
+Activate build-name.}         
+
+
+{RULE NAME IN BUILD-NAME
+[=name] -->
+Attach 1st to c as noun.
+Set the names register of c to
+	!(cons 1st {the names register of c}). %for pa semantics%}
+
+{RULE END-OF-NAME PRIORITY: 15 IN BUILD-NAME
+[t] -->
+If 1st is poss %i.e. possessive i.e. "'s"% then
+   attach 1st to c as poss; label c poss-np.
+If !(> (length {the names register of c}) 1) 
+    	or there is a title of c
+	then set the last-name register of c to
+		!(car {the names register of c});
+	   set the names register of c to
+		!(cdr {the names register of c}). %for pa semantics%
+Set the names register of c to
+	!(nreverse {the names register of c}).
+Run np-done next.}
+
+{AS RULE PROPNOUN PRIORITY: 5 IN CPOOL
+[=propnoun; * is not name] -->
+Attach 1st to a new np node labelled propn-np, ns, n3p, not-modifiable as noun.
+Run np-done next.}
+
+
+(comment Pp attachment rules)
+;;%PP rules%
+{RULE PP IN CPOOL
+[=prep] [=np]
+[** c; there is not a wh-comp or the wh-comp is utilized]
+%for WH-placement PP rules, see WH-placement rules%
+ -->
+Attach 1st to a new pp node as prep.
+Attach 2nd to c as np.
+Drop c.}
+
+{RULE NBAR-PP-UNDER-S IN NBAR-COMPLETE
+[=pp] [** c; the node above the np above * is s] -->
+If 1st fits a pp slot of the cf of c
+	then attach 1st to c as pp
+	else run nbar-done next.}
+
+{RULE OF-PP IN NBAR-COMPLETE
+[=pp; the prep of * is *of] -->
+Attach 1st to c as pp.}
+
+{RULE NBAR-PP-UNDER-VP IN NBAR-COMPLETE
+[=pp] [** c; the node above the np above * is vp] -->
+If 1st fits a pp slot of the cf of the node above the np above c
+	then run nbar-done next
+	else run nbar-pp-under-s next.}
+
+{ATTACHMENT CRULE NBAR-PP NBAR OVER PP
+If the prep of the lower node is *of
+	then the np of the lower node fills a obj slot of the upper node
+	else the lower node fills a pp slot of the upper node.}
+
+
+{RULE NP-PP-UNDER-VP IN NP-COMPLETE
+[=pp] [** c; the node above * is vp] -->
+if it isn't true that 1st fits a pp slot of the cf of c 
+	or 1st fits a pp slot of the cf of the vp above c
+then run np-done next
+else attach 1st to c as pp.}
+
+{RULE NP-PP-UNDER-PP IN NP-COMPLETE
+[=pp] [** c ; the node above * is pp] -->
+%For now, NPs only get a PP if the above VP or S does't want it.
+which is wrong, but a zeroeth order approximation.
+Will get wrong "Can we meet on the friday after the party"
+Unless there is a notion of "mustmod"%
+
+%For now,% if the node above the pp above c is vp
+	then run np-pp-under-vp next else
+if the node above the pp above c is s
+	and 1st fits a pp slot of the cf of the s above the pp above c
+then run np-done next
+else attach 1st to c as pp.}
+
+
+{RULE NP-PP-DEFAULT PRIORITY: 15 IN NP-COMPLETE
+[=pp] -->
+%This module is intended to run only when the NP is clause initial.%
+Attach 1st to c as pp.}
+
+{ATTACHMENT CRULE NP-PP NP OVER PP
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The prep of the lower node fills the pred slot of lower.
+The np of lower fills an obj slot of lower.
+Create a new * node labelled np.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{RULE PP-UNDER-VP-1 IN SS-VP
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+	then attach 1st to c as pp
+else run vp-done next.}
+
+{RULE PP-UNDER-S-1 IN SS-FINAL
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+      then attach 1st to c as pp
+else %what else can we do?% attach 1st to c as pp.}
+
+{RULE PP-UNDER-S-2 IN EMBEDDED-S-FINAL
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+      then attach 1st to c as pp
+else run embedded-s-done next.}
+
+{ATTACHMENT CRULE S-PREDP S OVER PREDP
+If the lower node is pp then
+	Associate a new case frame with the lower node;
+	The prep of the lower node fills the pred slot of lower;
+	The np of lower fills an obj slot of lower.
+Associate the case frame of lower with the s above lower.
+The np of the s above lower fills the subj slot of lower.}
+
+{ATTACHMENT CRULE S-PP  S OVER PP
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The prep of the lower node fills the pred slot of lower.
+The np of lower fills an obj slot of lower.
+Create a new * node labelled s.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{CREATION CRULE *-DUMMY *
+%All * nodes should disappear when dropped, so we make them look attached.%
+Set the father of c to t.}
+
+{RULE PP-UNDER-VP-2 IN EMBEDDED-S-VP
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+	then attach 1st to c as pp
+else run embedded-vp-done next.}
+
+{ATTACHMENT CRULE VP-PP  VP OVER PP
+The lower node fills a pp slot of the upper node.}
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 15:04:35 1987
+Posted-Date: Sun, 22 Nov 87 13:55 EST
+Received-Date: Sun, 22 Nov 87 15:04:32 EST
+Message-Id: <8711222004.AA01182@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 15:02 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ab15296; 22 Nov 87 14:43 EST
+Received: from btl by csnet-relay.csnet id ai13624; 22 Nov 87 14:37 EST
+Date: Sun, 22 Nov 87 13:55 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: load.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(allocate 'fixnum 40.)
+(allocate 'symbol 115.)
+(allocate 'list 800.)
+(chdir '/usr/mitch/lisp)
+(fasl 'parsifal/fixes)
+(fasl 'util/set)
+(fasl 'parsifal/myutil)
+(fasl 'parsifal/glang)
+      ;(load 'parsifal/glang.l) 
+(fasl 'parsifal/parse)
+(fasl 'parsifal/case)
+(fasl 'parsifal/com)
+(fasl 'parsifal/util)
+
+(setq ttysw t)
+(setq pswait nil)
+(push 'df indexforms)
+(push 'rule indexforms)
+(push 'jlike indexforms)
+
+(gc)
+(setq gcdisable t)
+(cload 'parsifal/gram1.l)
+(gc)
+(setq gcdisable t)
+(cload 'parsifal/gram2.l)
+(setq gcdisable nil)
+(gc)
+(setq gcdisable t)
+(cload 'parsifal/gram3.l)
+(setq gcdisable nil)
+(gc)
+(setq gcdisable t)
+(cload 'parsifal/gram4.l)
+(setq gcdisable nil)
+(gc)
+(setq gcdisable t)
+(cload 'parsifal/gram5.l)
+(setq gcdisable nil)
+(let ($warn_on_redefine)
+  (cload 'parsifal/defs.l)
+  (cload 'parsifal/newdef.l))
+(load 'util/prinutil)
+(terpri)
+(drain poport)
+(progn (resetio) (setq user-top-level 'parsifal)
+  (reset))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 15:04:55 1987
+Posted-Date: Sun, 22 Nov 87 13:56 EST
+Received-Date: Sun, 22 Nov 87 15:04:50 EST
+Message-Id: <8711222004.AA01192@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 15:03 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ad15296; 22 Nov 87 14:43 EST
+Received: from btl by csnet-relay.csnet id aj13624; 22 Nov 87 14:38 EST
+Date: Sun, 22 Nov 87 13:56 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: xutil.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+;;lisp utilities not in (or variant from) PA;UTIL > used by MITCH
+(declare (setsyntax '\# 2))
+(declare (macros t))
+(setq fasload nil)
+(*rset t)
+(setq defun t)
+(prints '|****   *RSET switch is on.    ****|)
+(prints '|****   DEFUN setq'd to T      ****|)
+
+
+(fasload split fasl dsk liblsp)
+(defun chrct (tty) (- (linel tty) (charpos tty)))
+;;;^P -- loads PARSIFAL
+(sstatus ttyint '\ '(lambda (f char) (nointerrupt nil)  (floadparsfl)))
+;;;^^ -- shows parser state
+(sstatus ttyint '\ '(lambda (f char) (nointerrupt nil)  (pstate)))
+;;;^@ -- split parser display
+(sstatus ttyint 0.
+	 '(lambda (f char)
+		  (nointerrupt nil)
+		  (pdisplay (not :displayflag))
+		  (princ '*)))
+;;;^A -- record screen
+(sstatus ttyint '\ '(lambda (f char) (nointerrupt nil)  (record))))
+;;;^t -- trace
+(sstatus ttyint 20. 'trace-interupt)
+ 
+(setq *rset-trap '*rset-trap-handler)
+
+(sstatus macro \" 'readstring)
+(prints '|****   String hacker enabled.    ****|)
+
+;;LEDIT setup
+(setq ledit-named-forms '(defun setq def jlike rule crule macrodef redund
+                           prefix suffix infix infixm nilfix))
+(putprop 'sprint (get 'sprinter 'autoload) 'autoload)
+(putprop 'step '(step fasl dsk liblsp) 'autoload)
+(putprop 'bt '(debug fasl dsk liblsp) 'autoload)
+(putprop 'debug '(debug fasl dsk liblsp) 'autoload)
+(setq warnsw t)
+
+
+
+
+;;Parisfal loading functions
+(defun loadparsfl nil
+       (cursorpos 'c)
+       (alloc '(list (70000 150000 .2)
+		     symbol
+		     (4000 4000. 400)
+		     fixnum
+		     (5000 15000 .2)))
+       (princ 'loading\ parsifal)
+       (terpri)
+       (loadfuns pfiles)) 
+
+;;loadfuns expects a list of files to load.
+;;load-defaults is a global variable that can be set to the default list>
+
+(defun floadparsfl nil
+       (clear-input t)
+       (nointerrupt nil)
+       (prints '|Load PARSIFAL? Type space if Yes--|)
+       (progn (cond ((eq (tyi) 40)
+		     (loadparsfl)
+                     (cursorpos 'c)
+		     (switches)
+		     (sstatus toplevel '(parsifal)))
+		    (t (prints '|Aborted.|)))))
+
+(declare (*fexpr fload cload))
+
+(defun unglang fexpr (x)
+       (ifnot (get 'glang-to-lisp 'fsubr) (fload @glang))
+       (glang-setup)
+       (apply 'glang-to-lisp x))
+
+(defun parser! nil
+       (fasload @com fasl dsk mitch)
+       (fasload @parse)
+       (fasload @case)
+       (fasload ^rule)
+       (ifnot (getl 'glang-setup '(subr expr))
+              (defun glang-setup nil nil))
+       (cload @defs)
+       (cload @gram1 lisp dsk mitch)
+       (setq :parsifal-as-subroutine t))
+
+
+
+(defun loadfun*  (fnames loaders)
+       (mapc '(lambda (loader file)
+		      (or (eq loader 'n)
+			  (apply (cdr (assq loader
+					    '((f . fasload)
+					      (d . fload)
+                                              (r . refasl)
+                                              (x . fload*)
+					      (c . cload))))
+				 (list file))))
+	     loaders fnames)
+       (prints '|All files loaded|))
+
+
+(defun ##retrace? (form)
+       (if* (and (eq (car form) 'defun)
+                (get 'trace 'fsubr)
+                (memq (cadr form) (trace)))
+           (push (cadr form) ##retrace-list)))
+
+(defun ##retrace! nil
+       (if* ##retrace-list
+	   (apply 'trace ##retrace-list)
+	   (say |Retraced because editted:| $ ##retrace-list))
+       (setq ##retrace-list nil))
+
+(setq ##retrace-list nil)
+(setq ##ledit-pre-eval-func '##retrace?)
+(setq ##ledit-post-teco-func '##retrace!)
+
+
+;; use ddt tty interrupt for bottom of screen since more reliable
+(pagel tyo 10000)
+
+;;; default --MORE-- handler
+(endpagefn tyo 'pagepause)
+
+
+(defun pagepause (tty)
+       ;;; function to pause at bottom of page
+       ;;; tty is output tty which is interrupted
+       ;;; like oldio (sstatus pagep)
+       ;;; output proceeds only if a <sp> or <cr> typed
+       ;;; anything else aborts type-out
+       ;;; <sp> rolls typeout
+       ;;; <cr> clears screen and continues at top
+       ;;; NOTE: (1) characters typed are NOT gobbled
+       ;;;       (2) ctl-G or ctl-S interrupts can be used
+       (clear-input t)
+       (princ '--more-- tty)
+       (nointerrupt nil)
+       ((lambda (char)
+                (cond ((= 32. char) (cursorpos 'top tty)(cursorpos 'l tty))
+                      ((= 13. char)(cursorpos 'c tty))
+                      (t (princ '|FLUSHED|)
+                         (cursorpos 'top tty)
+                         (cursorpos 'l tty)
+                         (prog (*rset) (error)))))
+        (tyipeek)))	
+
+(defun dp1 (l)
+       (do ((pl (plist l) (cddr pl)))
+           ((null pl))
+		 (terpri)
+		 (print (car pl))
+                 (sprint (cadr pl) (- (linel t) 12.) 0)))
+
+(prints '|utilities in xutil > loaded.|)
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:47:47 1987
+Posted-Date: Sun, 22 Nov 87 14:02 EST
+Received-Date: Sun, 22 Nov 87 18:47:35 EST
+Message-Id: <8711222347.AA02780@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:45 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00954; 22 Nov 87 18:41 EST
+Received: from btl by csnet-relay.csnet id ak14592; 22 Nov 87 18:33 EST
+Date: Sun, 22 Nov 87 14:02 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: testdef.l
+To: research!mitch@linc.cis.upenn.edu
+Status: RO
+
+
+(setsyntax '\# 2)
+
+
+;;Redundant feature specifications
+;;(redundef en adj) ;; part)
+;;(redundef ing adj part)
+(redund ngstart (det adj noun quant num ord pronoun))
+(redund verb (pres past future tnsless))
+(redund auxverb (modal))
+
+;;The verb type tree
+(redund comp-obj (inf-obj that-obj))
+(redund inf-obj (subj-less-inf-obj 2-obj-inf-obj
+		    to-be-less-inf-obj no-subj to-less-inf-obj))
+(redund 2-obj-inf-obj (obj-binds-delta subj-binds-delta))
+
+
+;;Cases -
+;;A case's markerset is of the form : (# <semantic feats that indicate an
+;; excellent "fit" for this case> # <feats that indicate an acceptable fit>)
+;;This set is a mixed bag of cases.  At some point it will be necessary to
+;;come up with a consistent set, but this will be easy, I think.
+
+(df agt markerset (# hanim # anim)) 
+(df dat markerset (# hanim # anim)) 
+;;Location should go to Allative, Trajectory, Ablative, Locative, Gen-locative
+(df loc markerset (# place # inanim)) 
+(df neut markerset (all))
+(df pfrom markerset (# place # event socev inanim))
+(df pto markerset (# place # event socev inanim))
+(df pat markerset (# time # place)) ;;added by candy
+(df puntil markerset (# time # place)) ;;added by candy
+(df pdur markerset (# measure #))
+
+(df time markerset (# time event #))
+
+;;The whole distinction between Agent and Instrument is probably wrong.
+(df ins markerset (# inanim #)) 
+(df com markerset (# hanim # anim)) 
+(df manner)
+(df exch markerset (# money # physob anim inanim hanim))
+(df benef markerset (# hanim # anim inanim physob))
+(df source markerset (# hanim anim inanim physob #))
+(df goal markerset (# hanim anim inanim physob #))
+(df ess markerset (# hanim anim inanim physob #))
+(df genloc markerset (# place # inanim))
+(setq refillables '(time))
+
+(setq :nr-types '(np nbar s))
+(setq :as-types '(noun pronoun verb adj num quant det ord prep poss-np))
+(setq :specregs '(quant type cases-marked-by case-frame neut ess markers))
+(setq :parts-of-speech '(noun verb adj det quant num ord name punc prep pronoun ))
+(setq :sentence-types '(decl ynquest imper whquest inf-s))
+
+;;VERBS
+
+(abbrev act (event action))
+(df go feats ( pres tnsless v-3s)
+     cf (nil (pfrom) (pto) agt)
+     markers act)
+
+(df gone irreg (go (en) (tnsless v-3s)))
+
+(df went irreg (go (past vspl) (tnsless v-3s pres)))
+
+(df come feats ( pres tnsless ed v-3s)
+     cf ((pfrom) (pto) agt)
+     markers act)
+(df came irreg (come (past vspl) (tnsless v-3s pres)))
+
+(jlike walk go)
+(jlike run go)
+(df break
+     feats ( pres tnsless v-3s)
+     cf (neut   (ins) (agt))
+     neut (# physob inanim socev #)
+     markers act)
+
+(df give
+     feats ( pres tnsless v-3s)
+     cf ((*obj dat) neut  (dat) agt)
+     neut (# hanim  # anim inanim physob)
+     markers act)
+
+(df want feats (pres tnsless v-3s  subj-less-inf-obj ed=en)
+     cf (neut  agt)
+     neut (# physob inf-comp #)
+     markers (state))
+
+(df seem feats (pres tnsless v-3s that-obj to-be-less-inf-obj no-subj)
+     cf (neut)
+     neut ( # inf-comp that-comp # )
+     markers (state))
+
+
+(df believe feats ( pres tnsless v-3s  inf-obj that-obj ed=en)
+     cf (neut  agt)
+     neut (# hanim inf-comp that-comp #)
+     markers (state))
+
+(jlike know believe 
+       feats (nil (ed=en)))
+
+(df knew irreg (know (past vspl) (tnsless pres v-3s)))
+(df known irreg (know (en) (tnsless pres v-3s)))
+
+(df tell feats (pres tnsless v-3s obj-binds-delta comp-2-obj inf-obj that-obj)
+     cf ((*obj dat) (neut) (dat) agt)
+     neut (# inf-comp that-comp fact mentob # abstr-ob #)
+     preps (about (neut))
+     markers act) ;;changed by candy
+
+(df told irreg (tell (past vspl en ed) (pres tnsless v-3s)))
+
+(jlike persuade tell
+       feats ((ed=en) nil)) ;;changed by candy (and partially corrected by mitch)
+
+(jlike invite persuade
+       neut (# inf-comp event socev #)
+       preps (to (neut)))  ;;done by candy
+
+(jlike say tell
+       feats (nil (comp-2-obj))
+       cases (nil (*obj))
+       neut (# inf-comp that-comp #))
+
+(df said irreg (say (past vspl en) (tnsless pres v-3s)))
+
+(jlike promise persuade
+       feats ((subj-binds-delta) (obj-binds-delta)))
+
+(jlike ask persuade
+       feats ((indirect-q-obj) (that-obj)))
+
+(df shot irreg (shoot (past vspl ed en) (pres tnsless v-3s)))
+(df gave irreg (give (past vspl) (tnsless pres v-3s)))
+(df broke irreg (break (past vspl) (tnsless pres v-3s))) 
+
+;;these definitions don't include case frames for now.
+(df be feats (tnsless auxverb) cf (ess neut) neut (all) markers (state))
+(df is irreg (be (pres v3s) (tnsless)))
+(df am irreg (be (pres v1s) (tnsless)))
+(df are irreg (be (pres vpl+2s) (tnsless)))
+(df was irreg (be (past v13s) (tnsless)))
+(df were irreg (be (past vpl+2s) (tnsless)))
+(df will feats ( vspl auxverb future dummy))
+;;did defined only as auxiliary here
+(df do feats ( v-3s auxverb tnsless pres)
+     cf (neut  (ins) agt)
+     neut (# event thing #))
+(df does irreg (do (v3s) (v-3s tnsless)))
+(df did irreg (do (past vspl) (pres v-3s tnsless)))
+(df done irreg (do (en) (pres v-3s tnsless)))
+(df have feats (tnsless auxverb pres v-3s inf-obj to-less-inf-obj subj-less-inf-obj)
+     cf (neut agt)
+     markers (event)
+     neut (all))
+(df has irreg (have (v3s) (v-3s tnsless)))
+(df had irreg (have (past vspl) (v-3s pres tnsless)))
+(df can feats ( auxverb modal vspl pres))
+(df could irreg (can (past) (pres)))
+
+
+;;Quantifiers
+(df which feats (*which) quant which)
+(df all feats (quant npl) quant all)
+;;Numbers
+(abbrev twos (num ones npl n3p ))
+(abbrev second (ord num ones npl n3p))
+(abbrev tens (num tens ns n3p ))
+(abbrev tenth (ord num tens n2 n3p))
+(abbrev elevens (num 99s ns n3p ))
+(abbrev eleventh (ord num 99s ns n3p))
+(df one feats (num ones ns n3p ) quant 1)
+(df twenty feats tens quant 20.)
+(df hundred feats (num npl ) quant 100.)
+
+
+;;Pronouns
+
+(df who feats (pronoun relpron ns npl wh) markers (hanim))
+(df wh\- feats (pronoun relpron ns npl wh) markers (hanim physob))
+;;need to handle ambiguity here
+(df what feats (ngstart det\\relpron-ambig))
+;;whether that is used as a det or comp is decided
+;;by a grammar rule
+(df that feats (det\\comp-ambig) markers (physob))
+
+(df i feats (pronoun ns n1p) markers (hanim physob))
+(df me irreg (i nil nil))
+(df my irreg (i (poss-pronoun) nil))
+(df we feats (pronoun npl n1p) markers (hanim physob))
+(df us irreg (we nil nil))
+(df our irreg (we (poss-pronoun) nil))
+(df you feats (pronoun ns npl n2p) markers (hanim))
+(df your irreg (you (poss-pronoun) nil))
+(df he feats (pronoun ns n3p) markers (hanim physob))
+(df him irreg (he nil nil))
+(df his irreg (he (poss-pronoun) nil))
+(df she feats (pronoun ns n3p) markers (hanim physob))
+(df her irreg (she nil nil))
+(df hers irreg (she (poss-pronoun) nil))
+(df it feats (pronoun ns n3p) markers (inanim physob event mentob))
+(df its irreg (it (poss-pronoun) nil))
+(df they feats (pronoun npl n3p) markers (hanim physob))
+(df them irreg (they nil nil))
+(df their irreg (they (poss-pronoun) nil))
+
+
+;;Nouns
+(df destruction feats (noun ns)
+     markers (event)  
+     cf ((neut) (ins) (agt))
+     neut (# physob inanim place #))
+
+(df mitch feats (noun ns n3p propnoun name) markers (hanim))
+
+(df there feats (noun pseudopropnoun place ns n3p) markers (place))
+(df monday feats (noun ns n3p day-of-week time) markers (time))
+
+(df january feats (noun ns n3p time month) markers (time))
+(df boy feats (noun ns n3p) markers (hanim physob))
+(jlike girl boy)
+(jlike man boy)
+(jlike woman boy)
+(df men irreg (man (npl) (ns)))
+(df women irreg (woman (npl) (ns)))
+
+(df block feats (noun ns n3p) markers (inanim physob))
+(df pound feats (noun ns n3p measure) markers (measure))
+
+(abbrev allphysobs  (# physob hanim anim inanim #))
+;;Adjectives
+(df next feats (ord general-ord))
+(df last feats (ord general-ord))
+(df red feats (adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(df big  feats (adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(jlike little big)
+(df wide feats (measure adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(df small feats (adj))
+(jlike stupid smart)
+(jlike careful smart)
+(df bright feats (adj adv degree)
+     cf  (neut)
+     markers (state)
+     neut (# physob anim inanim #))
+;;Determiners
+(df the feats (det ns n3p npl def))
+(df a feats (det ns n3p indef))
+(df an irreg (a nil nil))
+(df \'s feats (poss))
+;;Prepositions
+(abbrev prepcf (ess neut))
+(df with feats (prep) cases-marked-by (ins com)) 
+(df to feats (prep auxverb) cases-marked-by (dat time pto))
+(df on feats (prep)					
+     cf prepcf
+     ess  (# time place physob #)
+     neut (all)
+     cases-marked-by (loc time))
+(jlike in on)
+
+(jlike at on) ;;To a first approximation
+(df by feats (prep) cases-marked-by (agt loc time))
+(df of feats (prep) cases-marked-by  nil)
+(df for feats (prep) cases-marked-by (benef exch time goal pdur))
+(df from feats (prep) cases-marked-by (source time pfrom))
+
+;;Punctuation
+(df ? feats (finalpunc punc qpunc))
+(df \. feats (finalpunc punc)) 
+(df \, feats (punc))
+
+
+;;Randomness- unfilled for now.
+(df and feats (none-for-now))
+
+;;Definitions added on the fly by the "just like" feature
+
+(jlike mary mitch) 
+(jlike sue mitch) 
+(jlike bill john) 
+(jlike john mitch) 
+(jlike book box) 
+(jlike like want) 
+(jlike would could) 
+
+(jlike \'d would) 
+(jlike \'ll will) 
+ 
+(jlike expect believe) 
+(jlike here home) 
+(jlike exam meeting) 
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:47:53 1987
+Posted-Date: Sun, 22 Nov 87 14:03 EST
+Received-Date: Sun, 22 Nov 87 18:47:48 EST
+Message-Id: <8711222347.AA02792@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:46 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00958; 22 Nov 87 18:41 EST
+Received: from btl by csnet-relay.csnet id al14592; 22 Nov 87 18:35 EST
+Date: Sun, 22 Nov 87 14:03 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: newdef.l
+To: research!mitch@linc.cis.upenn.edu
+Status: RO
+
+
+
+(jlike canary dog)
+(jlike bit hit)
+(jlike roads block)
+(jlike flooded left)
+(jlike storm man)
+(jlike reena mitch)
+(jlike tired sad)
+(jlike read see)
+
+(jlike jump run)
+(jlike lake store)
+(jlike reasons men)
+(jlike leave go)
+(jlike fact place)
+(jlike clear good)
+(jlike learn see)
+(jlike mountain place)
+(jlike margaret mitch)
+(jlike please read)
+(jlike everyone he)
+(jlike owns has)
+(jlike where what)
+(jlike why what)
+(jlike |"yesterday| yesterday)
+(jlike |left."| left)
+(jlike both all)
+(jlike ft left)
+(jlike visit go)
+(jlike watched saw)
+(jlike wwtold told)
+(jlike work be)
+(jlike hungry tall)
+(jlike young big)
+(jlike drank read)
+(jlike happpy happy)
+(jlike face store)
+(jlike stick book)
+(jlike love store)
+(jlike sing read)
+(jlike fist foot)
+(jlike paint hit)
+(jlike finished read)
+(jlike stop read)
+(jlike sems seems)
+(jlike hit read)
+(jlike room store)
+(jlike find read)
+(jlike bly boy)
+(jlike stay read)
+(jlike ubjugated read)
+
+(jlike took read)
+(jlike watch see)
+(jlike admire see)
+(jlike win read)
+(jlike son man)
+(jlike story book)
+(jlike person man)
+
+(jlike suceed read)
+(jlike stood went)
+(jlike story book)
+(jlike spot mitch)
+(jlike foo go)
+(jlike birthday party)
+(jlike covers the)
+(jlike reports book)
+(jlike covers book)
+(jlike p book)
+(jlike old good)
+(jlike wrote scheduled)
+(jlike sasha sue)
+(jlike watch see)
+(jlike that1 this)
+(jlike kicked hit)
+(jlike bucket house)
+(jlike can1 bucket)
+(jlike can2 store)
+
+(jlike painted schedule)
+(jlike lion dog)
+(jlike yet now)
+

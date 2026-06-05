@@ -1,0 +1,27 @@
+You are now in a READ-EVAL-PRINT loop, with the exception that certain 
+atoms flag special actions. They are:
+time	Print parse time for last sentence.
+ctree	Prints case tree.
+ftree	Prints annotated surface structure tree with labels.
+tree	"         "        "        "        "  w\\o    "   .
+ntree	"         "        "        "        "  with node names.
+ltree   ntree + ftree
+lisp    Flush this toplevel loop, restoring lisp's toplevel.
+p	Call the Parser.
+The parser prompts with >.
+Type a sentence finishing with a final punctuation mark and then a <return>.
+To repeat parsing of last sentence type <ESC> S <return>.
+To trace parse type "(ptrace)".  To clear trace "(runfast)".
+To trace case frame stuff "(ctrace t)". To clear "(ctrace nil)".
+To complement "Movie" trace mode, type cntrl-G <return>.
+	(In this state the atom PSWAIT determines the time between frames.
+	 It can be set to either 0, in which case the parser runs
+	 continuously, or NIL, in which case the parser will 
+	 wait for a space to be typed between frames.)
+	(typing "(noshow t)" surpresses display of most low level constituent
+	construction. "(noshow nil)" will display everything.
+	"(noshow packet1 packet2 .... packetn)" surpresses display 
+	of any rules in these packets.)
+
+To see parser state, type (pstate).
+

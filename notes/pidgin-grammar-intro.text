@@ -1,0 +1,88 @@
+
+A SAMPLE GRAMMAR
+
+This appendix documents the grammar written for PARSIFAL as of July 1977. This
+grammar has served two purposes; it been a testbed for grammar rule development,
+and it is also the grammar used by the natural language understanding system
+which serves as front end for the MIT Al Lab Personal Assistant Project. The
+NP-level rules in this grammar typically were written for the particular needs
+of the Personal Assistant, and for these rules I claim little generality; the
+clause-level rules, on the other hand, typically attempt to capture significant
+linguistic generalizations. Indeed, wherever a generalization has been missed,
+the grammar will typically so note.
+
+I make no claims for the size of this grammar; less than two months work has
+gone into the coding of this particular set of rules. It should be noted,
+however, that much of this grammar derives from an earlier grammar written for
+an earlier parser of the same sort. This grammar was the product of
+approximately four months effort. Much of the grammar for this earlier parser
+has yet to be recoded, since it has not been relevant to the PA project.
+
+Special effort has gone into assuring that the clause-level grammar is robust; I
+have attempted to test the grammar on fairly complex cases involving the
+interaction of many different rules. The first section of this appendix includes
+an example set of sentences that the parser can handle; it should be clear to
+the reader exactly what phenomena each sentence is attempting to test.  It
+should be noted that there are elements of this grammar that are not reported on
+in this document; these include the notion of Node Reactivation Rules (NR
+Rules), and the PP attachment semantic tests. The CRULES in the grammar
+interface the parser to the case frame mechanism; these are explained in
+Appendix E. These facilities are all under development, and no claims are made
+for any of them; they are included here for the sake of completeness.
+
+A note about the running time of this parser is in order.
+
+For this grammar, running in MACLISP [Moon 74] on the KA-10 version of the
+PDP-10 computer, these sentences take less then 1 sec/word to parse, including
+the time taken by the case frame interpreter documented in Appendix E. The
+reader should note that because the parser operates strictly deterministically,
+the time taken to parse any given sentence handled by this grammar is
+approximately a linear function of the number of words in the sentence.
+
+Some Example Sentences
+These sentences were all successfully parsed by the grammar included in the next
+section. This set of examples exercises only one portion of the clause level
+grammar; it is an attempt to show that a range of complex linguistic phenomena
+are handled robustly by the parser.
+
+I told that boy that boys should do it.
+The jar seems broken.
+There seems to be a jar broken.
+I wanted John to do it.
+I want to do it.
+I persuaded John to do it.
+There seems to have been a meeting scheduled for friday.
+Schedule a meeting for friday.
+Is there a meeting scheduled for friday?
+Does there seem to be a meeting scheduled for friday?
+A meeting seems to have been scheduled for Friday.
+I told the boy that I saw Sue.
+I told Sue you would schedule the meeting.
+I told the girl that you would schedule the meeting.
+The boy who wanted to meet you scheduled the meeting.
+The boy who met you scheduled the meeting.
+The boy who you met scheduled the meeting.
+The boy you met scheduled the meeting.
+
+Who did John see?
+Who broke the jar?
+What did Bob give to Sue?
+Who did Bob give the book?
+Who did Bob give the book to?
+What did Bob give Sue?
+I promised John to do it.
+Who did you say that Bill told?
+You promised to give the book to John.
+Who did you promise to give the book to?
+Who did you promise to schedule the meeting?
+Who did you say scheduled the meeting?
+Who did you persuade to do it?
+What did you give Sue yesterday?
+Who did you give the book yesterday?
+Who did you ask to schedule the meeting?
+Who do you want to give a book to tomorrow?
+Who did you want to give a book to Sue?
+I gave the boy who you wanted to give the books
+to three books.
+Who did you prornise to give the book to tomorrow?
+Who did you promise to give the book to Sue tomorrow?

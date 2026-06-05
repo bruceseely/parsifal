@@ -1,0 +1,108 @@
+
+A Key to Features in the Sample Grammar
+
+2-OBJ-INF-OBJ: verbs like "persuade" that take 2 objects, one an Infinitive
+ggS: phrase like "fifty seven"
+AUXVERB: auxiliary verb
+BAD: marks a constituent that Is ungrammatical
+BIGNUM+: see the number grammar
+BIGNUMG: "bignumber group"; don't ask, you don't want to know
+COMP: complement markers like "that" and "for"
+COMP-NP: NP node that dominates a complement S
+COMP-OBJ: verb that takes some sort of complement as object
+COMP-S: S which serves as a complement (oops! this is extrinsic.)
+COMPLEX-NOUN: things like "Jon Jones", "April 5th"; treated like complex nouns
+COMPLEX-NOUN-NP: a patch; an NP which is treated as a "complex noun"
+COPULA:  copular auxiliary
+DATE:  phrase which is a date
+DECL:  declarative S
+DEF:  definite, of either an article or an NP
+DELTA:  unbound trace; "controlled" lexically
+DET:  determiner
+DETQ:  quantifier like "many" that can follow a determiner
+EN:  verb with an "en" ending, no matter how spelled
+EXISTENTIAL:  existential S, l.e. "there are...."
+FINALPUNC:  final punctuation mark
+FUTURE:  future tense
+GENERAL-ORD:  ordinal like "next"
+HOUR:  phrase like "2: 30"
+HUNDRED+:  see the number grammar
+IMPER:  imperative
+INDEF:  indefinite, of either an article or an NP
+INF:  infinitive verb form
+INF-OBJ:  verb that can take an infinitive complement as object
+INF-S:  infinitive S
+ING:  verb with an "ing" ending, no matter how spelled
+LISTNUM:  see the number grammar
+MAJOR:  major S
+MASSN:  mass noun
+MASSNP:  NP whose head is a mass noun
+MEASURE:  measure phrase like "ten foot"
+MODAL:  ambiguous; either a modal or an aux with an attached modal
+NIP:  noun 1st person
+N2P:  noun, 2nd person
+N3P:  noun 3rd person, of nouns, and dets (e.g. the), etc.
+NAME:  name; e.g. "John"
+NBAR:  N' node
+NEXT-TIME-NP:  a hack; you don't want to know
+NGSTART:  anything that could start an NP.
+NO-SUBJ:  verbs that have delta subjects, realized as "it" sometimes, like "seems"
+NOT-MODIFIABLE:  np which can take no restrictive modifiers
+NP:  noun phrase
+NP-PREPOSED:  S with an NP preposed into subject position
+NP-QUEST:  question in which the np is fronted
+NP-UTTERANCE:  utterance consisting only of an NP
+NPL:  noun plural, of either nouns, or quantifiers like "some"
+NS:  noun singular, of either nouns, or dets like "a", etc.
+NUM:  number
+NUMQP:  quantifier phrase that dominates a number
+OBJ-BINDS-DELTA:   verb whose object binds the delta subj of an embedded clause
+ONES:   word like "two", "five", etc.
+ORDQP:   quantifier phrase that dominates an ordinal
+PART:   participle
+PASSIVE:   passive verb
+PAST: past tense
+PERF: perfective
+POSS-DET: possessive determiner
+POSS-NP: NP with a possessive determiner
+PP-QUEST: question in which the pp is fronted
+PP-UTTERANCE: utterance consisting only of a PP
+PRED-VERB: anything which can follow a copula and Introduce a predicate phrase
+PREDP: predicate phrase; follows a copula
+PRES: present tense
+PROG: progressive
+PRON-NP: NP that dominates a pronoun
+PROP-NP: NP whose head is a proper noun
+PROPN-NP: NP that dominates a proper noun
+PROPNOUN: proper noun
+PSEUDOPROPNOUN: noun like "tomorrow" that behaves as If it were a proper noun
+QP: quantifier phrase
+QUANT: quantifier
+QUANT-NP: NP consisting only of a quantifier, like "three"
+QUEST: any kind of question
+RELATIVE: relative clause
+RELPRON: relative pronoun
+SEC: secondary, l.e. a non-major, S
+SLIGHTLY-BAD: slightly unacceptable constituent
+SUBJ-BINDS-DELTA: verb whose subject binds the delta subj of an embedded clause
+SUBJ-LESS-INF-OBJ: verbs like "want"
+TENS: word like "ten", "twenty", etc.
+THAT-OBJ: verb that takes a tensed complement
+THAT-S: embedded finite complement
+TIME: time word or phrase
+TNSLESS: tenseless verb
+TO-LESS-INF-OBJ: verb that takes infinitives, but w/o "to be", e.g. "John seemed happy."
+TO-BE-LESS-INF-OBJ: verb like "help" that takes Infinitives but w/o "to", e.g. "1 helped him do it."
+TRACE: np which is a trace
+UTILIZED: WH-comp whose corresponding "gap" has been found
+V+13S: this verb agrees with a 1st or 3rd person singular noun
+V-3S: this verb agrees with any noun unless It Is 3rd singular
+V1S: this verb agrees only with a 1st sing noun - "am"
+V3S: this verb matches a 3rd singular noun
+VERY-BAD: very unacceptable constituent
+VPL+2S: this verb agrees with any plural or a 2nd person sing. noun
+VSPL: this verb agrees with any noun, both singular and plural
+WH: anything with a wh marker, either a det or an np with such a det
+WHCOMP: any sort of wh phrase phrase
+YEAR: which is a year
+YNQUEST: yes/no question

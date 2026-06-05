@@ -1,0 +1,1141 @@
+S;
+;;; Pidgin Grammar as of 7/77
+;;; A key to the features used below is given following the grammar.
+;;; %THE PARSER, BY CONVENTION, INITIALLY CALLS THE RULE INITAL-RULE.%
+
+{RULE INITIAL-RULE IN NOWHERE
+[t] -->
+Create a new s node.
+!(setq s c).%So that the structure is around after the parse is done.%
+Activate cpool, ss-start.}
+
+
+(COMMENT FRAGMENT UTTERANCES)
+
+{RULE NP-UTTERANCE IN SS-START
+[=np] [=finalpunc] -->
+Label c np-utterance.
+Attach 1st to c as np.
+Attach 2nd to c as finalpunc.
+The parse is finished.}
+
+{RULE PP-UTTERANCE IN SS-START
+[=pp] [=finalpunc] -->
+Label c pp-utterance.
+Attach 1st to c as pp.
+Attach 2nd to c as finalpunc.
+The parse is finished.}
+
+
+(COMMENT INITIATE MAJOR CLAUSES)
+
+{RULE MAJOR-DECL-S IN SS-START
+[=np][=verb] -->
+Label c decl, major.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE YES-NO-Q IN SS-START
+[=auxverb][=np] -->
+Label c quest, ynquest, major.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE IMPERATIVE IN SS-START
+[=tnsless] -->
+Label c imper, major.
+Insert the word 'you' into the buffer.
+Deactivate ss-start. Activate parse-subj.}
+
+{RULE HAVE-DIAG PRIORITY: 5 IN SS-START
+[=*have, tnsless] [=np] [t] -->
+%If can't prove it's not a yes-no-q then assume it is.%
+If 2nd is ns, n3p or 3rd is not verb or 3rd is tnsless
+   then run imperative next
+   else run yes-no-q next.}
+
+{RULE WH-QUEST PRIORITY: 5 IN SS-START
+[=wh] [=verb] -->
+Label c major, quest, wh-quest.
+Attach 1st to c as whcomp.
+If 1st is a pp then label c pp-quest else
+If 1st is a np then label c np-quest.
+Deactivate ss-start. Activate parse-subj, wh-pool.}
+
+
+(COMMENT SUBJECT PARSING)
+
+{RULE UNMARKED-ORDER IN PARSE-SUBJ
+[=np] [=verb] -->
+Attach 1st to c as np
+Deactivate parse-subj. Activate parse-aux.}
+
+{RULE AUX-INVERSION IN PARSE-SUBJ
+[=auxverb][=np] -->
+Attach 2nd to c as np.
+Deactivate parse-subj. Activate parse-aux.}
+
+{RULE SUBJ-QUEST? PRIORITY: 5. IN PARSE-SUBJ
+[=verb] [** c; * is np-quest] [=p] [t] -->
+if 1st is not auxverb or 3rd is not verb
+  then create a new np node labelled trace, not-modifiable;
+       set the binding of c to WH-comp;
+       drop c:
+       label WH-comp utilized
+  else run aux-inversion next.}
+
+
+(COMMENT RULES FOR BUILDING AUXILIARIES)
+
+{RULE STARTAUX IN PARSE-AUX
+[=verb] -->
+Create a new aux node.
+Transfer vspl, v1s, v+13s, vpl+2s, v-3s, v3s from 1st to c.
+% (The above features are "person/number codes", e.g. "vpl+2s" means that this verb goes with any plural or 2nd person singular np as subject. The verb "are" has this feature.)% Transfer pres, past, future, tnsless from 1st to c.
+Activate build-aux, cpool.}
+
+{RULE TO-INFINITIVE IN PARSE-AUX
+[=*to, auxverb] [=tnsless] -->
+Label a new aux node inf.
+Attach 1st to c as to.
+Activate build-aux, cpool.}
+
+{RULE AUX-ATTACH IN PARSE-AUX
+[=aux] -->
+Attach 1st to c as aux.
+Activate parse-vp. Deactivate parse-aux.}
+
+{RULE PERFECTIVE IN BUILD-AUX
+[=*have][=en] --> Attach 1st to c as perf. Label c perf.}
+
+{RULE PROGRESSIVE IN BUILD-AUX
+[=*be] [=ing] --> Attach 1st to c as prog. Label c prog.}
+
+{RULE PASSIVE-AUX IN BUILD-AUX
+[=*be] [=en] --> Attach 1st to c as passive. Label 2nd passive.}
+
+{RULE MODAL IN BUILD-AUX
+[=modal] [=tnsless] --> Attach 1st to c as modal. Label c modal.}
+
+{RULE FUTURE IN BUILD-AUX
+[=*will] [=tnsless] --> Attach 1st to c as will. Label c future.}
+
+{RULE DO-SUPPORT IN BUILD-AUX
+[=*do][=tnsless] --> Attach 1st to c as do.}
+
+{RULE BE-PRED IN BUILD-AUX
+[=*be] [* is any of prep, adj; * is not part] --> Attach 1st to c as copula.
+Label c copula.
+Label 2nd verb, pred-verb.}
+
+{RULE AUX-COMPLETE PRIORITY: 15. IN BUILD-AUX
+[t] --> Drop c into the buffer.}
+
+{RULE THERE IN BUILD-AUX
+[=*be][=p]
+[** c; the noun of the nbar of the binding of the np of the current s is *there] -->
+Label the current s existential.
+Attach 2nd to the current s as np.}
+
+
+(COMMENT VERB PROCESSING)
+
+{RULE main-verb IN PARSE-VP
+[=verb] -->
+%Set up state of S node%
+Deactivate parse-vp.
+If c is major then activate ss-final else
+If c is sec then activate emb-s-final.
+%Attach VP and V.%
+Attach a new vp node to c as vp.
+Attach 1st to c %which is now the vp% as verb.
+Activate cpool.
+%Activate packets to parse objects and complements.%
+If there is a verb of c and it is passive
+   then activate passive; run passive next.
+%The following is close to an explicit system of verb types.%
+If it is inf-obj then
+if it is to-less-inf-obj then activate to-less-Inf-comp andthen if it is to-be-less-inf-obj then activate to-be-less-inf-comp andthen
+If it is 2-obj-inf-obj then activate 2-obj-inf-comp
+else activate inf-comp;
+if it is subj-less-inf-obj then activate subj-less-inf-comp else if it is no-subj then activate no-subj.
+If it is that-obj then activate that-comp.
+%Activate correct packet for regular objects.%
+If there is a WH-comp and it is not utilized
+then activate wh-vp else
+if the current s is major then activate ss-vp else
+Activate embedded-s-vp.}
+
+{ATTACHMENT CRULE VP-VERB VP OVER VERB
+Associate a new case frame with the upper node.
+Associate the case frame of the upper node with the s above upper.
+The aux of the s above upper fills the spec slot of upper.
+The lower node fills the pred slot of upper.
+If the lower node is none of no-subj, passive and there is a binding of the np of the s above upper then it fills the subj slot of upper.}
+
+{RULE PREDP IN parse-verb
+[* is any of pp %more to come%] -->
+Deactivate parse-verb.
+If c is major then activate ss-final else
+If c is sec then activate emb-s-final.
+Label 1st predp.
+Attach 1st to c as predp.}
+
+{RULE PASSIVE PRIORITY: 5 IN PASSIVE
+%Activated by MVB if verb is labelled passive.%
+t -->
+Label the current s np-preposed.
+Create a new np node labelled trace, not-modifiable.
+Set the binding of c to the np of the currents.
+Drop c.
+Deactivate passive.}
+
+{RULE SEEMS IN NO-SUBJ
+[=*to] [=tnsless] -->
+Deactivate no-subj.
+Run passive next.}
+
+
+(COMMENT PARSE SIMPLE OBJECTS)
+
+{RULE OBJECTS IN SS-VP
+[=np] -->
+Attach 1st to c as np.}
+
+{RULE VP-DONE PRIORITY: 20 IN SS-VP
+[t] --> Drop c.}
+
+{RULE S-DONE IN SS-FINAL
+[=finalpunc] -->
+Attach 1st to c as finalpunc.
+Finalize the cf of c.
+Parse is finished.}
+;;%Parsing the objects of embedded clauses.%
+
+{RULE OBJ-IN-EMBEDDED-S IN EMBEDDED-S-VP
+[=np] -->
+If 1st fits an obj slot of the of of c
+then attach 1st to c as np
+else run embedded-vp-done next.}
+
+{ATTACHMENT CRULE VP-NP VP OVER NP
+The lower node fills an obj slot of the upper.
+% With no-subj verbs, can't know that the subject really is the subject until we see the complement.%
+If the verb of the upper node is no-subj and the s above the upper node is not np-preposed then the np of the s above the upper node
+fills the subj slot of upper.
+%We can bind delta subjects and finalize the case frames of infinitive clauses only after they are attached to the clause, allowing all the wh-placement stuff to have done whatever it will do.
+See the rules on "Infinites with delta subjects for more on this.%
+If there is an s of lower and the np of it is delta then
+If the verb of the upper node is obj-binds-delta then set the binding of the np of the s of lower to the indirect object of upper
+else
+If the verb of the upper node is subj-binds-delta
+or
+the verb of the upper node is subj-less-inf-obj and it isn't true that
+there is a binding of the np of the s of the lower node
+then set the binding of the np of the s of lower
+to the np of the current s.
+If there is an s of lower and  the np of it is delta then
+    the np of the s of lower fills the subj slot of the s of lower;
+    finalize the cf of the s of lower.}
+
+{RULE EMBEDDED-VP-DONE PRIORITY: 15. IN EMBEDDED-S-VP
+[t]-->
+Drop c.
+Activate embedded-s-final.}
+
+{RULE EMBEDDED-S-DONE PRIORITY: 20 IN EMBEDDED-S-FINAL
+[t]-->
+Finalize the cf of c.
+Drop c.}
+
+
+(COMMENT RELATIVE CLAUSES)
+
+{RULE WH-RELATIVE-CLAUSE IN NP-COMPLETE
+[=relpron-np][t] -->
+Label c modified.
+Attach a new s node labelled sec, relative to c as s.
+Activate cpool, parse-subj, wh-pool.
+%Note that the node is attached as "whcomp"; "WH-comp" refers to
+the special wh register.%
+Attach 1st to c as whcomp.
+Set the binding of 1st to the np above c.
+If 2nd is a verb then
+   Create a new np node labelled trace, not-modifiable;
+   Set the binding of c to WH-comp;
+   Label the binding of c utilized;
+   Drop c into the buffer.}
+
+{RULE REDUCED-RELATIVE IN NP-COMPLETE
+[=np; * is not relpron-np][=verb] -->
+Insert the word "wh-' into the buffer before 1st.}
+
+{RULE WHICH-DIAGN IN CPOOL
+[=*which; * is not any of quant, relpron] -->
+If the np above c is not modified then
+label 1st pronoun, relpron, wh
+else label 1st quant, ngstart, ns, npl, wh.}
+
+{RULE WHAT-DIAG priority: 16 IN pool
+[=*what][t]-->
+%This won't work for cleft sentences: what little fish eat is little worms
+(but are these garden paths?)%
+If 2nd is ngstart and 2nd is not det
+   then label 1st det, ns, npl, n3p, wh; activate parse-det
+   else label 1st pronoun, relpron, wh.}
+
+
+(COMMENT THE WH-COMP MECHANISM OF THE GRAMMAR INTERPRETER)
+
+;; This implements a mechanism that is different in efficiency, but otherwise
+;exacily equivalent to the mechanism documented in chapter 7. I use a
+;register to cache the WH-comp. It can be considered an Implementation of
+;that mechanism.
+
+{ATTACHMENT CRULE S-WHCOMP S OVER WHCOMP
+%This crule and the next should really be a part of the grammar interpreter, hardwired and universal. I put them here so that they are clearly visible. The effect is exactly equivalent.
+This rule primes the WH-comp mechanism.%
+Set the : WH-comp of the upper node to the lower node.}
+
+{CREATION CRULE S-CREATE S
+%This is ugly and adhoc. It simply embodies a form of the complex NP constraint, which is adhoc and ugly.
+That this rule should be a putative universal doesn't help much.
+The rule: scan up the active node stack until you come to either an NP or an S. If an NP, that's it. If an S, copy its WH-comp.
+This IS really a piece of the interpreter, and must be written in LISP.% Set the :WH-comp of c to find-WH-comp (the node above c)}
+
+(defun find-WH-comp (node-variable)
+;;Now into PIDGIN
+{If there is not a node-variable or the node-variable is an np then nil else
+If the node-variable is an S
+then the :WH-comp register of the node-variable else find-WH-comp
+(the node above node-variable)})
+
+
+(COMMENT WH PLACEMENT)
+
+;These rules differ somewhat from those discussed in chapter 10, mainly
+;because the semantic mechanism that is actually implemented is weaker
+;than that assumed in chapter 10. For an explanation of how the "prefer"
+;test really works, see appendix E.
+
+{RULE WH-WITH-END-NEXT PRIORITY: 15. IN wh-vp
+t -->
+If the greatest possible number of objects of c is equal to 0
+or
+it
+isn't true that the WH-comp fits an obj slot of the cf of the current s and the verb of c is not comp-obj
+then run too-many-nps next else run create-wh-trace next.}
+
+{RULE WH-WITH-NP-NEXT IN WH-VP
+[=np] -->
+% This rule decides whether or not to use the WH-comp If there is an NP next. Note that If the NP is followed by a PP, then a different rule will run. running an object rule next indicates that the WH-comp is not to be used, while running create-wh-irace indicates the WH-comp is to be used.%
+If the greatest possible number of objects of c is less than 2
+%I.e. the current verb can only take 1 object% then If the currents is major then run objects next else run obj-in-embedded-s next
+else
+%There are 2 object slots available; we'll use both.%
+The number of objects of c will be 2:
+If semantics prefers 1st filling an ob slot of c somewhat better than WH-comp filling an obj slot of c then
+run oojects next else
+If semantics prefers the WH-comp filling an obj slot of c much
+better than 1st filling an obj slot of c then label the currents slightly-bad; run create-wh-trace next else
+If semantics prefers 1st filling an obj slot of c no better than the WH-comp filling an obj slot of c then label the current s slightly-bad;
+run objects next else label the current s very-bad;
+run create-wh-trace next.}
+
+{RULE WH-WITH-NP-PP-NEXT PRIORITY: 7 IN WH-VP
+[=np] [=prep] -->
+If the greatest possible number of objects of c is greater than 1 and a prepositional phrase of 2nd and the WH-comp fits a pp slot of c or
+the greatest possible number of objects of c is equal to 1 and a prepositional phrase of 2nd and the WH-comp fits a pp slot of the current s
+then run objects next else
+If the greatest possible number of objects of c is greater than 1
+then run wh-with-np-next next else
+Run too-many-nps next.}
+
+{RULE WH-WITH-PP-NEXT PRIORITY: 5 IN WH-VP
+[=prep] [=np] -->
+If a prepositional phrase of 1st and 2nd fits a pp slot of c
+* The syntactic preference is for simple pps.% then run pp next else
+If it isn't true that
+a prepositional phrase of 1st and the WH-comp fits a pp slot of c
+Xl.e it's true that the WH-comp can't serve as the object of the prep%
+then if greatest possible number of objects of c is greater than 0
+Xi.e. If the WH-comp can serve as an object then%
+then run create-wh-trace next else %Hopefully the trace is a time word%
+run too-many-nps next
+else
+If the lowest possible number of objects of c is greater than 0
+%i.e. this verb MUST take an object%
+   then run create-wh-trace next
+   else run wh-pp-build next.}
+
+{RULE WH-PP-BUILD IN CPOOL
+[=prep] [* is not np]
+[** c: there is a WH-comp and it is not utilized] -->
+Attach 1st to a new pp node as prep.
+Attach a new np node labelled trace to c as np.
+Set the binding of c to the WH-comp.
+Label the WH-comp utilized.
+Drop c %le. the trace%.
+Drop c %i.e. the pp%.}
+
+{RULE WH-WITH-PP-2 IN CPOOL
+[*prep] [=np]
+[** c; there is a WH-comp and it is not utilized] -->
+If c is any of nbar, np and
+   a prepositional phrase of 1st and 2nd fits a pp slot of c
+then run pp next %building the simple pp%
+else
+If a prepositional phrase of 1st and the WH-comp fits a pp slot of c then run wh-pp-build next %building a pp with the WH-comp% else
+%the current constituent is done%
+If c is an nbar then run nbar-done next else
+If c is an np then run np-done next else run pp next.}
+
+{RULE WH-RESOLVED PRIORITY: 5 IN wh-vp
+[** c; the WH-comp is utilized ] -->
+Deactivate wh-vp.
+If the current s is major
+then activate ss-vp else activate embedded-s-vp.}
+
+{RULE TOO-MANY-NPS PRIORITY: 15 IN WH-VP [=np]
+[** c; the greatest possible number of objects of c is less than 2] -->
+%This is just a start, clearly%
+If there is not a whcomp of the current s
+%i.e the WH-comp originated from higher up%
+then run wh-resolved next else !(warn 1. too-many-nps loses).}
+
+{RULE CREATE-WH-TRACE PRIORITY: 14 IN WH-POOL
+T-->
+Create a new np node labelled trace, not-modifiable.
+Set the binding of c to the WH-comp.
+Label the WH-comp utilized.
+Drop c into the buffer.}
+
+
+{RULE WH-RESOLVED-1 PRIORITY: 5 IN WH-POOL
+[** c; the WH-comp is utilized] -->
+Deactivate wh-pool.}
+
+
+(COMMENT THAT CLAUSES)
+
+{RULE THAT-S-START PRIORITY: 5 IN CPOOL
+[=comp, *that] [=np][=verb]-->
+%Handles the marked case;always active.% Label a new s node sec, comp-s, that-s.
+Attach 1st to c as comp.
+Attach 2nd to c as np.
+Activate cpool, parse-aux.}
+
+{RULE THAT-S-START-1 PRIORITY: 5. IN THAT-COMP
+[=np][=verb] -->
+Label a new s node sec, comp-s, that-s.
+Attach 1st to c as np.
+Activate cpool, parse-aux.}
+
+{RULE COMP-TO-NP IN CPOOL
+[=COMP-S] -->
+Attach 1st to a new NP node labelled comp-np, not-modifiable as s.
+Drop c into the buffer.}
+
+{RULE that-diag-1 in cpool
+[=*that; * is none of comp, det, pronoun] [=p] -->
+% This rule diagnoses whether "that" is a comp or a determiner or a relative pronoun. This rule will misdiagnose
+"That deer ate everything in my garden surprised me." but then again so did you.
+The diagnostic is: If "that" must be a det, it is.
+If c is nbar, i.e. we're under an np, assume "that" starts a relative clause.% If there is not a det of 2nd
+and there is not a ap of 2nd
+and the nbar of 2nd is none of npl, massn and 2nd is not not-modifiable
+then
+attach 1st to 2nd as det;
+label 1st det, ns
+else if c is a nbar then label 1st pronoun, relpron else label 1st comp.}
+
+{RULE THAT-DIAG-2 PRIORITY: 13 IN CPOOL
+%If there's nothing else to do with that, it's a pronoun.% [=*that; * is not pronoun] -->
+Label 1st pronoun.}
+
+{RULE THAT-DIAG-3 PRIORITY: 5 IN NBAR-COMPLETE
+[=*that; * is none of pronoun, comp] [=np]
+[** c; the verb of the vp of the currents is that-obj;
+the lowest possible number of objects of the current s is equal to 2]
+-->
+Label 1st comp.}
+
+
+(COMMENT INFINITIVE CLAUSES)
+
+{RULE TO-DIAG PRIORITY: 5. IN INF-COMP, 2-OBJ-INF-COMP [=*to, auxverb, prep] [=tnsless]
+[** c; there is a WH-comp and it is not utilized] -->
+%Does this really belong in this packet or in pool?
+Should the fact that an inf-comp is expected serve as evidence?% if a pp of 1st and WH-comp
+fits a pp slot of the of of the current s
+then remove the feature auxverb from 1st else remove the feature prep from 1st.}
+
+{RULE INF-S-START PRIORITY: 5. IN CPOOL
+[=*for][=np][=*to] -->
+%Handles the marked case; always active% Label a new s node sec, comp-s, Inf-s.
+Attach 1st to c as comp.
+Attach 2nd to c as np
+Activate cpool, parse-aux.}
+
+{RULE INF-S-START1 PRIORITY: 5. IN INF-COMP
+% The COMP can only be dropped If the complement is expected.%
+[=np][=*to,auxverb][=tnsless]-->
+Label a new s node sec, comp-s, inf-s.
+Attach 1st to c as np.
+Activate cpool, parse-aux.}
+
+{RULE INSERT-TO IN TO-LESS-INF-COMP
+%This rule and INSERT-TO-BE must be in different packets
+- consider "help" vs. "seems"%
+[=np] [=tnsless] -->
+Insert the word 'to' into the buffer before 2nd.}
+
+{RULE INSERT-TO-1 IN TO-LESS-INF-COMP
+%I've clearly missed a generalization somewhere.%
+[=tnsless] -->
+Insert the word 'to' into the buffer before 1st.}
+
+{RULE INSERT-TO-BE IN TO-BE-LESS-INF-COMP
+[=np] [* is any of en, adj] -->
+%won't work for adjectives until interpreter changed%
+Insert the word 'be' Into the buffer before 2nd.
+Insert the word 'to' into the buffer before 2nd.}
+
+{RULE INSERT-TO-BE-1 IN TO-BE-LESS-INF-COMP
+[* is any of en, adj] -->
+%Again, I've missed the generalization%
+Insert the word 'be' Into the buffer before 1st.
+Insert the word 'to' into the buffer before 1st.}
+
+
+(COMMENT INFINITIVES WITH DELTA SUBJECTS)
+
+{RULE CREATE-DELTA-SUBJ IN 2-OBJ-INF-COMP
+[=*to, auxverb] [=tnsless] -->
+%This rule handles verbs like promise and persuade. The analysis I'm adopting assumes that the subject of the complement is a delta (I.e. a "base-generated" trace), which is not bound by syntactic rules, but by later semantic processing. The binding is done in the crule vp-np%
+Create an np node labelled trace, not-modifiable, delta.
+Drop c into the buffer.
+Deactivate 2-0bj-Inf-comp. Activate inf-comp.}
+
+{RULE create-delta-subj-1 IN SUBJ-LESS-INF-COMP
+[=*to, auxverb] [=tnsless] -->
+%Handles verbs like "want" that may have an explicit subject or may have a delta subject. These cases are hard If they interact with wh-movement.%
+Create an np node labelled trace, not-modifiable.
+Drop c Into the buffer.}
+
+{RULE SUBJECT-IS-DELTA-DIAG PRIORITY: 15. IN EMBEDDED-S-FINAL
+[** c; the np of c is trace; the np of c is not delta;
+there is not a binding of the np of c] -->
+% This rule finishes the analysis of embedded clauses of verbs like
+"want", deciding whether the subject is a bound trace or a delta.%
+If there is a WH-comp and it is not utilized then set the binding of the np of c to WH-comp;
+% This next belongs in the case mechanism, but its simpler here.
+Life would be simpler if "want" took 2 objects.% the np of c fills the subj slot of the cf of c; label the WH-comp utilized else label the np of c delta.}
+
+{RULE DELTA-SUBJ-S-DONE PRIORITY: 15. IN EMBEDDED-S-FINAL
+[** C: THE NP OF C IS DELTA] -->
+% This rule overrides embedded-s-done; and does not finalize the cf.% Drop c into the buffer.}
+
+{ATTACHMENT CRULE NP-S NP OVER S
+If lower is inf-s then set the markers register of upper to !'(inf-comp).
+If lower is that-s then set the markers of upper to !'(that-comp).
+If lower is relative
+then lower fills a mod slot of the upper node else associate the case frame of lower with the upper node.}
+
+
+(COMMENT MAINLINE NP PARSING)
+
+{AS RULE STARTNP IN CPOOL [angstart] -->
+Create a new np node.
+If 1st is det then activate parse-det
+   else activate parse-qp-1.
+Activate npool.}
+
+{CREATION CRULE NP-START NP
+If c is none of propn-np, pron-np, name, complex-noun-np, trace, ",
+   comp
+   then associate a new case frame with c.}
+
+;;this should be a finalize rule.
+;;{ATTACHMENT CRULE NP-OP NP OVER OP
+;;The lower node fills the spec slot of upper.}
+
+{RULE DETERMINER IN PARSE-DET
+[=det] -->
+Attach 1st to c as det.
+Label c det.
+Transfer the features indef, def, wh from 1st to c.
+Deactivate parse-det. Activate parse-qp-2.}
+
+{RULE A-HUNDRED-DIAG PRIORITY: 5. IN PARSE-DET
+[=*a]
+[=num, bignumg; the num1 of the num1 of * is any of *hundred, bignum] [t] -->
+If 3rd is noun, ns, measure then run determiner next
+else attach 1st to the num1 of 2nd as numo;
+deactivate parse-det;
+activate parse-qp-1.}
+
+{RULE ALL-THE PRIORITY: 5 IN PARSE-QP-1
+[=*all] [=det,def] -->
+%Another similar rule needed to cover "half the boys", "half A bottle"
+Also there may be a timing problem with "all G-d's children".%
+Insert the word 'of' into the buffer before 2nd.}
+
+{RULE QUANT IN PARSE-QP-1
+[=quant] -->
+Attach a new ap node to c as qp.
+Attach 1st to c as quant.
+If 1st is num then label c numqp.
+Transfer ns, npl from 1st to c.
+Transfer the feature wh from 1st to the np above c.
+Drop C.
+Run quant-done next.}
+
+{RULE QUANT-DONE PRIORITY: 15 IN PARSE-QP-1
+[t] -->
+Deactivate parse-qp-1. Activate parse-adj.}
+
+{RULE ORDINAL IN PARSE-QP-2 [=ord, complete-num]
+[t] -->
+Attach a new qp node labelled ordap to c as qp.
+Attach 1st to c as ord.
+If 2nd is num then attach 2nd to c as num;
+label c numap;
+transfer ns, npl from 1st to c
+else label c ns, npl.
+Drop c.
+Deactivate parse-qp-2. activate parse-adj.}
+
+{RULE DET-QUANT IN PARSE-QP-2
+[=quant; * is any of detq, num] -->
+%There should be a less ad-hoc way than the feature "deta" to distinguish quantifiers that can follow determiners (like "many") from those which don't (like "some)...%
+Attach a new qp node to c as qp.
+Attach 1st to c as quant.
+If 1st is num then label c numap.
+Transfer ns, npl from 1st to c.
+Drop c.
+Run det-quant-done next.}
+
+{RULE DET-QUANT-DONE PRIORITY: 15 IN PARSE-QP-2
+[t]-->
+Deactivate parse-qp-2. Activate parse-adj.}
+;;will need a rule that does "next <time> " when np stuff is fixed.
+
+{RULE ADJ IN PARSE-ADJ
+[t] -->
+If 1st is adj then attach 1st to c as adj else if 1st is */, then attach 1st to c as comma
+else deactivate parse-adj; activate parse-noun.}
+
+{ATTACHMENT CRULE NP-ADJ NP OVER ADJ
+%Note that this does not handle non-attributive adjectives like "main"%
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The lower node fills the pred slot of lower.
+Create a new " node labelled np.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{RULE NOUN IN PARSE-NOUN
+[=noun] -->
+Attach 1st to a new nbar node as noun.
+Transfer the features massn, time, ns, npl,
+n1p, n2p, n3p from 1st to c.
+Drop c.}
+
+{RULE NBAR IN PARSE-NOUN
+[=nbar] -->
+Attach 1st to c as nbar.
+If the noun of 1st is any of propnoun, pseudopropnoun then label c not-modifiable.
+Transfer the features time, place, n1p, n2p, n3p from 1st to c.
+Deactivate npool, parse-noun.
+% The next line has to do with the Node reactivation mechanism, about which see below.%
+Drop c into the buffer.
+Restore the buffer.}
+
+{ATTACHMENT CRULE NP-NBAR NP OVER NBAR
+Associate the case frame of the upper node with the lower node.
+If there is a case frame of upper and there is a noun of the lower node
+then it fills the pred slot of upper.}
+
+
+(COMMENT INCOMPLETE NPS)
+
+{RULE INCOMPLETE-NP PRIORITY: 15. IN PARSE-NOUN
+[t] -->
+Attach a new nbar node to c as nbar.
+Attach a new noun node labelled trace, not-modifiable, delta to c as noun.
+Drop c.
+Drop c.
+Deactivate npool, parse-noun.
+If there is a qp of c then label c quant-np; activate quant-np-complete, cpool
+else drop c;
+restore the buffer.}
+
+{RULE ALL-OF-THE-BOYS IN QUANT-NP-COMPLETE
+[=pp; the prep of * is *of] -->
+Attach 1st to c as pp.
+Set the binding of the noun of the nbar of c to the noun of the nbar of the np of 1st.
+Run quant-np-done next.}
+
+{RULE QUANT-NP-DONE PRIORITY: 15. IN QUANT-NP-COMPLETE
+t -->
+Deactivate quant-np-complete.
+Activate np-complete.}
+
+
+(COMMENT NBAR-REACTIVATION)
+
+{NR RULE NBAR-COMPLETE IN CPOOL
+%This is an experimental type of rule not discussed in the thesis.
+The experiment is still in progress, although it now looks like there are better ways to do the same thing.
+This type of rule, called a Node-Reactivation rule, is similar to an Attention Shifting rule.
+The mechanism is briefly discussed in [Marcus 76].%
+[=nbar] -->
+Activate cpool, nbar-complete.}
+
+{RULE NBAR-DONE PRIORITY: 15. IN NBAR-COMPLETE
+t -->
+Drop c.
+Restore the buffer.}
+
+
+(COMMENT NP-REACTIVATION)
+
+{NR RULE NP-COMPLETE IN CPOOL
+[=np; * is none of modified, not-modifiable] -->
+%NUMBER AGREEMENT%
+If there is not a det of c and there is not a qp of c then
+If the nbar of c is npl then label c npl else
+If the noun of the nbar of c is propnoun then label c prop-np else
+If the nbar of c is massn, ns then label c massnp else
+If the nbar of c is time and the ord of the ap of c is general-ord
+then label c next-time-np else
+if the noun of the nbar of c is none of pseudopropnoun then
+label c bad
+If there is a det of c or there is a qp of c then
+transfer the meet of
+(If there is a det of c then the features of it else ns,npl) and (If there is a qp of c then the features of it else ns,npl)
+from the nbar of c to c;
+if c is none of ns,npl then label c bad.
+Activate cpool, np-complete.}
+
+{RULE NP-DONE PRIORITY: 15. IN NP-COMPLETE
+T -->
+If there is a case frame of c then finalize the cf of c.
+Drop c.
+Restore the buffer.}
+
+
+(COMMENT NUMBERS)
+
+{AS RULE NUMBER IN NPOOL
+[=num; *  is not complete-num] -->
+Deactivate npool.
+Activate build-number.}
+
+{RULE NUMBER-DONE PRIORITY: 12. IN BUILD-NUMBER
+[t]-->
+Label 1st complete-num.
+If 1st is not ord then label 1st quant.
+If 1st is none of ns,npl then label 1st npl.
+Deactivate build-number.
+Activate npool.
+Restore the buffer.}
+
+{RULE ORDINAL-DONE PRIORITY: 5. IN BUILD-NUMBER
+[=ord] [** c; * is not num] -->
+Run number-done next.}
+
+{RULE NINETY-NINE IN BUILD-NUMBER
+[=tens] [=ones] -->
+Label a new num node 99s.
+Attach 1st to c as num1.
+Attach 2nd to c as num2.
+Set the quant of c to
+plus(the quant register of 1st, the quant register of 2nd).
+Transfer ord from 2nd to c.
+Drop c.}
+
+{RULE TWO-HUNDRED IN BUILD-NUMBER
+[* is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+Label a new num node hundred+.
+Attach 1st to c as num 1.
+Attach 2nd to c as num2.
+Set the quant of c to
+times(the quant register of 1st, the quant register of 2nd).
+Transfer ord from 2nd to c.
+Drop c.}
+
+{RULE HUNDRED IN BUILD-NUMBER
+[=*hundred] -->
+Label a new num node hundred+.
+Attach 1st to c as num1.
+Set the quant register of c to the quant register of 1st.
+Transfer ord from 1st to c.
+Drop c.}
+
+{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+[* is any of hundred+, bignumt; * is not ord] -->
+Create a new num node labelled bignumg.
+Attach 1st to c as num1.
+Activate build-number.}
+
+{RULE 99S-ATTACH IN BUILD-NUMBER
+[t] [** c; = bignumg] -->
+If there is a conj of c or 1st is any of 99s, tens, ones then
+Attach 1st to c as num2;
+Transfer ord from 1st to c;
+Set the quant of c to
+plus (the quant register of num 1 of c,
+the quant register of 1st)
+else set the quant register of c to the quant register of num1 of c.
+Drop c.}
+
+{RULE HUNDRED-AND IN BUILD-NUMBER
+[=*and] [** c; =bignumg] -->
+Attach 1st to c as conj.}
+
+{RULE BIGNUM IN BUILD-NUMBER
+[=num; * is not bignumg, ord] [=bignum; * is not *hundred] -->
+Create a new num node labelled bignum+.
+Attach 1st to c as num1.
+Attach 2nd to c as num2.
+Set the quant of c to
+times(the quant register of 1st, the quant register of 2nd).
+Transfer ord from 1st to c.
+Drop c.}
+
+{RULE TEN-TWENTY IN BUILD-NUMBER
+[* is any of ones, 99s, *ten]
+[* is any of 99s, tens; * is not ord] -->
+Create a new num node labelled listnum.
+Attach 1st to c as num1.
+Activate build-number.}
+
+{RULE TEN-TWENTY-FINISH IN BUILD-NUMBER
+[** c: = listnum]
+[* is any of 99s, tens; * is not ord] -->
+Attach 1st to c as num2.
+Set the quant register of c to
+plus (times (100., the quant register of num1 of c),
+the quant register of 1st).
+Drop c.}
+
+
+(COMMENT TIME)
+
+{RULE TWO-OCLOCK PRIORITY: 5 IN NPOOL
+[=num] [* is any of *o/'clock, *a/.m/., *p/.m/.] -->
+Create a new noun node labelled time, hour, complex-noun, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c %which is now the np% as hour.
+Activate build-hour.}
+
+{RULE TWO-THIRTY PRIORITY: 5 IN NPOOL
+[=num] [=*:][=num] -->
+Create a new noun node labelled time, hour, complex-noun, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c %which is now the n% as hour.
+Attach 2nd to c as colon.
+Attach 3rd to c as minute.
+Activate build-hour.}
+
+{RULE HOUR-COMPLETE IN BUILD-HOUR
+[t]-->
+If 1st is any of *o/'clock, "a/.m/., "p/.m/. then attach 1st to c as oclock.
+Drop c %l.e. the complex-noun-np % .
+%For the sake of semantics, all the following:% Set the time register of c to 'hour'.
+Label c hour.
+Set the hours register of c
+to the quant register of the hour of the np of c.
+Set the minutes register of c to
+(If there is a minute register of the n of c
+then quant register of it else 0).
+If there is an oclock register of the np of c then set the time-of-day register of c to it
+else set the time-of-day register of c to the word 'o/'clock'.
+Set the markers register of c to !'(time).
+Finalize the cf of c.
+Drop c.}
+
+{RULE MONTH PRIORITY: 5. IN NPOOL
+[=month; * is not complex-np] -->
+Create a new noun node labelled time, complex-np, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c as noun.
+Activate npool, month-build.}
+
+{RULE JUNE-1ST IN MONTH-BUILD
+[=complete-num] -->
+%Again, using fact that ORDs have NUM feature.%
+Attach a new qp node to c as qp.
+Attach 1st to c %l.e. the qp% as ord.
+If 1st is not ord then label cord.
+Drop c.
+Run month-complete next.}
+
+{RULE JUNE-THE-1ST IN MONTH-BUILD
+[=*the][=ord] -->
+Attach a new ap node to c as qp.
+Attach 1st to c as det.
+Attach 2nd to c as ord.
+Drop c.
+Run month-complete next.}
+
+{RULE THE-FIRST-OF-JUNE PRIORITY: 5 IN PARSE-QP-2
+[=ord][=*of] [=month] -->
+Create a new noun node labelled time, complex-np, propnoun, ns.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach a new qp node to c as qp;
+Attach 1st to c as ord;
+Drop ..
+Attach 2nd to c as of.
+Attach 3rd to c as noun
+Run month-complete next.}
+
+{RULE MONTH-COMPLETE PRIORITY: 15. IN MONTH-BUILD
+[t]-->
+Drop c % I.e. the time np, so c is now the noun% .
+Set the month register of c to the noun of the np of c.
+Set the markers register of c to !'(time).
+If there is not a qp of the np of c
+then set the time register of c to 'month'; label c month else set the time register of c to 'date'; label c date; set the day register of c to
+the quant register of the ord of the ap of the np of c.
+Finalize the cf of c.
+Drop c.}
+
+{RULE NUMBER-TO-YEAR IN QUANT-NP-COMPLETE
+[** c; * is quant-np; * is not time; the quant of the ap of * is listnum]
+-->
+Label c time, year.
+Set the markers register of c to !'(time).
+Set the time register of c to 'year'.
+Set the year register of c to the quant register of the quant of the ap of c.}
+
+{AS RULE MONDAY PRIORITY: 5 IN CPOOL
+[=noun, day-of-week] -->
+Attach 1st to a new np node labelled time, dow as noun.
+Set the time register of 1st to 'dow'.
+Set the dow register of 1st to 1st.
+Set the markers register of c to !'(time).
+Drop c.
+Restore the buffer.}
+
+{AS RULE MONDAY-REGISTERS PRIORITY: 5 IN NPOOL
+[=noun, day-of-week; it isn't true that there is a time of *] -->
+%Sets some registers for semantics% Set the time register of 1st to 'dow' Set the dow register of 1st to 1st.
+Restore the buffer.}
+
+{NR RULE TIME-FINISH IN CPOOL
+[=np, time] -->
+Activate time-complete, cpool.}
+
+{RULE MONDAY-THE-FIRST IN TIME-COMPLETE
+[** c; * is dow] [=*/]
+[=np, time; the noun of * is date] [* is not verb] -->
+Attach 1st to c as comma.
+Attach 2nd to c as date.
+If 3rd is "/, then attach 3rd to c as comma.
+Remove the feature dow from c.
+Label c date.
+Set the time register of the noun of c to 'date'.
+Set the month register of the noun of c to
+   the month register of the noun of 2nd.
+Set the year register of the noun of c to
+   the year register of the noun of 2nd.
+Set the day register of the noun of c to
+   the day register of the noun of 2nd.}
+
+{RULE JUNE-FIRST-1976 IN TIME-COMPLETE
+[** c; the noun of * is date] [= */.] [=np, the noun of * is year]
+[* is not verb] -->
+Attach 1st to c as comma.
+Attach 2nd to c as year.
+If 3rd is "/, then attach 3rd to c as comma.
+Set the year register of the noun of c to
+   the year register of the noun of 2nd.}
+
+{RULE TIME-DONE PRIORITY: 15. IN TIME-COMPLETE
+t -->
+Finalize the cf of c.
+Drop c.
+Restore the buffer.}
+
+{RULE NUMBER-TO-TIME PRIORITY: 12. IN QUANT-NP-COMPLETE
+[** c;: cheap-hacks; * is quant-np; * is not time] -->
+%An ellision hack. Clearly special purpose for the PA domain.
+A better approximation would be only to use this hack if the incomplete np followed a prep that marked time, e.g. "on the first", but even that, obviously, could be wrong. Recovering ellisions, as opposed to detecting them, really shouldn't be in the grammar.% If there is a qp of c and it is ordqp %e.g. "the first"% then run month-complete next else
+If it is numap and there is not a det of the np above it then (if lessp (the quant register
+of the quant of it, 13.) %e.g. "ten"%
+then run hour-complete next else
+If lessp (1900., the quant register
+of the quant of it, 20000.) %e.g. "1976"%
+then run number-to-year next
+else run np-done next)
+else run np-done next.}
+
+{RULE TIME-NP-TO-PP PRIORITY: 5 IN CPOOL
+%This rule needs to be controlled, but right zeroeth approx%
+[=np, time] -->
+Insert the word 'during' Into the buffer before 1st.}
+
+
+(COMMENT PRONOUNS, PROPER NAMES, ETC.)
+
+{RULE PRONOUN IN npool
+[=pronoun] -->
+Attach 1st to c as pronoun.
+Label c pron-np, not-modifiable.
+Transfer ns, npl, n1p, n2p, n3p, wh from 1st to c.
+If 1st is relpron then label c relpron-np.
+Drop c.
+Restore the buffer.}
+
+{AS RULE POSS-PRONOUN PRIORITY: 5 IN CPOOL
+[=poss-pronoun] -->
+Create a new det node labelled def, poss-det, ngstart, ns, npl, n3p.
+Attach a new np node labelled pron-np, poss-np to c as np.
+Attach 1st to c as pronoun.
+Transfer ns, npl, n1p, n2p, n3p from 1st to c.
+Drop c. %the np node%
+Drop c. %the det node%
+Restore the buffer.}
+
+{AS RULE PROPNAME PRIORITY: 5 IN CPOOL
+[=name] -->
+Create a np node labelled name, ns,n3p, not-modifiable.
+Activate build-name.}
+
+{AS RULE TITLE PRIORITY: 6 IN CPOOL
+[=title] -->
+Create a np node labelled name, ns, n3p.
+Attach 1st to c as title.
+Set the title register of c to 1st. %set register for PA semantics% Activate build-name.}
+
+{RULE NAME IN BUILD-NAME
+[=name] -->
+Attach 1st to c as noun.
+Set the names register of c to
+!(cons 1st {the names register of c}). %for pa semantics%}
+
+{RULE END-OF-NAME PRIORITY: 15. IN BUILD-NAME
+[t] -->
+If !(> (length (the names register of c)) 1) or there is a title of c then set the last-name register of c to
+(car (the names register of c))
+et the names register of c t
+!(cdr (the names register of c)). %for pa semantics%
+Set the names register of c to !(nreverse (the names register of c)).
+Drop c.
+Restore the buffer.}
+
+{AS RULE PROPNOUN PRIORITY: 5 IN CPOOL
+[=propnoun; * is not name] -->
+Attach 1st to a new np node labelled propn-np, ns, n3p, not-modifiable as noun.
+Drop c.
+Restore the buffer.}
+
+
+(COMMENT PP ATTACHMENT RULES)
+
+{RULE PP IN CPOOL
+[=prep; * is not pred-verb] [=np]
+[** c; there is not a WH-comp or the WH-comp is utilized] %for WH-placement PP rules, see WH-placement rules%
+-->
+Attach 1st to a new pp node as prep.
+Attach 2nd to c as np.
+Drop c.}
+
+{RULE NBAR-PP-UNDER-S IN NBAR-COMPLETE
+[=pp] [** c; the node above the np above * is s] -->
+If 1st fits a pp slot of the cf of c
+then attach 1st to c as pp else run nbar-done next.}
+
+{RULE OF-PP IN NBAR-COMPLETE
+[=pp; the prep of * is *of] -->
+Attach 1st to c as pp.}
+
+{RULE NBAR-PP-UNDER-VP IN NBAR-COMPLETE
+[=pp] [** c; the node above the np above * is vp] -->
+If 1st fits a pp slot of the cf of the node above the np above c
+then run nbar-done next else run nbar-pp-under-s next.}
+
+{ATTACHMENT CRULE NBAR-PP NBAR OVER PP
+If the prep of the lower node is of
+then the np of the lower node fills a obj slot of the upper node else the lower node fills a pp slot of the upper node.}
+
+{RULE NP-PP-UNDER-VP IN NP-COMPLETE
+[=pp] [** c; the node above * is vp] -->
+If it isn't true that 1st fits a pp slot of the cf of c
+or 1st fits a pp slot of the cf of the vp above c
+then run np-done next else attach 1st to c as pp.}
+
+{RULE NP-PP-UNDER-PP IN NP-COMPLETE
+[=pp] [** c: the node above * is pp] -->
+%For now, NPs only get a PP if the above VP or S does't want it. which is wrong, but a zeroeth order approximation.
+Will get wrong "Can we meet on the friday after the party" Unless there is a notion of "mustmod"%
+%For now,% if the node above the pp above c is vp
+then run np-pp-under-vp next else
+if the node above the pp above c is s
+and 1st fits a pp slot of the cf of the s above the pp above c
+then run np-done next else attach 1st to c as pp.}
+
+{RULE NP-PP-DEFAULT PRIORITY: 15. IN NP-COMPLETE
+[=pp] -->
+% This module is intended to run only when the NP is clause Initial.% Attach 1st to c as pp.}
+
+{ATTACHMENT CRULE NP-PP NP OVER PP
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The prep of the lower node fills the pred slot of lower.
+The np of lower fills an obj slot of lower.
+Create a new * node labelled np.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{RULE PP-UNDER-VP-1 IN SS-VP
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+then attach 1st to c as pp
+else run vp-done next.}
+
+{RULE PP-UNDER-S-1 IN SS-FINAL
+[=pp] -->
+If 1st fits a pp slot of the cf of c then attach 1st to c as pp
+else %what else can we do?% attach 1st to c as pp.}
+
+{RULE PP-UNDER-S-2 IN EMBEDDED-S-FINAL
+[=pp] -->
+If 1st fits a pp slot of the cf of c then attach 1st to c as pp else run embedded-s-done next.}
+
+{ATTACHMENT CRULE S-PREDP S OVER PREDP
+If the lower node is pp then
+Associate a new case frame with the lower node;
+The prep of the lower node fills the pred slot of lower;
+The np of lower fills an obj slot of lower.
+Associate the case frame of lower with the s above lower.
+The np of the s above lower fills the subj slot of lower.}
+
+{ATTACHMENT CRULE S-PP S OVER PP
+Associate a new mod case frame with the lower node.
+The lower node fills a mod slot of the upper node.
+The prep of the lower node fills the pred slot of lower.
+The np of lower fills an obj slot of lower.
+Create a new * node labelled s.
+Set the binding of c to the upper node.
+C fills the subj slot of lower.
+Finalize the cf of lower.
+Drop c.}
+
+{CREATION CRULE *-DUMMY *
+%All * nodes should disappear when dropped, so we make them look attached.%
+Set the father of c to t.}
+
+{RULE PP-UNDER-VP-2 IN EMBEDDED-S-VP
+[=pp] -->
+If 1st fits a pp slot of the cf of c
+   then attach 1st to c as pp
+   else run embedded-vp-done next.}
+
+{ATTACHMENT CRULE VP-PP VP OVER PP
+The lower node fills a pp slot of the upper node.}

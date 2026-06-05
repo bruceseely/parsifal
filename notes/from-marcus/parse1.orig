@@ -1,0 +1,3233 @@
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 15:49:56 1987
+Posted-Date: Sun, 22 Nov 87 13:55 EST
+Received-Date: Sun, 22 Nov 87 14:49:48 EST
+Message-Id: <8711221949.AA01122@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 14:48 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ac15244; 22 Nov 87 14:38 EST
+Received: from btl by csnet-relay.csnet id ag13624; 22 Nov 87 14:34 EST
+Date: Sun, 22 Nov 87 13:55 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: gram4.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+(comment Numbers)
+;;%Rules to parse numbers%
+
+{AS RULE NUMBER IN NPOOL
+[=num ; * is not complete-num] -->
+Deactivate npool.
+Activate build-number.}
+
+{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+[t] -->
+Label 1st complete-num.
+If 1st is not ord then label 1st quant.
+If 1st is none of ns,npl then label 1st npl.
+Deactivate build-number.
+Activate npool.
+Restore the buffer.}
+
+{RULE ORDINAL-DONE PRIORITY: 5 IN BUILD-NUMBER
+[=ord] [** c; * is not num] -->
+Run number-done next.}
+
+
+{RULE NINETY-NINE IN BUILD-NUMBER
+[=tens] [=ones] -->
+Label a new num node 99s.
+Attach 1st to c as num1.
+Attach 2nd to c as num2.
+Set the quant of c to
+	plus(the quant register of 1st, the quant register of 2nd).
+Transfer ord from 2nd to c.
+Drop c.}
+
+{RULE TWO-HUNDRED IN BUILD-NUMBER
+[ * is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+Label a new num node hundred+.
+Attach 1st to c as num1.
+Attach 2nd to c as num2.
+Set the quant  of c to
+	times(the quant register of 1st, the quant register of 2nd).
+Transfer ord from 2nd to c.
+Drop c.}
+
+{RULE HUNDRED IN BUILD-NUMBER
+[=*hundred] -->
+Label a new num node hundred+.
+Attach 1st to c as num1.
+Set the quant register of c to the quant register of 1st.
+Transfer ord from 1st to c.
+Drop c.}
+
+
+
+{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+[ * is any of hundred+, bignum+; * is not ord] -->
+Create a new num node labelled bignumg.
+Attach 1st to c as num1.
+Activate build-number.}
+
+{RULE 99S-ATTACH IN BUILD-NUMBER
+[t] [** c; = bignumg] -->
+If there is a conj of c or 1st is any of 99s, tens, ones then 
+	Attach 1st to c as num2;
+	Transfer ord from 1st to c;
+	Set the quant of c to
+		plus (the quant register of num1 of c,
+			the quant register of 1st)
+	else set the quant register of c to the quant register of num1 of c.
+Drop c.}
+
+{RULE HUNDRED-AND IN BUILD-NUMBER
+[=*and] [** c; =bignumg] -->
+Attach 1st to c as conj.}
+
+{RULE BIGNUM IN BUILD-NUMBER
+[=num; * is not bignumg, ord] [=bignum; * is not *hundred] -->
+Create a new num node labelled bignum+.
+Attach 1st to c as num1.
+Attach 2nd to c as num2.
+Set the quant  of c to
+	times(the quant register of 1st, the quant register of 2nd).
+Transfer ord from  1st to c.
+Drop c.}
+
+{RULE TEN-TWENTY IN BUILD-NUMBER
+[* is any of ones, 99s, *ten]
+[* is any of 99s, tens; * is not ord] -->
+Create a new num node labelled listnum.
+Attach 1st to c as num1.
+Activate build-number.}
+
+{RULE TEN-TWENTY-FINISH IN BUILD-NUMBER
+[** c; = listnum]
+[* is any of 99s, tens; * is not ord] -->
+Attach 1st to c as num2.
+Set the quant register of c to
+	plus (times (100, the quant register of num1 of c),
+	      the quant register of 1st).
+Drop c.}
+
+
+
+
+;;%Special time np constructions%
+(comment Time)
+
+{RULE TWO-OCLOCK PRIORITY: 5 IN NPOOL
+[=num] [ * is any of *o\'clock, *a\.m\., *p\.m\. ] -->
+Create a new noun node labelled time, hour, complex-noun, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c %which is now the np% as hour.
+Activate build-hour.}
+
+{RULE TWO-THIRTY PRIORITY: 5 IN NPOOL
+[=num] [=*:] [=num] -->
+Create a new noun node labelled time, hour, complex-noun, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c %which is now the np% as hour.
+Attach 2nd to c as colon.
+Attach 3rd to c as minute.
+Activate build-hour.}
+
+{RULE HOUR-COMPLETE IN BUILD-HOUR
+[t] -->
+If 1st is any of *o\'clock, *a\.m\., *p\.m\. 
+      then attach 1st to c as oclock.
+Drop c %i.e. the complex-noun-np % .
+%For the sake of semantics, all the following:%
+Set the time register of c to 'hour'.
+Label c hour.
+Set the hours register of c
+	to the quant register of the hour of the np of c.
+Set the minutes register of c to
+      (if there is a minute %node% of the np of c
+	  then quant register of it else 0).
+If there is an oclock %node% of the np of c 
+      then set the time-of-day register of c to it
+      else set the time-of-day register of c to the word 'o\'clock'.
+Set the markers register of c to !'(time).
+Finalize the cf of c.
+Drop c.}
+
+{RULE MONTH PRIORITY: 5 IN NPOOL
+[=month; * is not complex-np] -->
+Create a new noun node labelled time, complex-np, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c as noun.
+Activate npool, month-build.}
+
+{RULE JUNE-1ST IN MONTH-BUILD
+[=complete-num] -->
+%Again, using fact that ORDs have NUM feature.%
+Attach a new qp node to c as qp.
+Attach 1st to c %i.e. the qp% as ord.
+If 1st is not ord then label c ord.
+Drop c.
+Run month-complete next.}
+
+
+{RULE JUNE-THE-1ST IN MONTH-BUILD
+[=*the] [=ord] -->
+Attach a new qp node to c as qp.
+Attach 1st to c as det.
+Attach 2nd to c as ord.
+Drop c.      
+Run month-complete next.}
+
+{RULE THE-FIRST-OF-JUNE PRIORITY: 5 IN PARSE-QP-2
+[=ord] [=*of] [=month] -->
+Create a new noun node labelled time, complex-np, propnoun, ns.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach a new qp node to c as qp;
+	Attach 1st to c as ord;
+	Drop c.
+Attach 2nd to c as of.
+Attach 3rd to c as noun.
+Run month-complete next.}
+
+
+
+
+{RULE MONTH-COMPLETE PRIORITY: 15 IN MONTH-BUILD
+[t] -->
+Drop c % i.e. the time np , so c is now the noun% .
+Set the month register of c to the noun of the np of c.
+Set the markers register of c to !'(time).
+If there is not a qp of the np of c
+	then set the time register of c to 'month'; label c month
+	else set the time register of c to 'date'; label c date;
+	set the day register of c to 
+		the quant register of the ord of the qp of the np of c.
+Finalize the cf of c.
+Drop c.}
+
+{RULE NUMBER-TO-YEAR IN QUANT-NP-COMPLETE
+[** c; * is quant-np; * is not time; the quant of the qp of * is listnum]
+ -->
+Label c time,year.
+Set the markers register of c to !'(time).
+Set the time register of c to 'year'.
+Set the year register of c to the quant register of the quant of the qp of c.}
+
+{RULE MONDAY PRIORITY: 5 IN NPOOL
+[=day-of-week; * is not complex-np] -->
+Create a new noun node labelled time, complex-np, propnoun.
+Attach a new np node labelled time, complex-noun-np to c as np.
+Attach 1st to c as noun.
+Finalize the cf of c.
+Drop c %so c is now the noun%.
+Set the time register of c to 'dow'.
+Set the dow register of c to 1st.
+Set the markers register of c to !'(time).
+Drop c.}
+
+;;The next rule (whatever it was for) probably won't work
+;for the moment 12/19/77
+
+;{AS RULE MONDAY-REGISTERS PRIORITY: 5 IN NPOOL
+;[=noun, day-of-week; it isn't true that there is a time of *] -->
+;%Sets some registers for semantics%
+;Set the time register of 1st to 'dow'.
+;Set the dow register of 1st to 1st.
+;Restore the buffer.}
+
+{NR RULE TIME-FINISH IN CPOOL
+[=np, time] -->
+Activate time-complete, cpool.}
+
+{RULE MONDAY-THE-FIRST IN TIME-COMPLETE
+[** c; * is dow] [=*\,]
+    [=np,time; the noun of * is date] [* is not verb] -->
+Attach 1st to c as comma.
+Attach 2nd to c as date.
+If 3rd is *\, then attach 3rd to c as comma.
+Remove the feature dow from c.
+Label c date.
+Set the time register of the noun of c to 'date'.
+Set the month register of the noun of c to
+	the month register of the noun of 2nd.
+Set the year register of the noun of c to
+	the year register of the noun of 2nd.
+Set the day register of the noun of c to
+	the day register of the noun of 2nd.}
+
+ {RULE JUNE-FIRST-1976 IN TIME-COMPLETE
+[** c; the noun of * is date] [= *\,] [=np, the noun of * is year]
+    [* is not verb] -->
+Attach 1st to c as comma.
+Attach 2nd to c as year.
+If 3rd is *\, then attach 3rd to c as comma.
+Set the year register of the noun of c to
+	the year register of the noun of 2nd.}
+
+
+{RULE TIME-DONE PRIORITY: 15 IN TIME-COMPLETE
+t -->
+Finalize the cf of c.
+Drop c.
+Restore the buffer.}
+
+{RULE NUMBER-TO-TIME PRIORITY: 12 IN QUANT-NP-COMPLETE
+[** c; :cheap-hacks; * is quant-np; * is not time] -->
+%An ellision hack. Clearly special purpose for the PA domain.
+A better approximation would be only to use this hack if the
+incomplete np followed a prep that marked time, e.g. "on the first",
+but even that, obviously, could be wrong.  Recovering ellisions, as
+opposed to detecting them, really shouldn't be in the grammar.%
+If there is a qp of c and it is ordqp %e.g. "the first"%
+	then run month-complete next else
+If it is numqp and there is not a det of the np above it
+	then (if lessp (the quant register of the quant of it, 13) %e.g. "ten"%
+		then run hour-complete next else
+             if lessp (1900, the quant register of the quant of it, 20000) %e.g. "1976"%
+		then run number-to-year next
+	     else run np-done next)
+else run np-done next.}
+
+{RULE TIME-NP-TO-PP PRIORITY: 5 IN CPOOL
+%This rule needs to be controlled, but right zeroeth approx%
+[=np, time] -->
+Insert the word 'during' into the buffer before 1st.}
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:24:36 1987
+Posted-Date: Sun, 22 Nov 87 13:56 EST
+Received-Date: Sun, 22 Nov 87 18:24:20 EST
+Message-Id: <8711222324.AA02589@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:22 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00810; 22 Nov 87 18:20 EST
+Received: from btl by csnet-relay.csnet id aa14592; 22 Nov 87 18:13 EST
+Date: Sun, 22 Nov 87 13:56 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: util.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(declare (special nindnt nsw fsw casesw funcsw  scroll wipeclean 
+		  dividescreen linel line-count user-top-level 
+		  poport piport 
+		  ntab ftab make-film? super-film?))
+
+(declare (include declr))
+;(version)
+;;Parser interface and utility functions - none of which are necessary to
+;run the parser
+                  
+(defun parsifal nil 
+       (prog ;;Nothing will be local here later
+              (hypoth-frames certain-frame
+	      also-filled openframe) 
+	     (ifnot (boundp '###started)
+		    (setq ###started nil)
+		    (say Parsifal Version 1.0))
+             (do ((ctemp ))		
+                 ;;do forever
+                 nil
+		 (cond  ((and (not scroll) (not wipeclean))
+			 (cursorpos '\])
+			 (cond (dividescreen
+				(cursorpos 'd)
+				(do ((i 1 (1+ i)))
+				    ((= i linel))
+				    (princ '|_|))
+				(cursorpos 'u)
+				(tyo 13.)))))
+			(patom "# ")
+			(drain)
+			(and scroll
+			     (setq line-count 1))
+		 (setq ctemp (read))
+		 (newline-stuff)
+                 (cond ((eq ctemp 'p)(parse))
+		       ((eq ctemp 'tree) (ptree))
+		       ((eq ctemp 'ctree) (ptree s 0. t) )
+		       ((eq ctemp 'ftree) (ptree s 0. nil t nil nil) )
+		       ((eq ctemp 'ntree) (ptree s 0. nil nil t) )
+		       ((eq ctemp 'ltree) (ptree s 0. nil t t) )
+		       ((eq ctemp 'cases) (short-ctree1 s))
+		       ((eq ctemp 'time) (parsetime))
+                       ((eq ctemp '?) (introduce-parsifal))
+		       ((eq ctemp 'lisp) (setq user-top-level nil)
+			(return nil))
+		       (t (prin1 (eval ctemp))
+			  (terpri))))))
+
+(defun introduce-parsifal nil
+       (process |cat /usr/mitch/lisp/parsifal/parsifal.help|))
+
+
+(defun :ptoplevel nil (sstatus toplevel '(parsifal)))
+
+(defun runfast nil 
+       (setq :ptrace nil 
+	     :ntrace nil 
+             ctrace nil
+             :crtrace nil
+             :pstatus nil
+             word-entry-switch nil
+	     :carefulsw nil)
+       (*rset nil)
+       (sstatus translink on)) 
+
+ (defun ptrace nil 
+       (setq :ptrace t
+             :ntrace t :pstatus nil)
+       (*rset t))
+
+(defun ctrace (foo)(setq :crtrace (setq ctrace foo)))
+
+(defun trace-on fexpr (l)
+       (if* (apply 'ruletrap l)
+	   (setq :displayflag nil)
+	   (setq rule-func '(and top-tty (setq :displayflag t)))
+	   t))
+
+(defun trace-off nil (setq :displayflag nil))
+
+(defun deriv nil
+       (cursorpos 'c)
+       (for (base 10.)
+	    (say |Total rules executed:| $ (length :deriv))
+	    (terpri))
+       (do  ((l (reverse :deriv) (cdr l))
+	     (sw t (not sw)))
+	    ((null l))
+	    (princ (car l))
+	    (princ '-->)
+	    (cond ((or sw  ttysw) (terpri))
+		  ((cursorpos (car (cursorpos)) 25.)))))
+
+
+(defun switches nil 
+       (say |The following switches have been set:|)
+       (mapc '(lambda (sw) (say-it  '|     | sw (eval sw)))
+             '(:ptrace :ntrace :crtrace ctrace :pstatus *rset
+                      nouuo :buffer-gc :carefulsw :always-expand
+                      :breaksw :ruletrap :word-entry-switch
+                      :displayflag :psych-sw))t)
+
+(defun pstate nil
+       (cond ((boundp ':activenodestak)
+	      (nstak? 100.)
+	      (terpri)
+	      (bprint)
+	      (terpri)
+	      (wstring)
+	      (terpri))
+	     ((say |Not parsing....\|))))
+
+(declare (*lexpr say-it1))
+
+(defun say1 macro (l)
+       (rplaca l 'say-it1)
+       (do ((saylist) (spliceflag) (saytemp (cdr l) (cdr saytemp)))
+	   ((null saytemp) (rplacd l (reverse saylist)))
+	   (cond ((memq (car saytemp) '($$ $))
+                  (cond ((eq (car saytemp) '$$)
+                         (setq saylist (cons ''$$$splice$$$ saylist))))
+		  (setq saytemp (cdr saytemp))
+		  (setq saylist (cons (car saytemp) saylist)))
+		 (t (setq saylist (cons (list 'quote (car saytemp)) saylist))))))
+
+
+(defun say-it1 saylist
+       (terpri)
+       (do ((n  1 (1+ n)) (splice))
+           ((> n saylist))
+           (cond ((eq (arg n) '$$$splice$$$) (setq splice t))
+                 (splice (setq splice nil) (mapc 'print2 (arg n)))
+		 ((eq (arg n) '$$up) (cursorpos 'u))
+                 ((print2 (arg n))))))
+
+(defun parser-underscore (switch)
+  (cond ((not (memq (getenv 'TERM) '(|2621| |2624| hp2621 2621a)))nil)
+	((eq switch 'highlight)
+	 (ncons (implode '(27. & d B))))
+	((eq switch 'HIGHLIGHT)
+	 (ncons (implode '(27. & d  C))))
+	(switch (ncons (implode '(27. & d D))))
+	((ncons (implode '(27. & d @))))))
+
+(defun bprint nil
+       (for (bmax+1 (1+ :bufmax) prinlength 5)
+	    (say1 |	|
+		  $$ (parser-underscore 'highlight)
+		  |The Buffer|  
+		  $$ (parser-underscore nil) 
+		  |  (Pointer stack: | 
+		  $ (mapcar '1+  (cons :bufpntr :bufpntrstak)) \))
+            (do ((i 0 (1+ i)))
+		((> i :bufmax))
+		;(if* (= i :bufpntr) (prints '|	=====|))
+		(say1 $ (1+ i)
+		      $ (cond ((plusp (logand (flags (:buffer i)) 1)) '*)
+			      (':))
+		      |	| 
+		      $$(cond ((= (1+ i) :bufpntr)
+			       (parser-underscore t)))
+		      $$ (nid (:buffer i))
+		      $$ (cond ((= (1- i) :bufpntr)
+				(parser-underscore nil)))))
+	    (if* (:buffer bmax+1)
+		(prints '| (There 's something in position $ bmax+1) |)
+		(node-id (:buffer bmax+1)))))
+
+(defun nstak? (depth)
+       (for (base 10.)
+	    (say1 $$up
+		  |	|
+		  $$(parser-underscore 'highlight)
+		  |The Active Node Stack|
+		  $$(parser-underscore nil)
+		  |(| 
+		  $ (length :activenodestak) |deep) |
+		  $$ (cond (:showrule 
+			    (list 
+			     '|Next rule:|
+			     (car (parser-underscore 'HIGHLIGHT))
+			     (car :activerule)
+			    (car (parser-underscore nil))
+			     ))
+			   (nil))))
+       (if* (< depth (length :activenodestak)) (say |		.......|))
+       (do ((stail (reverse (firstn depth :activenodestak)) (cdr stail)))
+           ((null stail))
+           (say1 |	| $$ (nid1 (caar stail)) \\ $ (cdar stail))
+           (printkids (caar stail) (or (caadr stail) c)))
+       (say1 |C:	| $$ (nid1	 c) \\ $ :activepackets)
+                  (printkids c nil))
+
+
+
+(defun wstring nil
+       (princ '|Yet unseen words: |)
+       (prphrase (nodes-to-words :wstring)))
+
+(defun printkids (node activekid)
+       (do ((sons-tail (cdr (getr 'daughters node)) (cddr sons-tail)))
+	   ((null sons-tail) t)
+	   (mapc
+             '(lambda (dn)
+                      (say |		| $ (car sons-tail) :
+                           $ (cond ((eq dn activekid)
+                                    (cond (make-film?  '||) ('\|)))
+				   ((is-any-of dn '(trace *))
+				    (cons '|trace of: | (phrasify (binding dn))))
+                                   ((phrasify dn)))))
+             (reverse (cadr sons-tail)))))
+
+(defun stree (node) 
+       (cursorpos 'c)
+       (setq nsw t)
+       (tree node 0.)
+       (setq nsw nil)) 
+
+(defun defeat fexpr (l) (remprop (car l) 'features)) 
+
+(defun prule fexpr (l)
+       (sprinter (get (car l) ':indexinfo))
+       (funcall 'pp (ncons (cat '::pat-of- (car l))))
+       (funcall 'pp (ncons (cat '::act-of- (car l)))))
+
+(defun findex (num)
+       (do ((i 0 (1+ i))
+            (flist (reverse (get ':gram-stats 'flist)) (cdr flist)))
+           ((null flist) (say |You lose!!|))
+           (if* (= i num) (cond ((= (get (car flist) ':findex) num)
+                                (return (car flist)))
+                               (t (say flist thinks $ (car flist) but it has
+                                       index $ (get (car flist) ':findex)))))))
+
+(defun trace-in macro (l)
+       (rplaca l 'trace)
+       (rplacd l
+	       (ncons (list (cadr l)
+			    'wherein
+			    (cat '::act-of- (caddr l))
+			    'break
+			    (cadddr l)))))
+
+(defun psuspend (sname)
+       (progn (remedit) (makunbound '###started)
+              (suspend (cat '|:pdump | (status userid)
+                            '|;ts | sname
+                            '|\
+|))
+              (^g)))
+
+(comment pbug nil
+       (prog (^r ^w)
+	     (setq ^r t ^w t)
+	     (cond ((uprobe pbug mail dsk mitch)
+		    (uappend pbug mail dsk mitch))
+		   ((uwrite dsk mitch)))
+	     (terpri)
+	     (date)
+	     (prphrase :sent)
+	     (ufile pbug mail dsk mitch)))
+
+(comment cando nil
+       (prog (^r ^w)
+	     (setq ^r t ^w t)
+	     (cond ((uprobe parser wins dsk mitch)
+		    (uappend parser wins dsk mitch))
+		   ((uwrite dsk mitch)))
+	     (terpri)
+	     (date)
+	     (prphrase (phrasify s))
+	     (ufile parser wins dsk mitch)
+	     (cando-long)))
+
+
+(declare (special ttysw))
+(comment cando-long nil
+       (prog (^r ttysw)
+	     (setq ^r t ttysw t)
+	     (cond ((uprobe parser succes dsk mitch)
+		    (uappend parser succes dsk mitch))
+		   ((uwrite dsk mitch)))
+	     (terpri)
+	     (date)
+	     (prphrase (phrasify s))
+	     (short-ctree1 s)
+	     (ufile parser succes dsk mitch)))
+
+(defun date nil
+       (for (base 10. *nopoint t date (status date))
+	    (print2 (cat (cadr date) '\\ (caddr date) '\\ (car date) '\:))))
+
+
+(defun sent-list nil
+       (terpri)
+       (mapc 'print2 :sent-list) t)
+
+ 
+(setq tree? nil)
+
+(defun test argnum
+       (prog (n file)
+             (setq n (arg 1))
+             (setq file (cond ((eq argnum 2) (arg 2))
+                              ( '(test > dsk mitch))))
+             (apply 'uread file)
+             (say |From file| $ file)
+	     (runfast)
+	     (nouuo nil)
+	     (nexts n)
+	     (setq testnum n)
+	loop ((lambda (^q) (parse)) t)
+	     (setq testnum (1+ testnum))
+             (if* tree? (ptree s 0 t) (say $ :sent) (tyi))
+	     (say |Sentence: | $ :sent)
+	     (parsetime)
+	     (go loop)))
+
+  
+
+(defun ptree n 
+       (prog (casesw funcsw nsw fsw)
+             (if* openframe (closeframe openframe))
+	     (cursorpos 'c)
+	     (setq casesw (default-arg 3. nil) 
+		   funcsw (default-arg 4. nil) 
+		   nsw (default-arg 5. nil)
+                   fsw (default-arg 6. t))
+	     (tree (default-arg 1. s) (default-arg 2. 0.)))) 
+
+
+(defun parsetime nil 
+       (prog (base)
+	     (setq base 10.)
+	     (say parsing time: $
+		  (quotient (setq :ttemp (\\ (- :ptime :gctime) 1000.))
+			    1000.0)
+		  sec\.)
+	     (or (zerop :gctime)
+		 (say gctime: $ (quotient (\\ :gctime 1000.) 1000.0)
+		      sec\.))
+	     (say |          | in $
+		  (quotient (fix (*$ :realtime 1000.0)) 1000.0) sec\.
+		  realtime)
+	     (say time\\word: $
+		  (quotient (\\ :ttemp (length :sent)) 1000.0) sec\.)
+	     (say time\\rule: $
+		  (quotient (\\ :ttemp (length :deriv)) 1000.0) sec\.
+		  for $ (length :deriv) rules executed\.)
+	     (and :ptrace
+		  (say |     | with tracing on))
+	     (and *rset
+		  (say |     | with *rset on))
+	     (ifnot (status translink) (say |     | 
+					    with (status translink nil)))
+	     (return t)))
+
+(defun time-per-word nil 
+       (parsetime)
+       (terpri)
+       (terpri)
+       (do ((nword :savewstring (cdr nword)) (tpwtemp) (base 10.))
+           ((null nword)
+            (say |One # = |
+		 $
+		 (quotient (\\ (fix (quotient (quotient (- :ptime :gctime)
+							(length :sent))
+					      25.))
+			       100.)
+			   10.0)
+		 |msec.| )
+            (terpri))
+           (terpri)
+           (princ (getr 'word (car nword)))
+           (cursorpos (car (cursorpos)) 10.)
+           (princ (quotient (\\ (setq tpwtemp
+				      (-(or (getr ':time (cadr nword)) :endtime)
+					 (getr ':time (car nword))))
+				1000.)
+			    1000.0))
+           (cursorpos (car (cursorpos)) 20.)
+           (do ((i 0 (1+ i)))
+               ((= i
+		   (fix (quotient (* tpwtemp 25.)
+				  (quotient (- :ptime :gctime) (length :sent))))))
+               (princ '#))))
+
+
+;;tree printing functions
+(defun tprint (indent list) 
+       (cond (ttysw (space indent))
+	     ((cursorpos (car (cursorpos)) indent)))
+       (do ((fset (progn (princ '\() (princ (car list)) (cdr list)) (cdr fset))) 
+           ((null fset) (princ '\)) (terpri-hack))
+           (if* (> (+ (flatsize (car fset)) 3.)
+		     (- (linel t)
+			(cond (ttysw (chrct t)) ((cdr (cursorpos))))))
+		  (terpri-hack)
+		  (space indent))
+           (princ '\ )
+           (princ (car fset))))
+ 
+(putd 'chrct (getd 'charcnt))
+(defun spacegen (n) (do i 0. (1+ i) (> i n) (princ '\ ))) 
+
+
+
+(defun space (indent) 
+       (prog (pos)
+             (setq pos (- (linel t) (chrct t)))
+tryagin      (cond (ttysw (spacegen  (- indent pos)))
+		   (t (cond ((> (cdr (cursorpos))  (+ pos indent))
+			     (terpri-hack)
+			     (go tryagin))
+			    ((cursorpos (car (cursorpos))
+					(+ pos indent))))))))
+
+(setq nsw nil casesw nil funcsw nil fsw t ttysw nil)
+
+(defun tree (node level) 
+       (prog (nindnt findnt) 
+	     (setq findnt
+		   (+ (setq nindnt (* level (+ ntab ftab))) ftab))
+	     (and nsw (princ (car node)) (space 3.))
+	     (cond (fsw (tprint (+ nindnt 5.) (fe node)))
+                   ((not (atom (getr 'daughters node))) (terpri)))
+	     (cond
+	      ((is-any-of node '(trace *))
+               (tprint (+ nindnt 8.) (phrasify (binding node))))
+              ((and casesw (getc 'pred node))
+               (space findnt)
+               (princ '|PRED :    |) 
+               (princ (getc 'pred node))
+               (terpri-hack)
+               (space findnt)
+               (ifnot (atom (cadr (getc 'spec node)))
+		   (princ '|SPEC :|) (tree (cadr (getc 'spec node)) (1+ level)))
+	       (mapc 
+		'(lambda (case) 
+			 (space findnt)
+			 (princ (car case))
+			 (princ '|:	MARKER:  |)
+                         (princ (caddr case))
+                         (terpri-hack)
+			 (cond  ((dominates? (cadr case) node)
+                                (circ-print (cadr case)))
+			       (t (tree (cadr case) (1+ level)))))
+                 		(reverse (getc 'cases node)))
+               (if* (getc 'mods node)
+                     (space findnt)
+                     (princ '|MODS:	|)
+                     (mapc '(lambda (mod) (tree mod (1+ level))) (getc 'mods node))))
+              ((eq (getr 'daughters node) 'word)
+               (cond (fsw (space (+ nindnt 8.)))
+                     (t (space 2.)))
+	       (princ (origcase (getr 'word node)))
+	       (terpri-hack))
+              ((do ((sons-tail (cdr (getr 'daughters node)) (cddr sons-tail)))
+                   ((null sons-tail) t)
+			 (space findnt)
+			 (and funcsw
+			      (princ (car sons-tail))
+			      (princ ':)
+			      (and nsw (terpri-hack)))
+			 (mapc 
+			  (function (lambda (dn) 
+					    (tree dn (1+ level))))
+			  (reverse (cadr sons-tail))))))) )
+
+
+
+(defun short-ctree1 (node) (cursorpos 'c)(short-ctree node 0))
+
+(defun short-ctree (node level) 
+       (prog (nindnt findnt) 
+	     (setq findnt
+		   (+ (setq nindnt (* level (+ ntab ftab))) ftab))
+	     (cond
+	      ((is-any-of node '(trace *))
+               (tprint (+ nindnt 8.) (phrasify (binding node))))
+              ((getc 'pred node)
+	       (terpri-hack)
+               (space findnt)
+               (princ '|PRED :    |) 
+               (princ (getc 'pred node))
+               (terpri-hack)
+	       (mapc 
+		'(lambda (case) 
+			 (space findnt)
+			 (princ (car case))
+			 (princ '|:   (MARKER:  |)
+                         (princ (caddr case))
+			 (princ '\))
+                         (terpri-hack)
+			 (cond  ((dominates? (cadr case) node)
+                                (circ-print (cadr case)))
+			       (t (short-ctree (cadr case) (1+ level)))))
+                 		(getc 'cases node))
+               (if* (getc 'mods node)
+                     (space findnt)
+                     (princ '|MODS:	|)
+                     (mapc '(lambda (mod) (short-ctree mod (1+ level))) (getc 'mods node))))
+              ((eq (getr 'daughters node) 'word)
+	       (space 2.)
+	       (princ (origcase (getr 'word node)))
+	       (terpri-hack))
+	      (t (space (+ 8. nindnt)) (prphrase (phrasify node)) (terpri-hack)))))
+
+
+
+;;this hack is to avoid strange lossages due to funny IO problems in LISP
+;;interacting with cursorposes immediately following terpris
+(defun terpri-hack nil (terpri) (tyo 32.))
+
+(defun dominates? (node1 node2)
+       (do ((fn (getr 'father node2) (getr 'father fn)))
+           ((null fn))
+           (if* (equal fn node1) (return t))))
+
+(defun circ-print (node)
+       (space (+ nindnt ftab ntab))
+       (and nsw (princ (car node)) (space 3.))
+       (tprint (+ nindnt 9.) (cons '##father-of-self## (fe node)))) 
+
+;;exit functions
+(comment dump nil
+       (sprinter nil)
+       (uwrite)
+       ((lambda (^r ^q)
+                (say output on $ (status dow) \, $ (status date) \.)
+                (terpri)
+                (mapc '(lambda (sent) (apply 'say-it sent)) :sent-list)) 
+        t t)
+       (setq :sent-list nil)
+       (ufile dump >))
+
+(defun adieu nil
+       (remedit)
+       (dump)
+       (valret '|u|))
+
+
+;;functions to print the phrase under a node
+(defun phrasify(node)
+       (mapcar '(lambda (x) (origcase (cdr x)))
+               (sortcar (collectw node)
+                        '(lambda (x y) (< x y)))))
+
+(defun collectw (node)
+       (cond ((getr 'word node)
+              (ncons (cons (getr 'inputpos node) (getr 'word node))))
+             (t  (mapcan '(lambda (funcset)
+                                  (and 
+                                   (not (atom funcset))
+                                   (mapcan 'collectw funcset)))
+                         (cdr (getr 'daughters node))))))
+
+(defun prphrase (phrase)
+       (mapc 'print2 phrase) t)
+
+(defun nodes-to-words (nodestring)
+       (mapcan '(lambda (node) (phrasify node)) nodestring))
+
+(defun cfprint (node)
+       (openchek node)
+       (terpri)
+       (terpri)
+       (prphrase (phrasify node))
+       (say \ \ \ pred : $ pred)
+       (mapc '(lambda (case)
+                      (say \ \ \  $ (car case) :) 
+                      (prphrase (phrasify (cadr case))))
+             (cadr certain-frame))
+       t)
+
+;;movie functions
+
+(setq pswait .5)
+
+
+(defun psset-int nil
+  '(progn
+    (for (poport bottom-tty)
+       (princ '|pswait <-- |)
+       (drain poport)
+       (setq pswait (read)))))
+
+(setsyntax 16. 'macro 'psset-int)
+
+
+(setq no-removeds nil)
+
+(setq make-film? nil super-film? nil)
+
+(defun switch-display nil
+  '(pdisplay (not :displayflag)))
+
+(setsyntax 7. 'macro 'switch-display)
+
+(defun pdisplay (flag)
+       (setq :displayflag flag)
+       (cond (flag (cursorpos 'c)
+		   (splitscreen 6.)
+		   ;(sstatus ttyint '\ 'switch-tyo)
+		   )
+	     (t (splitscreen nil) (cursorpos 'c) ;(sstatus ttyint '\ nil)
+		)))
+
+(comment defun switch-tyo (foo bar) 
+       (nointerrupt nil)
+       (cond ((eq poport bottom-tty) (setq poport top-tty))
+             ((eq poport top-tty) (setq poport bottom-tty)))
+       (terpri)
+       (print '##))
+       
+
+(declare (special poport ttysw :noshow))
+(setq :noshow nil)
+(setq :noshow-defaults '(npool np-complete nbar-complete build-name))
+(setq :noshowr nil)
+(setq :noshowr-defaults '(np-complete nbar-complete))
+
+(defun noshow fexpr (x)
+       (cond ((null x) :noshow)
+             ((eq (car x) 't) (setq :noshow :noshow-defaults))
+             ((eq (car x) nil) (setq :noshow nil))
+             (t (setq :noshow (append x :noshow)))))
+
+(defun noshowr fexpr (x)
+       (cond ((null x) :noshowr)
+             ((eq (car x) 't) (setq :noshowr :noshowr-defaults))
+             ((eq (car x) nil) (setq :noshowr nil))
+             (t (setq :noshowr (append x :noshowr)))))
+(setq :showrule nil)
+
+
+(defun display-trace argnum
+  (do-display))
+
+(defun do-display nil
+       (prog (poport ttysw)
+	     (setq ttysw make-film?)
+	     (if* (or (meet :activepackets :noshow)
+		     (memq (car :activerule) :noshowr))
+		 (return t))
+	     (setq poport top-tty)
+	     (cursorpos 'c)
+	     ;(say |About to run:| $ (car :activerule))
+	     ;(clearuntil 2.)
+	     (for (:showrule t) (nstak? 1.))
+	     (clearuntil 10.)
+	     (bprint)
+	     (clearuntil 15.)
+	     (wstring)
+	     (do-display-post)))
+
+(defun do-display-post nil
+  (cond (make-film? (if* (and super-film? :activerule)
+			(say |________\$$$$$$$$$$$$$$$$|
+			     $
+			     (car :activerule)))
+		    (prints '|_________________________\.block 20\|))
+	((eq pswait 'record) (record))
+	((and pswait (fixp pswait)) 
+	      (listback (concat "sleep " pswait)))
+	(t ;pswait is nil
+	   (drain piport) 
+	   (let ((char (ascii (tyi))))
+		(cond ((eq char 'b)
+		       (let ((poport (cond (top-tty bottom-tty))))
+			    (drain poport)
+			    (break)
+			    (display-trace)))
+		      ((eq char 'p)
+		       (princ "pswait <-- ")
+		       (setq pswait (read)))
+		      ((eq char 'r)
+		       (apply 'edit (ncons (car :activerule)))
+		       (clearsplit)
+		       (display-trace)))))))
+
+(defun clearuntil (line)
+       (cond (make-film? (terpri))
+             (t (clearloop (- line (car (cursorpos)))))))
+
+(defun clearloop (lines)
+       (declare (fixnum lines))
+       (do ((i 1 (1+ i)))
+	   ((ge i lines) (terpri))
+	   (declare (fixnum i))
+           (terpri)))
+              
+(defun super-movie fexpr (file) (for (super-film? t) (apply 'movie file)))
+(defun super-movie1 fexpr (file) (for (super-film? t) (apply 'movie1 file)))
+
+(defun movie fexpr (file)
+       (prog (^r make-film? abbrev-temp mport)
+             (pdisplay t)
+             (setq mport (apply 'outfile file))
+             (setq make-film? t ^r t)
+             (setq abbrev-temp (status abbrev))
+             (sstatus abbrev 1)
+	     (let ((poport mport))
+		  (princ '|
+.xgp\
+.font 0 25fg\
+.nofill\
+.ss\
+.sinch 8.5,6.0,11.0,9.0,1.0\
+.php1\
+.he1\
+.he2\
+\
+.sp 2\
+|)
+             (say |Not showing rules in packets:| $ :noshow)
+	     (errset (parse))
+             (prints '|\.end\|))
+             (close mport)
+             (sstatus abbreviate abbr-temp)
+             (pdisplay nil)))
+
+(comment movie1 fexpr (file)
+       (prog (^r make-film? abbrev-temp tty-linel)
+             (pdisplay t)
+             (uwrite dsk mitch)
+             (setq make-film? t ^r t)
+             (setq abbrev-temp (status abbrev))
+             (sstatus abbrev 3)
+             (setq tty-linel (linel top-tty))
+             (linel top-tty 55.)
+             (princ '|
+.xgp\
+.font 0 40fg\
+.nofill\
+.ss\
+.sinch 8.5,7.5,11.0,9.0,0.5\
+.php1\
+.he1\
+.he2\
+\
+.sp 2\
+|)
+             (say |Not showing rules in packets:| $ :noshow)
+             (errset (parse))
+             (prints '|\.end\|)
+             (apply 'ufile 
+                    (cond ((not file) '(movie > dsk mitch))
+                          (file)))
+             (sstatus abbreviate abbrev-temp)
+             (linel top-tty tty-linel)
+             (pdisplay nil)))
+
+(comment trace-movie nil
+       (prog (^r ^w )
+             (ptrace)
+             (uappend movie > dsk mitch)
+             (ioc rw)
+             (tyo 14)
+             (parse)
+             (ufile movie > dsk mitch)))
+ 
+
+(comment nexts (n) 
+       (do ((i 0.) (^q t) (temp nil) (:sent nil))
+	   ((= i n)
+            (maknam (nreverse :sent)))
+	   (if* (memq (car (setq temp (cons  (ascii (tyi)) temp))) endpuncs)
+                  (setq i (1+ i))
+                  (setq :sent temp
+                        temp nil))))
+
+(comment nextts (n)
+       (uread test)
+       (say $ (nexts n)))
+
+(defun sys:int-serv (dummy) 
+  (for (poport (cond (top-tty bottom-tty)))
+       (patom '"Interrupt:  " )
+       (drain poport)
+       (break)))
+
+(or (getd '$old-gcafter)
+  (putd '$old-gcafter (getd 'gcafter)))
+
+(defun gcafter fexpr (x)
+  (let ((poport (cond (top-tty bottom-tty))))
+       (apply '$old-gcafter x)))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:31:04 1987
+Posted-Date: Sun, 22 Nov 87 13:57 EST
+Received-Date: Sun, 22 Nov 87 18:31:00 EST
+Message-Id: <8711222331.AA02647@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:29 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ac00851; 22 Nov 87 18:26 EST
+Received: from btl by csnet-relay.csnet id ad14592; 22 Nov 87 18:21 EST
+Date: Sun, 22 Nov 87 13:57 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: load1.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+(allocate 'list 200.)
+;(process |cd parsifal; unpack myutil.o glang.o parse.o case.o com.o util.o|)
+(fasl 'parsifal/fixes)
+(fasl 'util/set)
+(fasl 'parsifal/myutil)
+(fasl 'parsifal/glang)
+(fasl 'parsifal/parse)
+(fasl 'parsifal/case)
+(fasl 'parsifal/com)
+(fasl 'parsifal/util)
+(setq ttysw t)
+(setq pswait nil)
+(push 'rule indexforms)
+(load 'parsifal/testdef)
+(drain poport)
+(progn (resetio) (setq user-top-level 'parsifal)
+  (reset))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:31:06 1987
+Posted-Date: Sun, 22 Nov 87 13:56 EST
+Received-Date: Sun, 22 Nov 87 18:30:54 EST
+Message-Id: <8711222330.AA02645@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:29 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00851; 22 Nov 87 18:26 EST
+Received: from btl by csnet-relay.csnet id ab14592; 22 Nov 87 18:18 EST
+Date: Sun, 22 Nov 87 13:56 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: pautil.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+;;; -*-lisp-*-
+(comment required files)
+(declare (setsyntax '\# 2))
+(declare (sstatus macro \~ '(lambda () ((lambda (\~) (eval \~) \~) (read)))))
+(setq \~ nil)						; ~ is a NO-OP to the interpreter.
+
+;; Expressions preceded by ~ are read and digested by the compiler, as well as being
+;; compiled and left defined in the file.  Use ~ before expressions that will be needed at
+;; at compile-time as well as load-time.
+
+
+~
+(defun requiredf narg
+       ;; Arguments are files that are required to be loaded.
+       ;; REQUIREDF will halt and load them if the current version is not present.
+       ;; Currency is determined using *VERSION*.
+       (do ((files (listify narg) (cdr files))
+            (f))
+           ((null files))
+           (setq f (mergef (car files) '((* *) * fasl)))
+           ;; if file not  yet in according to version, then load
+           (or (equal (mergef '((* *) * t) f)(mergef '((* *) * t)(get '*version* (cadr f))))
+               (progn (or (status feature noldmsg)
+			  (progn (terpri)(princ '|\;Loading required file |)(prin1 f)))
+                      (load f)))
+           ;;if has version, then compare, otherwise assume ok
+           (cond ((and (get '*version* (cadr f))
+                       (not (equal (get '*version* (cadr f))
+                                   (probef (mergef '((* *) * >) f)))))
+                  (terpri tyo)(princ '|\;Required file latest version not compiled |  tyo)
+                  (prin1 f tyo)
+                  (break alt-p-to-proceed)))))
+
+~(requiredf '((dsk liblsp) macrod)		  ; So macros defined herein will run.
+	    '((dsk parsfl) %cntrl))			  ; Contains some macros.
+
+(comment version numbers)
+
+;;***********************************************************************
+;; VERSION NUMBER --
+;;   Put (VERSION) in each of the files whose version you wish to record.
+;;    This puts the full file name (including version number) on the
+;;    plist of *VERSION* under the indicator which is the first file name.
+;;************************************************************************
+
+(macroevaldef version (call)
+       ;; puts the version number (the second filename) of the current file on
+       ;; property of *VERSION* which is the first file name.
+       ;; Works for both interpreted and compiled versions.
+       ((lambda (filename)
+                ;; assume file name in newio format
+                `(defprop *version* ,filename ,(cadr filename)))
+	(truename infile)))
+
+(defun version? (file)
+       ;; returns the present version number of given file
+       (caddr (get '*version* file)))
+
+(defun check-versions ()
+       ;; runs through all the version numbers on *VERSION* and
+       ;; makes sure they correspond to the highest version number on dsk.
+       ;; It returns list of file names that have higher version numbers on
+       ;; dsk than in present image.
+       (do ((plist (cdr (plist '*version*)) (cddr plist))
+            (filename)(hits))
+           ((null plist) hits)
+           (setq filename (car plist))
+           (or (equal filename (probef (mergef '((* *) * >) filename)))
+               (push filename hits))))
+
+(defun bump-version (v)
+       ;; V is a version number (not a fixnum).
+       ;; Returns a version number (not a fixnum), which is 1+ V.
+       ((lambda (base ibase *nopoint)
+                (implode (exploden (1+ (readlist (exploden v))))))
+        10. 10. t))
+
+(version)						; record version of this file
+
+(comment list manipulation)
+;;;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+;;;
+;;;		List Hacking Utilities
+;;;
+;;;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+(defun firstn (n list)
+       ;; returns a list comprising the first N elements of LIST.
+       (do ((l list (cdr l)) (output) (i (cond((minusp n) 0)(n)) (1- i)))
+           ((or (zerop i) (null l)) (nreverse output))
+           (declare (fixnum i))
+           (setq output (cons (car l) output))))
+
+
+;;;	The following macros extract the Nth field of a list.
+
+(macrodef 1st (l) (car l))
+
+(macrodef 2nd (l) (cadr l))
+
+(macrodef 3rd (l) (caddr l))
+
+(macrodef 4th (l) (cadddr l))
+
+(macrodef 5th (l) (car (cddddr l)))
+
+(comment file manipulation)
+
+
+(defun readfile fexpr (file)
+       ;; Fix to use newio file specs
+ ((lambda (eof)
+   (apply 'uread file)
+   (setq ^q t)
+   (terpri)
+   (princ (status uread))
+   (do ((exp (read eof) (read eof)))
+       ((eq exp eof))
+       (#prin1 (eval exp)))
+   '*)
+  (list nil)))
+
+
+(defun writefile (sexpr filspc)
+       ((lambda (fil prinlevel prinlength)
+             (prog2
+              ((lambda (outfiles ^r ^w) (#print sexpr))	;;grinds Sexpr.
+	       (cons fil outfiles) t t)
+              (truename fil)
+              (close fil)))
+	(open (mergef filspc defaultf) 'out) nil nil))
+
+(comment printing utilities)
+
+(defun newline ()
+       ;; puts cursor on a blank line.
+       (or (zerop (charpos t)) (terpri)))
+
+(defun newpage ()
+       ;; prints a formfeed.
+       (tyo 12.))
+
+(defun space (n)
+       ;; Leaves N blank lines after the current line.
+       (declare (fixnum n i))
+       (newline)
+       (do i n (1- i) (zerop i) (terpri)))
+
+(defun printc (string)
+       ;; "PRINT" using PRINC instead of PRIN1.
+       (terpri) (princ string) (tyo 32.))
+
+(defun chrct (tty)
+       (- (linel tty) (charpos tty)))
+
+
+(comment numerical logical and string operators)
+
+;;;	Numerical Operators
+
+
+(defun ge (a b)
+       ;; greater-than-or-equal-to predicate for numbers
+       (signp ge (difference a b)))
+
+(defun le (a b)
+       (signp le (difference a b)))
+
+(defun round (x)
+       ;;rounds off the number X to the nearest integer.
+       (fix (plus 0.5 x)))
+
+
+
+;;;	String Oriented Utilities.
+
+(defun concatenate args
+       ;;args are atoms; returns interned atom formed by concatenation.
+       (implode (mapcan 'exploden (delq nil (listify args)))))
+
+(defun stringify args
+       ;; Like concatenate, except does NOT intern atom.
+       (maknam (mapcan 'exploden (delq nil (listify args)))))
+
+
+;;;	Miscellany
+
+(macrodef kwote (x) `(quote ,x))
+
+(macrodef listp (x) (eq (typep x) 'list))
+
+(macrodef logand frobs (boole 1 . frobs))
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:31:12 1987
+Posted-Date: Sun, 22 Nov 87 13:56 EST
+Received-Date: Sun, 22 Nov 87 18:31:02 EST
+Message-Id: <8711222331.AA02653@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:29 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ab00851; 22 Nov 87 18:26 EST
+Received: from btl by csnet-relay.csnet id ac14592; 22 Nov 87 18:20 EST
+Date: Sun, 22 Nov 87 13:56 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: ~r patches.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(*rset t)
+(sstatus translink nil)
+(setq $gcprint nil)
+(defun $$cursor-sense nil (cons line-count 0))
+(setq ttysw t)
+(setq more nil)
+(putd 'if* (getd 'if))
+(defun gctwa nil nil)
+(defun dp1 (x) (apply 'dp (list x)))
+(df meeting feats (noun ns) cf (com agt) markers (socev event mentob)) ;;changed by candy
+(jlike secretary student)
+(jlike intend believe)
+(jlike yet now);Well, not really, but it's close
+(defun display-trace argnum
+  (do-display))
+
+(defun do-display nil
+       (prog (poport ttysw)
+	     (setq ttysw make-film?)
+	     (if* (or (meet :activepackets :noshow)
+		     (memq (car :activerule) :noshowr))
+		 (return t))
+	     (setq poport top-tty)
+	     (cursorpos 'c)
+	     ;(say |About to run:| $ (car :activerule))
+	     ;(clearuntil 2.)
+	     (for (:showrule t) (nstak? 1.))
+	     (clearuntil 10.)
+	     (bprint)
+	     (clearuntil 15.)
+	     (wstring)
+	     (do-display-post)))
+
+(defun do-display-post nil
+  (cond (make-film? (if* (and super-film? :activerule)
+			(say |________\$$$$$$$$$$$$$$$$|
+			     $
+			     (car :activerule)))
+		    (prints '|_________________________\.block 20\|))
+	((eq pswait 'record) (record))
+	((and pswait (fixp pswait)) 
+	      (listback (concat "sleep " pswait)))
+	(t ;pswait is nil
+	   (drain piport) 
+	   (let ((char (ascii (tyi))))
+		(cond ((eq char 'b)
+		       (let ((poport (cond (top-tty bottom-tty))))
+			    (drain poport)
+			    (break)
+			    (display-trace)))
+		      ((eq char 'p)
+		       (princ "pswait <-- ")
+		       (setq pswait (read)))
+		      ((eq char 'r)
+		       (apply 'edit (ncons (car :activerule)))
+		       (clearsplit)
+		       (display-trace)))))))
+
+(defun htree (node level) 
+       (prog (nindnt findnt) 
+	     (setq findnt
+		   (+ (setq nindnt (* level (+ ntab ftab))) ftab))
+	     (and nsw (princ (car node)) (space 3.))
+	     (cond (fsw (tprint (+ nindnt 5.) (fe node)))
+                   ((not (atom (getr 'daughters node))) (terpri)))
+	     (cond
+	      ((is-any-of node '(trace *))
+               (tprint (+ nindnt 8.) (phrasify (binding node))))
+              ((and casesw (getc 'pred node))
+               (space findnt)
+               (princ '|PRED :    |) 
+               (princ (getc 'pred node))
+               (terpri-hack)
+               (space findnt)
+                (mapc 
+		'(lambda (case) 
+			 (space findnt)
+			 (princ (car case))
+			 (princ '|:	MARKER:  |)
+                         (princ (caddr case))
+                         (terpri-hack)
+			 (cond  ((dominates? (cadr case) node)
+                                (circ-print (cadr case)))
+			       (t (htree (cadr case) (1+ level)))))
+                 		(reverse (getc 'cases node)))
+               (if* (getc 'mods node)
+                     (space findnt)
+                     (princ '|MODS:	|)
+                     (mapc '(lambda (mod) (htree mod (1+ level))) (getc 'mods node))))
+              ((eq (getr 'daughters node) 'word) (space 2.)
+              (princ (origcase (getr 'word node)))
+	       (terpri-hack))
+              ((do ((sons-tail (cdr (getr 'daughters node)) (cddr sons-tail)))
+                   ((null sons-tail) t)
+			 (space findnt)
+			 (mapc 
+			  (function (lambda (dn) 
+					    (htree dn (1+ level))))
+			  (reverse (cadr sons-tail))))))) )
+(defun hptree n 
+       (prog (casesw funcsw nsw fsw)
+             (if* openframe (closeframe openframe))
+	     (cursorpos 'c)
+	     (setq casesw (default-arg 3. nil) 
+		   funcsw (default-arg 4. nil) 
+		   nsw (default-arg 5. nil)
+                   fsw (default-arg 6. t))
+	     (htree (default-arg 1. s) (default-arg 2. 0.)))) 
+
+
+(defun ctree nil 
+      (hptree s 0 t t nil nil))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:31:35 1987
+Posted-Date: Sun, 22 Nov 87 13:57 EST
+Received-Date: Sun, 22 Nov 87 18:31:23 EST
+Message-Id: <8711222331.AA02666@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:29 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00893; 22 Nov 87 18:31 EST
+Received: from btl by csnet-relay.csnet id ae14592; 22 Nov 87 18:21 EST
+Date: Sun, 22 Nov 87 13:57 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: glang.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+ (declare
+  (special :glangsyn :lispsyn :eof :token :left :drbp :fun :isfun :defbp 
+	   :rulename :gtest :semi-flag :rulename :nodevarlist :nodevars 
+	   :indexf :pfeats)
+  (macros t))
+(declare (include declr))
+
+(eval-when (compile) (setsyntax '\[ 'vcharacter) (setsyntax '\] 'vcharacter))
+;;;The translator from Parsifal's grammar language into LISP.
+;;;Top down operator precedence parser for Parsifal's grammar language
+;;;The parser itself is adapted from PRATT;CGOL >
+;;;This parser converts the grammar language into LISP
+
+(setq :defbp 25.) 
+
+;;;The parser's main loop
+(comment the main loop of the translator)
+;;Note that advance flushes "the" "an" and "a" from the input
+(setq :eof (ncons nil))
+
+(defun advance nil 
+       (cond ((eq (setq :token (read :eof)) :eof)
+	      (throw 'lederr-bug :bug))
+             ((memq :token '(the an a)) (advance))
+	     (:token))) 
+
+(defun verify (den) (cond (den (progn (advance) den)))) 
+
+(defun associate (rbp :left) 
+       (declare (fixnum rbp))
+       (cond ((lessp rbp (or (and (atom :token) (get :token ':lbp)) 0.))
+	      (associate rbp
+			 (funcall (or (verify (get :token ':led))
+					  (lederr)))))
+	     (:left))) 
+
+(defun :parse (rbp) 
+       (declare (fixnum rbp))
+       (associate rbp
+		  (cond ((and (atom :token) (get :token ':nud))
+			 (funcall (prog1 (get :token ':nud) (advance))))
+			((prog1 :token (advance))))))
+
+
+(defun lederr nil 
+       (if* (boundp ':rulename) 
+           (say |Error in| $ :rulename))
+       (say error \- $ :token does not take a left argument\.)
+       (say |:LEFT is|)
+       (sprinter :left)
+       (say |Following context:|)
+       (do ((i 25. (1- i)) (ch (tyipeek nil) (tyipeek nil)))
+           ((or (zerop i) (= ch 175)))
+           (declare (fixnum ch))
+           (tyo (tyi)))
+       (throw 'lederr-bug :bug)) 
+
+(defprop \} -1. :lbp) 
+
+;;reader hackery
+(comment reader hackery for the translator)
+(defun glang-setup nil 
+       (ifnot (boundp ':lispsyn) (setq :lispsyn readtable))
+       (setsyntax '\{ 'vmacro 'glang-read)
+       (for (readtable (setq :glangsyn (makereadtable t)))
+	    (mapc '(lambda (x) (setsyntax x 'vsingle-character-symbol)) 
+	    ;;make single char atoms
+		  (explodec '|[]\{}()';,.=|))			
+		;Note that . isn't even decimal point, any more (ughh!)
+	    ;(setsyntax '|.| 197056. nil)
+	    (setsyntax '\% 'vsplicing-macro 'glang-\%-macro)
+	    (setsyntax '\! 'vmacro 'glang-!-macro))t) 
+
+(defun glang-\%-macro nil 
+       (do ((ch (ascii (tyipeek nil)) (ascii (tyipeek nil))))
+	   ((eq ch '\%) (tyi t) nil)
+	   (readch t))) 
+
+(defun glang-!-macro nil ((lambda (readtable) (read t)) :lispsyn)) 
+
+(defun glang-read nil 
+  (for (ibase 10. readtable :glangsyn 
+	      uctolcstate (status uctolc))
+       (prog1 
+	(for (temp) 
+	     (sstatus uctolc t)
+	     ;;total kludge = dangerous, awaiting liszt fill 2/9/82
+	     (catch (advance) eofm)
+	     (setq temp (catch (ncons (:parse -1.)) :bug))
+	     (cond ((atom temp)
+		    (for (readtable :lispsyn base 10.)
+			 (cond ((eq temp 'eof-bug)
+				(warn 1. |EOF encountered in grammar rule.|))
+			       ((eq temp 'lederr-bug)
+				(finish-grule)
+				(break 'lederr-bug t)))))
+		   ((car temp))))
+	(funcall 'sstatus (list 'uctolc uctolcstate)))))
+  ;%
+
+;;utilities for defining translation functions
+(comment definitional utilities)
+
+(defun right nil (:parse :drbp)) 
+
+(defun rightlist nil (:parselist :drbp '|,|)) 
+
+(defun deffix macro (l) 
+       (prog (dentype :isfun :fun denname :isfun :drbp) 
+	     (setq l (cdr l))
+	     (setq denname (cat (setq dentype (car l))
+				'\-
+				(setq :fun (caddr l))))
+	     (setq :isfun (cadr l) l (cdddr l))
+	     (setq :drbp (cadr l))
+	     (return (list 'progn
+			   '(quote compile)
+			   (list 'defprop :fun  denname dentype)
+			   (list 'defun denname nil (eval (caddr l)))
+			   (if* (car l)
+			       (list 'defprop
+				     :fun
+				     (car l)
+				     ':lbp)))))) 
+
+(defmacro nilfix (func code) `(deffix :nud isn ,func nil nil ,code)) 
+
+(defmacro prefix (func rbp code) `(deffix :nud isp ,func nil ,rbp ,code)) 
+
+(defmacro suffix (func :lbp code) `(deffix :led iss ,func ,:lbp nil ,code)) 
+
+(defmacro infix (func bp code) `(deffix :led isi ,func ,bp ,bp ,code)) 
+
+(defmacro infixr (func bp code) `(deffix :led isi ,func ,bp ,(1- bp) ,code)) 
+
+(defmacro infixd (func :lbp rbp code) `(deffix :led isi ,func ,:lbp ,rbp ,code)) 
+(defmacro infixm (func bp code) `(deffix :led ism ,func ,bp ,bp ,code)) 
+
+(defmacro delim (symbol) `(defprop ,symbol 0. :lbp)) 
+
+(eval-when (compile load eval)
+  (defun denfunc (code) 
+       (sublis (subst :drbp
+		      ':drbp
+		      '((right :parse :drbp)
+                        (token eattoken)
+			(rightlist :parselist :drbp '|,|)))
+	       (subst :drbp ':drbp code))))
+
+	  
+
+(defmacro eattoken nil '(prog1 :token (advance)))
+
+(defmacro istoken (tok) `(if* (eq :token ,tok) (advance) t))
+
+(defmacro nottoken (char) `(not (eq :token ,char))) 
+; (defmacro kwote (foo) `(list 'quote ,foo)) already in opus 38
+(defun qlistfy (foo) (cond ((atom foo) (list 'quote (list foo))) (foo)))
+(defmacro name-to-index (name) `(cdr (assq ,name '((1st . 0) (2nd . 1) (3rd . 2)))))
+(defun kwote-if-atom (foo) (cond ((atom foo) (list 'quote foo)) (foo)))
+
+(eval-when (load compile eval)
+  (defun denfun fexpr (l)
+        (cons 'buildfun (denfunc l))))
+
+(eval-when (load compile eval)
+  (defun buildfun fexpr (l)
+       (do ((pattail l (cdr pattail))
+            (result) (optsw) (next))
+           ((null pattail) (nreverse result))
+           (cond ((eq (setq next (car pattail)) '\]) 
+                  (setq optsw nil))
+                 ((eq optsw 'ignore)
+                  (if* (eq next '\\)
+                      (pop pattail)
+                      (push (eval (car pattail)) result)))
+                 ((eq next '\[) (setq optsw t))
+                 ((eq next '$)
+		  (pop pattail)
+		  (push (eval (car pattail)) result))
+                 ((eq next ':left) (push :left result))
+                 ((eq next ':token) (push :token result))
+                 ((atom next)
+		  (cond (optsw (ifnot (istoken next) (setq optsw 'ignore)))
+			((check next))))
+                 ((push (eval next) result))))))
+                                    
+
+
+(eval-when (load compile eval)
+  (defun isf (lispfunc) 
+       (if* (atom lispfunc) (setq lispfunc (list 'quote lispfunc)))
+       (append (list :isfun lispfunc :drbp)
+	       (cond ((eq :isfun 'ism)
+		      (list (list 'quote :fun))))))) 
+
+ 
+
+(eval-when (load compile eval)
+  (defun isn  (fcn rb) (list fcn)))  
+
+(eval-when (load compile eval)
+  (defun iss (fcn rb) (list fcn :left))  )
+
+(eval-when (load compile eval)
+  (defun isp  (fcn rb) (list fcn (:parse rb))))  
+
+(eval-when (load compile eval)
+  (defun isi  (fcn rb) (list fcn :left (:parse rb))))  
+
+(eval-when (load compile eval)
+  (defun ism (fcn rb cont) (cons fcn (cons :left (:parselist rb cont)))))  
+
+(defun check (del)
+       (cond ((or (and (atom del) (eq :token del)) 
+		  (and (not (atom del)) (memq :token del)))
+	      (advance))
+	     ((warn 0. missing $ del inserted before $ :token))))
+	  
+
+(defun :parselist (rb cont)
+       (cons (:parse rb)
+	     (cond ((eq :token cont) (progn (advance) (:parselist rb cont))))))
+
+(defun getvarlist nil
+       (cond ((not (equal :token '\;))
+	      (cons (prog2 nil :token (advance))
+		    (cond ((equal :token '|,|)
+			   (progn (advance) (getvarlist))))))))
+;;utility functions
+;;utility function for displaying property lists of denotations
+(defun den? (x) 
+       (say plist of $ x :)
+       (dp x)
+       (if* (get x ':nud)
+	   (say plist of $ (cat ':nud- x))
+	   (dp (cat ':nud- x)))
+       (if* (get x ':led)
+	   (say plist of $ (cat ':led- x))
+	   (dp (cat ':led- x))))
+
+
+(defun glang-to-lisp fexpr (l)
+       (apply 'uread l)
+       (uwrite)
+       (do ((^q t) (^r t) (^w t) (eof (ncons nil)) (temp))
+           ((eq (setq temp (read eof)) eof)
+            (apply 'ufile (list (car l) 'lisp)))
+           (print temp)))
+
+(defun gt fexpr (l)
+       (if* (cdr l) (apply 'uread (cdr l)))
+       (for (^q t)
+            (do ((i (eval (car l)) (1- i)))
+		((zerop i))
+                (finish-grule)))            
+       (for (^q t)(setq :gtest (read '($$$))))
+       (cond ((equal :gtest '($$$)) 
+              (say |End of test file.|))
+             (t (cursorpos 'c)
+                (sprinter :gtest))))
+
+(defun finish-grule nil (do ((ch (tyi) (tyi))) ((= ch 175))))
+
+
+(comment rule form translating denotations)
+;;;The following functions are the denotations which define Parsifal's grammar
+;;language.
+
+;;Note that the atoms "right" and "rightlist"  are macro-expanded
+;;by DENFUNC.
+
+;;;the Rule translator
+(prefix rule 1 '(build-rule 'normal))
+(infix rule 1 '(build-rule :left))
+
+(defun build-rule (type)
+       (for (:rulename (eattoken) pat nil)
+            (list 'rule
+                  :rulename 
+                  (list (prog2 (ifnot (memq type '(nr as normal)) 
+                                      (warn 1. $ type not legal type 
+                                            for rule $ :rulename))
+                               type)
+                        (cond ((istoken 'priority:) (eattoken))
+                              ((numberp :token) (eattoken))
+                              (10.)) ;priority defaults to 10.
+                        (prog2 (check 'in)(getvarlist));packets
+                        ;;The do returns a list of all pattern features
+                        ;;headed by :indexf, and setq's pat to the pattern
+                        (do ((:nodevarlist
+                              (cond ((eq type 'normal)
+				     '((1st 0 ((* . 1st)))
+				       (2nd 1 ((* . 2nd)))
+				       (3rd 2 ((* . 3rd)))))
+				    ('((nth :int-index ((* . nth)))))))
+                             (:nodevars) (result) (:indexf) (:pfeats))
+			    ((and (nottoken '\[) (nottoken 't))
+			     (ifnot result (warn 1. no pattern for $ :rulename ?))
+			     (setq pat
+                                   (cond ((null (cdr result)) (car result))
+                                         ((cons 'and (nreverse result)))))
+			     (cons (or :indexf 'noindexf) :pfeats))
+			    (setq result (cons (:parse 0) result))))
+                  pat;pattern
+                  (prog2 (check '(--> --->))
+                         (:parse 0)))))
+
+;;;the pattern element builder
+(prefix \[ 0 '(build-pattern-element))
+
+(or (boundp ':psych-sw) (setq :psych-sw nil))
+
+(defun build-pattern-element nil
+       (prog (starsubst patbody set* :semi-flag)
+             (setq :semi-flag 'inpat)
+             (cond ((istoken '**)
+                    (setq starsubst (ncons (cons '* (eattoken)))
+                          :nodevars nil))
+                   (t (setq :nodevars (pop :nodevarlist))
+                      (ifnot :nodevars
+                             (warn 1. pattern of $ :rulename
+                                    has unidentified element))
+                      (ifnot (cond (:psych-sw (eq (car :nodevars) 'nth))
+                                   ((memq (car :nodevars) '(nth 1st))))
+			     (setq set*
+				   (list 'or
+					 (car :nodevars)
+					 (list 'set* (cadr :nodevars)))))
+                      (setq starsubst (caddr :nodevars))))
+             (istoken '\;)
+             (setq patbody (:parse 0))
+             (check '\])
+             (return (sublis starsubst
+                             (cond  (set* (list 'and set* patbody))
+                                    (patbody))))))
+
+;;Case rule form
+
+(infix crule 0. (denfun 'crule token :left
+                        (buildfun token [ over token ])
+                        right))
+
+(prefix upper 0. (denfunc '(progn (istoken 'node) 'fnode)))
+
+(prefix lower 0. (denfunc '(progn (istoken 'node) 'snode)))
+
+;;;special IS predicate for use in patterns.
+
+(prefix \= 10 '(build-=))
+
+(defun build-= nil
+       (cond (:nodevars
+              ;;:nodevars is nil if the surrounding pattern element doesn't 
+              ;;refer to the buffer.
+              (for (vars (getvarlist))
+                   (setq :pfeats (union2 (reverse vars) :pfeats))
+                   (if* (memq (car :nodevars) '(1st nth))
+                       (setq :indexf (pickindex vars)))
+                  (list 'fast-is (cadr :nodevars) vars)))
+             (t (list 'is '* (kwote (getvarlist))))))
+
+
+;;pickindex uses the heuristic that the later features in a pattern are
+;; the most obscure.  It picks the last feature that hasn't been used before
+;;as an :indexf or else the last feature.
+
+(defun pickindex (flist)
+       (do ((fs flist (cdr fs)) (oldfs (get ':gram-stats 'indexfs))
+                                (old) (new))
+           ((null fs) (consprop ':gram-stats (or new old) 'indexfs)
+                      (or new old))
+           (cond ((memq (car fs) oldfs) (setq old (car fs)))
+                 ((setq new (car fs))))))
+
+
+(comment grammar function denotations)
+;;;Bracketing  operators
+;;"( )" as prefix scopes, while a(1,2,3)  translates into LISP as (a 1 2 3)
+(prefix |(| 0. (denfunc '(prog1 right (check '|)|))))
+
+(infixd |(| 30. 0.
+	(denfunc
+	 '(for (temp right)
+	   (check '|)|)
+	   (cond ((atom temp) (list :left temp))
+		 ((eq (car temp) 'list-build) (cons :left (cdr temp)))
+		 ((list :left temp))))))
+
+(delim |)|) 
+(delim \,)
+
+;;Matching single quotes  quote
+(prefix \' 0. (denfun 'quote right |'|))
+(delim \') 
+ 
+
+;;;control operators
+;;Note that ; has higher precedence than if, and thus can
+;;be used to prognify the action of an if statement.
+
+(infixm \;
+	3
+	(isf '(cond ((and (boundp ':semi-flag) (eq :semi-flag 'inpat)) 'and) ('progn))))
+
+(infix \.
+       1
+       (denfunc '(cons 'progn (cons :left (:parselist-unless :drbp '\. '\})))))
+
+(defun :parselist-unless (rb cont stop)
+       (cond ((eq :token stop) nil)
+             (t (cons (:parse rb)
+                      (cond ((istoken cont) (:parselist-unless rb cont stop)))))))
+
+(infixm \, 17. (isf 'list-build))
+(defmacro list-build (a &rest b) `(quote (,a ,@b)))
+
+;;IF... THEN... (ELSE ....) (ANDTHEN)
+;;	The nearest IF takes an ELSE clause, and ANDTHEN ends the nearest IF.
+
+
+(prefix if 2 
+        (denfunc '(for
+                   (ifclause (list 'cond (buildfun right then right))
+			     elseclause 
+			     (if* (istoken 'else) right))
+                   (if* elseclause (setq ifclause
+                                        (append ifclause
+                                        (cond ((and (not (atom elseclause))
+						    (eq (car elseclause)
+							'cond))
+					       (cdr elseclause))
+					      ((ncons (ncons elseclause)))))))
+		       (cond ((istoken 'andthen) (list 'prog2 ifclause right))
+			     (ifclause)))))
+
+;;;Parser control operations
+(prefix deactivate 10. (denfun 'deactivate (kwote (getvarlist))))
+(prefix activate 10. (denfun 'activate (kwote (getvarlist))))    
+(prefix run 10. (denfun 'setq ':nextrule (kwote (eattoken)) next))
+(prefix parse 10. (denfun is finished 'setq ':parsecomplete 't))
+(prefix restore 10. (denfun buffer 'bufrestore))
+
+;;;Logic operators
+(infixm and 5. (isf 'and))
+(infixm or 4. (isf 'or))
+(infix isn  6. (denfun \' t true that 'not right))
+
+;;;Operations on nodes.
+(nilfix last (denfun ':last))
+(prefix attach 10. 
+        (denfunc '(for (dn right fn (cond ((istoken 'to) right) 
+                                        ('c))
+                        funct (buildfun as 'quote (eattoken)))
+                       (cond ((eq dn 'c) (list 'attach1 dn fn funct))
+                             ((list 'attach fn dn funct))))))
+
+(prefix drop 10. 
+        (denfun 'drop c [ into buffer ] [ before (name-to-index token) \\ 0 ]))
+
+(prefix insert 10. 
+        (denfun 'insert-node right [ into buffer ] [ before (name-to-index token) \\ 0 ]))
+
+
+(prefix label 10. (denfun 'addf1 right [ with ]  (qlistfy right)))
+(prefix remove 10.
+        (denfun [ features ] [ feature ] 'remf1 (qlistfy right) from right))
+
+ (infix is 10.
+       (denfunc '(cond ((memq :token '(none not any greater less equal))
+			:left)
+		       ((buildfun 'is [ labelled ] :left (qlistfy right))))))
+
+(infix not 10.
+       (denfun [ any 'is-none-of \\ (progn (istoken 'all) 'is-not-all-of) ]
+               [ of ] :left (qlistfy right)))
+(infix none 10. (denfun of 'is-none-of :left (qlistfy right)))
+(infix any 10. (denfun of 'is-any-of :left (qlistfy right)))
+
+
+
+
+(prefix transfer 10. (denfun 'transfer [ feature ] [ features ] (qlistfy right) from right to right))
+
+(prefix lift 10. (denfun 'liftr (kwote token) register from right to right))
+(prefix features 10. (denfun  'fe [ of ] right))
+(prefix meet 10. (denfun 'intersectq2 of right and right))
+(prefix word 10. (denfun 'wordify \'  (kwote token) \'))
+(prefix create 10. (denfun [ new ]  'newnode (kwote token) 
+                           node [ labelled (qlistfy right) \\ nil ]))
+(prefix new 10. (denfunc
+                 '(cond ((istoken 'case) (buildfun frame 'newcf ''normal))
+                        ((istoken 'mod) (buildfun case frame 'newcf ''mod))
+                        (t (buildfun 'newnode (kwote token) node
+                                     [ labelled (qlistfy right) \\ nil ])))))
+
+;;Rob Milne's disambiguation function
+
+;;caseframe stuff
+(prefix make 10. (denfun 'disambig-type right (kwote token)))
+
+(prefix case 10. (denfun frame 'getr ''caseframe of right))
+(prefix associate 10. (denfun 'associate-cf right with right))
+(infix fills 10. (denfun 'fillslot :left (kwote token) slot
+                         [ of cf of ] right))
+(infix fits 10. (denfun 'fits :left (kwote token) slot
+                        [ of cf of ] right))
+(prefix finalize 10. (denfun 'finalize-frame cf of right))
+
+;;number of object functions
+(prefix lowest 17.
+        (denfun 'minunls possible number of objects of right [ is ] ))
+
+(prefix greatest 17.
+        (denfun 'maxunls possible number of objects of right [ is ] ))
+(prefix number 10. (denfun 'need-slots of objects of right will be right))
+
+(prefix semantics 10. (denfun 'prefer prefers right right better than right))
+(infix filling 11. (denfun 'fit-of :left (kwote right) slot of right))
+(prefix prepositional 10. (denfun 'pgof phrase of right and right))
+
+
+;;numeric comparisions
+(infix greater 10.(denfun '> :left than right))
+(infix less 10. (denfun '< :left than right))
+(infix equal 10. (denfun '= :left to right))
+
+
+;;there function
+(prefix there 10.
+        (denfunc '(progn (check 'is)
+                         (cond ((istoken 'not) (list 'null right))
+                               ((list 'setq ':it right))))))
+
+
+(nilfix it '':it)
+
+;;properties (for the moment) and tree walking functions
+
+;;above now should be obsolete
+(infixr above 20. (denfun 'node-above  (kwote-if-atom :left) right))
+(prefix node 19. (denfun above 'father-node right))
+(infixr of 20. (denfun 'find-node (kwote-if-atom :left) right))
+(prefix indirect 19. (denfun object 'io of right))
+(nilfix current (denfun 'current-s s))
+(nilfix wh-comp (denfun 'wh-comp))
+(prefix binding 18. (denfun 'binding of right))
+(infix register 18.  (denfun 'getr (kwote-if-atom :left) of right))
+(prefix set 9.
+        (denfunc '(for (prop (prog1 token (istoken 'register) (check 'of))
+
+			     storeform nil
+                        node (prog1  (:parse 1.)  (check 'to))
+                        val right)
+                       (setq storeform (get prop ':storeform))
+                       (cond (storeform (sublis (list (cons 'node node)
+						      (cons 'val val))
+						storeform))
+			     ((list 'setr (kwote prop) val node))))))
+
+(defprop features (setfe node val) :storeform)
+
+
+;;The rule macro - expands the output of the GLANG parser
+(comment the rule expanding macro)
+(defun rule macro (x) (:rule x))
+
+(defun :rule (x)
+;;;Rules are expected to be of form
+;;;(rule <name>
+;;;	 (<type> <priority> <packets> (<indexf> . <pattern-features>))
+;;;	 patternbody actionbody)
+;;;This macro returns
+;;;(PROGN 'COMPILE
+;;;	  (RULE-INDEX <type> <packets> <indexf>
+;;;		      (<priority> <patname> <rulename> <actionname>))
+;;;	  (DEFUN patname NIL <patternbody>)
+;;;	  (DEFUN actname NIL (prog nil <actionbody>))
+;;;       (FINDEXIFY <pattern-features>))
+       (prog (name pat-name act-name indexl)
+             (setq name (cadr x) indexl (caddr x) x (cdddr x))
+             (return 
+              (list 'progn
+                    '(quote compile)
+                    (list 'rule-index
+			  (list 'quote (car indexl));type
+			  (list 'quote (caddr indexl));packets
+			  (list 'quote (car (cadddr indexl)));indexf
+			  (list 'quote
+				(list (cadr indexl) ;priority
+				      (setq pat-name (cat '::pat-of- name))
+				      name
+				      (setq act-name (cat '::act-of- name)))))
+                    (list 'defun pat-name nil (car x))
+                    (list 'defun act-name nil (cadr x))
+                    (list 'featindexify
+			  (if* (cdr (cadddr indexl))
+				       (list 'quote
+					     (reverse (cdr (cadddr indexl))))))))))
+
+;;the case rule macro.
+(defun crule macro (x)
+       (for (name (cadr x) funname (cat '::crule-of- (cadr x))
+                  type (caddr x) nodes (cadddr x)
+                  body (car (cddddr x)))
+            (list 'progn
+                  ''compile
+                  (list 'crule-index
+			(list 'quote type)
+			(list 'quote
+			      (list (cond ((null (cdr nodes)) (car nodes))
+					  ((cons (car nodes) (cadr nodes))))
+				    funname
+				    name)))
+                  (list 'defun funname nil body))))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:38:57 1987
+Posted-Date: Sun, 22 Nov 87 13:58 EST
+Received-Date: Sun, 22 Nov 87 18:38:53 EST
+Message-Id: <8711222338.AA02703@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:37 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00895; 22 Nov 87 18:31 EST
+Received: from btl by csnet-relay.csnet id af14592; 22 Nov 87 18:26 EST
+Date: Sun, 22 Nov 87 13:58 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: macros2.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(declare (macros t))
+(*lexpr say-it warner)
+(defun say macro (l)
+    (progn
+       (rplaca l 'say-it)
+       (do ((saylist) (saytemp (cdr l) (cdr saytemp)))
+	   ((null saytemp) (rplacd l (reverse saylist)))
+	   (cond ((eq (car saytemp) '$)
+		  (setq saytemp (cdr saytemp))
+		  (setq saylist (cons (car saytemp) saylist)))
+		 (t (setq saylist (cons `(quote ,(car saytemp)) saylist)))))))
+
+(defun meet macro (s) (rplaca s 'intersectq))
+
+(defun make-eq-set macro (s) (rplaca s 'setifyq))
+
+(defun make-equal-set macro (s) (rplaca s 'setify))
+
+(defun set-union macro (s) (rplaca s 'union))
+
+(defun set-difference macro (s) (rplaca s 'setminus))
+
+(defun set-intersection macro (s) (rplaca s 'intersect))
+
+(defmacro meet1 (a b)
+	  `(intersectq2 ,a ,b))
+
+(defmacro meet2 (a b)
+	  `(intersect2 ,a ,b))
+
+(defmacro union1 (a b)
+	  `(unionq2 ,a ,b))
+
+(defmacro setminus1 (a b)
+	  `(setminusq2 ,a ,b))
+
+(defun warn macro (l)
+   (progn
+       (rplaca l 'warner)
+       (do ((warnlist) (warntemp (cddr l) (cdr warntemp)))
+	   ((null warntemp)
+	    (rplacd l (cons (cadr l) (reverse warnlist))))
+	   (cond ((eq (car warntemp) '$)
+		  (setq warntemp (cdr warntemp))
+		  (setq warnlist (cons (car warntemp) warnlist)))
+		 (t (setq warnlist
+			  (cons `(quote ,(car warntemp))
+				warnlist)))))))
+
+(defun cat macro (x) (rplaca x 'concat))
+
+(defmacro logand (&rest frobs) `(boole 1 ,@frobs))
+(defmacro logor (&rest frobs) `(boole 7 ,@frobs))
+
+(defmacro default-arg (num var) 
+  `(cond ((< (arg) ,num) ,var) ((arg ,num))))
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:39:10 1987
+Posted-Date: Sun, 22 Nov 87 14:01 EST
+Received-Date: Sun, 22 Nov 87 18:39:04 EST
+Message-Id: <8711222339.AA02712@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:37 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ab00895; 22 Nov 87 18:31 EST
+Received: from btl by csnet-relay.csnet id ag14592; 22 Nov 87 18:26 EST
+Date: Sun, 22 Nov 87 14:01 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: declr.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+
+;;;This file intended to be loaded within a declare in each parser file
+(fasl "/usr/mitch/lisp/util/macros1")
+(fasl "/usr/mitch/lisp/parsifal/macros2")
+;(fasl "/usr/mitch/lisp/util/defmac")
+(setsyntax '\# 2)
+
+(declare 
+  (macros t))
+  (special :activepackets :activerule :activenodestak :nextrule :bufpntr 
+	   :bufpntrstak :bufmax s c :current-s :wh-comp *rset
+	   :parsecomplete 1st 2nd 3rd nth :1stfeat :2ndfeat :3rdfeat
+	   :int-index :nr-types :as-types :1stfvec :2ndfvec :3rdfvec
+	   ###started word-entry-switch testnum tree? ttysw bottom-tty
+	   :noshow-defaults pswait abbr-temp endpuncs poport piport :deriv
+	   :pstatus :breaksw :ruletrap :sent-list 
+	   :showrule :noshowr :noshowr-defaults
+	   :sent :osent prinlength prinlevel
+	   :carefulsw :index-to-fvec-alist ctrace :crtrace :psych-sw tyo tyi
+	   :nodelist :sentence-types :ttemp2 rule-unfunc rule-func :buffer-gc
+	   top-tty :displayflag
+	   :ttemp :ttemp1 :ptime :gctime :realtime :endtime :gram-stats 
+	   :ptrace :ntrace :wstring :savewstring
+	   hypoth-frames certain-frame openframe pred old-frames 
+	   :findex-counter :nodecountsw :word-entry-switch)
+ ;(fixnum :bufpntr :bufmax  :findex-counter :nodecountsw)
+ ;(notype (set* fixnum) (testrules notype fixnum) (fetchrules notype fixnum)
+ ;       (setup* notype fixnum) (remove-index-pos fixnum)
+ ;       (insert-index-pos fixnum notype))
+; (array* (notype :buffer 1))
+  (*lexpr ptree union meet cat semcall)
+
+
+(comment macro definitions)
+;;the cdr of a node is a fixnum which contains its flags.
+(defmacro flags (node) `(cdr ,node))
+
+(defmacro setflags (node val) `(rplacd ,node ,val))
+
+(defmacro setup** (nname nfeat nfvec)
+          ;;clear appropriate feature vector.
+   `(progn
+     (do ((findex ,nfeat (cdr findex))) 
+	 ((null findex))
+	 (store (,nfvec (car findex)) 0.))
+          ;;signal that nfvec is in inconsistent state.
+          ;;(Just in case this routine interrupted out of)
+          (setq ,nfeat 'changing)
+          ;;set apppropriate positions and save indices.
+          (do ((f (fe node) (cdr f))
+               (result) (temp))
+              ((null f) (setq ,nfeat result))
+              (if* (setq temp (get (car f) ':findex))
+                  (store (,nfvec temp) 1)
+                  (setq result (cons temp result))))
+          (setq ,nname node)))
+
+(defmacro clear-current-s nil `(if* :current-s (setq :current-s nil :wh-comp nil)))
+
+(defmacro activatenode (node)
+	  `(progn (if* c (push (cons c :activepackets) :activenodestak))
+		 (setq :activepackets nil)
+		 (clear-current-s)
+		 (setq c ,node)))
+
+(defmacro setfe (node features) `(set (car ,node) ,features)) 
+
+(defmacro fe (node) `(symeval (car ,node)))
+
+(defmacro setr (reg value node) `(putprop (car ,node) ,value ,reg))  
+
+(defmacro getr (register node)
+          `(get (car ,node) ,register))
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:39:13 1987
+Posted-Date: Sun, 22 Nov 87 14:02 EST
+Received-Date: Sun, 22 Nov 87 18:39:09 EST
+Message-Id: <8711222339.AA02714@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:37 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ac00895; 22 Nov 87 18:31 EST
+Received: from btl by csnet-relay.csnet id ah14592; 22 Nov 87 18:27 EST
+Date: Sun, 22 Nov 87 14:02 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: fixes.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(defun le (a b) (or (< a b) (= a b)))
+(defun ge (a b) (or (> a b) (= a b)))
+(defun consprop (atom value property)
+  (putprop atom (cons value (get atom property)) property))
+
+(putd 'cat (getd 'concat))
+(setsyntax '\[ 2)
+(setsyntax '\] 2)
+(defun linel (port) linel) ;;hack, hack
+(putd 'charpos (getd 'nwritn))
+(putd 'sprinter (getd '$prpr))
+(putd 'sprint (getd '$prdf)) ;;well, close
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:41:18 1987
+Posted-Date: Sun, 22 Nov 87 14:02 EST
+Received-Date: Sun, 22 Nov 87 18:41:15 EST
+Message-Id: <8711222341.AA02744@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:39 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id ab00922; 22 Nov 87 18:36 EST
+Received: from btl by csnet-relay.csnet id aj14592; 22 Nov 87 18:32 EST
+Date: Sun, 22 Nov 87 14:02 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: parsifal.help
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+You are now in a READ-EVAL-PRINT loop, with the exception that certain 
+atoms flag special actions. They are:
+time	Print parse time for last sentence.
+ctree	Prints case tree.
+ftree	Prints annotated surface structure tree with labels.
+tree	"         "        "        "        "  w\\o    "   .
+ntree	"         "        "        "        "  with node names.
+ltree   ntree + ftree
+lisp    Flush this toplevel loop, restoring lisp's toplevel.
+p	Call the Parser.
+The parser prompts with >.
+Type a sentence finishing with a final punctuation mark and then a <return>.
+To repeat parsing of last sentence type <ESC> S <return>.
+To trace parse type "(ptrace)".  To clear trace "(runfast)".
+To trace case frame stuff "(ctrace t)". To clear "(ctrace nil)".
+To complement "Movie" trace mode, type cntrl-G <return>.
+	(In this state the atom PSWAIT determines the time between frames.
+	 It can be set to either 0, in which case the parser runs
+	 continuously, or NIL, in which case the parser will 
+	 wait for a space to be typed between frames.)
+	(typing "(noshow t)" surpresses display of most low level constituent
+	construction. "(noshow nil)" will display everything.
+	"(noshow packet1 packet2 .... packetn)" surpresses display 
+	of any rules in these packets.)
+
+To see parser state, type (pstate).
+
+
+
+
+From @RELAY.CS.NET:mitch@research.att.com Sun Nov 22 18:42:10 1987
+Posted-Date: Sun, 22 Nov 87 14:01 EST
+Received-Date: Sun, 22 Nov 87 18:41:53 EST
+Message-Id: <8711222341.AA02753@linc.cis.upenn.edu>
+Return-Path: mitch <@RELAY.CS.NET:mitch@research.att.com>
+Received: from RELAY.CS.NET by cis.upenn.edu via TCP; Sun Nov 22 18:39 EDT
+Received: from relay2.cs.net by RELAY.CS.NET id aa00924; 22 Nov 87 18:36 EST
+Received: from btl by csnet-relay.csnet id ai14592; 22 Nov 87 18:27 EST
+Date: Sun, 22 Nov 87 14:01 EST
+From: mitch%research.att.com@RELAY.CS.NET
+Subject: defs.l
+To: research!mitch@linc.cis.upenn.edu
+Status: R
+
+
+(setsyntax '\# 2)
+(setq refillables '(time))
+
+(setq :nr-types '(np nbar s))
+(setq :as-types '(noun pronoun verb adj num quant det ord prep poss-np))
+(setq :specregs '(quant type cases-marked-by case-frame neut ess markers))
+(setq :parts-of-speech '(noun verb adj det quant num ord name punc prep pronoun ))
+(setq :sentence-types '(decl ynquest imper whquest inf-s))
+
+;;REDUNDANT FEATURE SPECIFICATIONS
+;;(redundef en adj) ;; part)
+;;(redundef ing adj part)
+(redund ngstart (det noun quant num ord pronoun))
+(redund verb (pres past future tnsless))
+(redund auxverb (modal))
+
+;;The verb and adjective type tree
+(redund comp-obj (inf-obj that-obj))
+(redund inf-obj (subj-less-inf-obj 2-obj-inf-obj
+		    to-be-less-inf-obj no-subj to-less-inf-obj))
+(redund 2-obj-inf-obj (obj-binds-delta subj-binds-delta))
+(redund mainverb (comp-obj))
+
+
+;;Cases -
+;;A case's markerset is of the form : (# <semantic feats that indicate an
+;; excellent "fit" for this case> # <feats that indicate an acceptable fit>)
+;;This set is a mixed bag of cases.  At some point it will be necessary to
+;;come up with a consistent set, but this will be easy, I think.
+
+(df agt markerset (# hanim # anim)) 
+(df dat markerset (# hanim # anim)) 
+;;Location should go to Allative, Trajectory, Ablative, Locative, Gen-locative
+(df loc markerset (# place # inanim)) 
+(df neut markerset (all))
+(df pfrom markerset (# place # event socev inanim))
+(df pto markerset (# place # event socev inanim))
+(df pat markerset (# time # place)) ;;added by candy
+(df puntil markerset (# time # place)) ;;added by candy
+(df pdur markerset (# measure #))
+
+(df time markerset (# time event #))
+
+;;The whole distinction between Agent and Instrument is probably wrong.
+(df ins markerset (# inanim #)) 
+(df com markerset (# hanim # anim)) 
+(df manner)
+(df exch markerset (# money # physob anim inanim hanim))
+(df benef markerset (# hanim # anim inanim physob))
+(df source markerset (# hanim anim inanim physob #))
+(df goal markerset (# hanim anim inanim physob #))
+(df ess markerset (# hanim anim inanim physob #))
+(df genloc markerset (# place # inanim))
+
+;;NEWSTUFF
+(df a\.m\. feats (postmod))
+(jlike p\.m\. a\.m\.)
+(jlike o\'clock a\.m\.)
+(df oclock feats (postmod *o\'clock))
+
+
+(df mr\. feats (noun ns title))
+(jlike mrs\. mr\.)
+(jlike miss mr\.)
+(jlike ms\. mr\.)
+(jlike prof\. mr\.)
+(jlike dr\. mr\.)
+
+
+
+(df schedule feats (verb pres tnsless  inf-obj v-3s ed=en)
+     cf (neut (time) (loc) agt)
+     neut (# socev inf-comp # event)
+     markers (event time)
+     preps ( for (time)))
+
+(jlike re-schedule schedule)  ;;added by candy
+(jlike re-locate schedule)  ;;added by candy
+;;For the moment, unfortunately, meeting will be a noun while meet is a verb.
+;;Lexical disambiguation will have to handle this when added.
+(df meeting feats (noun ns) cf (com agt) markers (socev event mentob)) ;;changed by candy
+(df+ |pa group meeting| jlike meeting)
+(df+ |pa group meetings| jlike meetings)
+(df+ |pa meeting| jlike meeting)
+(df+ |pa meetings| jlike meetings)
+(df time feats (noun ns n3p) markers (abstr-ob)) ;;added by candy
+(jlike place time)   ;;added by candy
+(df lecture feats (noun ns) markers (socev mentobj))
+(jlike class lecture)
+
+
+;;VERBS
+
+(abbrev act (event action))
+(df1 sit feats ( mainverb pres tnsless v-3s)
+     cf (* (loc) agt)
+     markers act)
+                    
+(df go feats ( mainverb pres tnsless v-3s)
+     cf (nil (pfrom) (pto) agt)
+     markers act)
+
+(df gone irreg (go (en) (tnsless v-3s)))
+
+(df went irreg (go (past vspl) (tnsless v-3s pres)))
+
+(df come feats ( mainverb pres tnsless ed v-3s)
+     cf ((pfrom) (pto) agt)
+     markers act)
+(df came irreg (come (past vspl) (tnsless v-3s pres)))
+
+(jlike walk go)
+(jlike run go)
+(df1 leave feats ( mainverb pres tnsless v-3s)
+     cf ((neut) (pto) (loc) actnt)
+     markers act
+     neut (all)
+       preps (for (pto) at (loc) from (neut) to nil))
+(df1 left irreg (leave (past vspl ed=en) (tnsless v-3s pres)))
+
+(df deliver feats ( mainverb pres tnsless v-3s ed=en)
+     cf ((neut) (pto) agt)
+     markers act
+     neut (# physob mentobj inanim #))
+
+(jlike arrive come
+       preps (at (pto) to nil))
+
+(df analyze feats (mainverb pres tnsless v-3s ed=en)
+     cf (neut (goal) agt)
+     markers act
+     neut (all))
+
+(df attend feats ( mainverb pres v-3s tnsless ed=en)
+     cf ((neut) agt)
+     neut (#  socev # event)
+     markers (action event))      
+
+(df meet feats (mainverb pres v-3s tnsless)
+     cf ((neut) (com) agt)
+     neut (# hanim # anim)
+     markers act)
+
+(df met irreg (meet (past vspl en ed) (tnsless v-3s pres)))
+
+(df1 fall feats ( mainverb pres tnsless v-3s) 
+          cf (* (loc) neut)
+     neut (# hanim anim inanim physob #)
+     markers act)
+
+(df1 fell irreg (fall (past vspl) (tnsless v-3s pres)))
+     
+(df break
+     feats ( mainverb pres tnsless v-3s)
+     cf (neut   (ins) (agt))
+     neut (# physob inanim socev #)
+     markers act)
+
+
+(df1 kiss
+     feats ( mainverb pres tnsless v-3s)
+     cf ((neut) (loc)agt)
+     neut (# hanim # anim inanim physob)
+     markers act)
+
+(df1 hit
+     feats ( mainverb pres past vspl ed en tnsless)
+     cf (neut  (loc) (ins) (agt))
+     neut (# hanim anim inanim physob #)
+     markers act)
+
+(df1 hits irreg (hit (v3s) (tnsless past v-3s ed en)))
+
+(df1 pick feats ( mainverb pres v-3s tnsless ed=en)
+     cf ((neut) (source) agt)
+     neut (# hanim anim inanim physob #)
+     markers act)
+
+
+(df1 pick-up feats ( mainverb pres tnsless v-3s tnsless ed=en)
+     cf (neut  (ins) (agt))
+     neut (# hanim anim inanim physob #)
+     markers act)
+
+(df give
+     feats ( mainverb pres tnsless v-3s)
+     cf ((*obj dat) neut  (dat) agt)
+     neut (# hanim  # anim inanim physob)
+     markers act)
+
+(df change feats (verb pres tnsless  inf-obj v-3s ed=en)
+     cf (neut (time) (loc) agt)
+     neut (# socev inf-comp # event abstr-ob)
+     markers (event time loc)
+     preps (to (time loc)))   ;;added by candy
+
+(df want feats (pres tnsless v-3s  subj-less-inf-obj ed=en)
+     cf (neut  agt)
+     neut (# physob inf-comp #)
+     markers (state))
+
+(df seem feats (pres tnsless v-3s that-obj to-be-less-inf-obj no-subj)
+     cf (neut)
+     neut ( # inf-comp that-comp # )
+     markers (state))
+
+
+(df believe feats ( pres tnsless v-3s  inf-obj that-obj ed=en)
+     cf (neut  agt)
+     neut (# hanim inf-comp that-comp #)
+     markers (state))
+
+(jlike know believe 
+       feats (nil (ed=en)))
+
+(df knew irreg (know (past vspl) (tnsless pres v-3s)))
+(df known irreg (know (en) (tnsless pres v-3s)))
+
+(df tell feats (pres tnsless v-3s obj-binds-delta comp-2-obj inf-obj that-obj)
+     cf ((*obj dat) (neut) (dat) agt)
+     neut (# inf-comp that-comp fact mentob # abstr-ob #)
+     preps (about (neut))
+     markers act) ;;changed by candy
+
+(df told irreg (tell (past vspl en ed) (mainverb pres tnsless v-3s)))
+
+(jlike persuade tell
+       feats ((ed=en) nil)) ;;changed by candy (and partially corrected by mitch)
+
+(jlike invite persuade
+       neut (# inf-comp event socev #)
+       preps (to (neut)))  ;;done by candy
+
+(jlike say tell
+       feats (nil (comp-2-obj))
+       cases (nil (*obj))
+       neut (# inf-comp that-comp #))
+
+(df said irreg (say (past vspl en) (tnsless mainverb pres v-3s)))
+
+(jlike promise persuade
+       feats ((subj-binds-delta) (obj-binds-delta)))
+
+(jlike ask persuade
+       feats ((indirect-q-obj) (that-obj)))
+
+(df see feats (tnsless v-3s mainverb pres ing-obj to-less-inf-obj)
+     cf (neut  agt)
+     neut (all)
+     markers act)
+
+(df saw irreg (see (past vspl) (tnsless mainverb pres v-3s)))       
+
+(df shoot feats ( mainverb pres tnsless v-3s)
+     cf (neut  (ins) agt)
+     neut (# hanim inanim physob #)
+     markers act)
+
+(df shot irreg (shoot (past vspl ed en) (pres tnsless v-3s)))
+(df gave irreg (give (past vspl) (tnsless pres v-3s)))
+(df broke irreg (break (past vspl) (tnsless pres v-3s))) 
+
+
+
+(df1 name feats ( tnsless ed=en)
+     cf (ess  neut)
+     neut (all)
+     markers (state))
+
+;;these definitions don't include case frames for now.
+(df be feats (tnsless auxverb) cf (ess neut) neut (all) markers (state))
+(df is irreg (be (pres v3s) (tnsless)))
+(df am irreg (be (pres v1s) (tnsless)))
+(df are irreg (be (pres vpl+2s) (tnsless)))
+(df was irreg (be (past v13s) (tnsless)))
+(df end feats (mainverb pres tnsless v-3s)
+     cf (ess neut)
+     neut (all)
+     markers (state))    ;;added by candy
+
+(df last feats (mainverb pres tnsless v-3s)
+     cf (ess neut)
+     neut (all)
+     markers (state))   ;;added by candy
+;;were doesn't include subjunctive usage yet
+(df were irreg (be (past vpl+2s) (tnsless)))
+(df will feats ( vspl auxverb future dummy))
+;;did defined only as auxiliary here
+(df do feats ( v-3s auxverb tnsless pres)
+     cf (neut  (ins) agt)
+     neut (# event thing #))
+(df does irreg (do (v3s) (v-3s tnsless)))
+(df did irreg (do (past vspl) (pres v-3s tnsless)))
+(df done irreg (do (en) (pres v-3s tnsless)))
+(df have feats (tnsless auxverb pres v-3s inf-obj to-less-inf-obj subj-less-inf-obj)
+     cf (neut agt)
+     markers (event)
+     neut (all))
+(df has irreg (have (v3s) (v-3s tnsless)))
+(df had irreg (have (past vspl) (v-3s pres tnsless)))
+(df can feats ( auxverb modal vspl pres))
+(df could irreg (can (past) (pres)))
+
+
+;;Quantifiers
+(df which feats (*which) quant which)
+(df all feats (quant npl) quant all)
+(df some feats (quant npl ns) quant some)
+(df any feats (quant ns npl) quant any)
+(df several feats (quant npl) quant several)
+(df1 none feats (quant ns) quant none)
+(df1 each feats (quant ns) quant each)
+(df many feats (quant npl detq) quant many)
+(df few feats (quant npl detq) quant few)
+
+;;Numbers
+(abbrev twos (num ones npl n3p ))
+(abbrev second (ord num ones npl n3p))
+(abbrev tens (num tens ns n3p ))
+(abbrev tenth (ord num tens n2 n3p))
+(abbrev elevens (num 99s ns n3p ))
+(abbrev eleventh (ord num 99s ns n3p))
+(df one feats (num ones ns n3p ) quant 1)
+(df first feats (ord num ones ns n3p) quant 1)
+(df two feats twos quant 2)
+(df second feats second quant 2)
+(df three feats twos quant 3)
+(df third feats second quant 3)
+(df four feats twos quant 4)
+(df fourth feats second quant 4)
+(df five feats twos quant 5)
+(df fifth feats second quant 5)
+(df six feats twos quant 6)
+(df sixth feats second quant 6)
+(df seven feats twos quant 7)
+(df seventh feats second quant 7)
+(df eight feats twos quant 8.)
+(df eighth feats second quant 8.)
+(df nine feats twos quant 9.)
+(df ninth feats second quant 9.)
+(df ten feats tens quant 10.)
+(df tenth feats tenth quant 10.)
+(df eleven feats elevens quant 11.)
+(df eleventh feats eleventh quant 11.)
+(df twelve feats elevens quant 12.)
+(df twelfth feats eleventh quant 12.)
+(df thirteen feats elevens quant 13.)
+(df thirteenth feats eleventh quant 13.)
+(df fourteen feats elevens quant 14.)
+(df fourteen feats eleventh quant 14.)
+(df fifteen feats elevens quant 15.)
+(df fifteenth feats eleventh quant 15.)
+(df sixteen feats elevens quant 16.)
+(df sixteenth feats eleventh quant 16.)
+(df seventeen feats elevens quant 17.)
+(df seventeenth feats eleventh quant 17.)
+(df eighteen feats elevens quant 18.)
+(df eighteenth feats eleventh quant 18.)
+(df nineteen feats elevens quant 19.)
+(df nineteenth feats eleventh quant 19.)
+(df twenty feats tens quant 20.)
+(df twentieth feats tenth quant 20.)
+(df thirty feats tens quant 30.)
+(df thirtieth feats tenth quant 30.)
+(df forty feats tens quant 40.)
+(df fortieth feats tenth quant 40.)
+(df fifty feats tens quant 50.)
+(df fiftieth feats tenth quant 50.)
+(df sixty feats tens quant 60.)
+(df sixtieth feats tenth quant 60.)
+(df seventy feats tens quant 70.)
+(df seventieth feats tenth quant 70.)
+(df eighty feats tens quant 80.)
+(df eightieth feats tenth quant 80.)
+(df ninety feats tens quant 90.)
+(df ninetieth feats tenth quant 90.)
+(df hundred feats (num npl ) quant 100.)
+(df hundredth feats (ord num npl) quant 100.)
+
+
+;;Pronouns
+
+(df who feats (pronoun relpron ns npl wh) markers (hanim))
+(df wh\- feats (pronoun relpron ns npl wh) markers (hanim physob))
+;;need to handle ambiguity here
+(df what feats (ngstart det\\relpron-ambig))
+;;whether that is used as a det or comp is decided
+;;by a grammar rule
+(df that feats (det\\comp-ambig) markers (physob))
+(df1 when feats (pronoun relpron ns wh time))
+(df1 where feats (pronoun relpron ns wh place))
+
+(df1 everyone feats (pronoun ns n3p) markers (hanim physob))
+
+(df i feats (pronoun ns n1p) markers (hanim physob))
+(df me irreg (i nil nil))
+(df my irreg (i (poss-pronoun) nil))
+(df we feats (pronoun npl n1p) markers (hanim physob))
+(df us irreg (we nil nil))
+(df our irreg (we (poss-pronoun) nil))
+(df you feats (pronoun ns npl n2p) markers (hanim))
+(df your irreg (you (poss-pronoun) nil))
+(df he feats (pronoun ns n3p) markers (hanim physob))
+(df him irreg (he nil nil))
+(df his irreg (he (poss-pronoun) nil))
+(df she feats (pronoun ns n3p) markers (hanim physob))
+(df her irreg (she nil nil))
+(df hers irreg (she (poss-pronoun) nil))
+(df it feats (pronoun ns n3p) markers (inanim physob event mentob))
+(df its irreg (it (poss-pronoun) nil))
+(df they feats (pronoun npl n3p) markers (hanim physob))
+(df them irreg (they nil nil))
+(df their irreg (they (poss-pronoun) nil))
+
+
+;;Nouns
+(df1 lunch feats (noun ns n3p time cantmod) markers (socev time))
+(jlike dinner lunch)
+(jlike breakfast lunch)
+(df destruction feats (noun ns)
+     markers (event)  
+     cf ((neut) (ins) (agt))
+     neut (# physob inanim place #))
+
+(df1 shipment feats (noun n3p ns)
+     markers (event physob)
+     cf ((neut) (pfrom) (pto) (agt))
+     neut (# physob inanim #))
+     
+(df chicago feats (noun ns n3p propnoun place) markers (place))
+(jlike u\.s\. chicago)
+(df mitch feats (noun ns n3p propnoun name) markers (hanim))
+(df1 home feats (noun ns n3p place) markers (place))
+
+(df there feats (noun pseudopropnoun place ns n3p) markers (place))
+(df store feats (noun ns n3p) markers (physob place))
+(jlike office store)
+(df monday feats (noun ns n3p day-of-week time) markers (time))
+(jlike tuesday monday)
+(jlike wednesday monday)
+(jlike thursday monday)
+(jlike friday monday)
+(jlike saturday monday)
+(jlike sunday monday)
+
+(df january feats (noun ns n3p time month) markers (time))
+(jlike jan\. january)
+(jlike feb\. jan\.)
+(jlike aug\. jan\.)
+(jlike sept\. jan\.)
+(jlike oct\. jan\.)
+(jlike nov\. jan\.)
+(jlike dec\. jan\.)
+(jlike february jan\.)
+(jlike march jan\.)
+(jlike april jan\.)
+(jlike june jan\.)
+(jlike july jan\.)
+(jlike august jan\.)
+(jlike september jan\.)
+(jlike october jan\.)
+(jlike november jan\.)
+(jlike december jan\.)
+(comment may is ambigous!!!)
+
+(df day feats (noun ns n3p time measure) markers (time))
+(jlike month day)
+(jlike week day)
+(jlike year day)
+(jlike yesterday wednesday) ;a hack to make PAL stuff easy for the moment - MM 4/78
+(df1 yesterday feats (noun ns n3p time dow pseudopropnoun) markers (time))
+(jlike tomorrow yesterday)
+(jlike today yesterday)
+(jlike tonight tomorrow) 
+;;Sigh... why must tomorrow always be like yesterday?
+(df1 date feats (noun ns n3p time) markers (time))
+
+(df boy feats (noun ns n3p) markers (hanim physob))
+(jlike girl boy)
+(jlike man boy)
+(jlike woman boy)
+(df men irreg (man (npl) (ns)))
+(df women irreg (woman (npl) (ns)))
+(jlike child boy)
+(df children irreg (child  (npl) (ns)))
+(df elephant feats (noun ns n3p) markers (anim physob))
+(df deer feats (noun ns npl n3p) markers (anim physob))
+(jlike hippopo elephant)
+(jlike dog elephant)
+(jlike cat elephant)
+
+(df block feats (noun ns n3p) markers (inanim physob))
+(jlike cube block)
+(jlike pyramid block)
+(jlike rock block)
+(jlike box block)
+(jlike window block)
+(jlike lollipop block)
+(jlike table block)
+(df1 present feats (noun ns n3p) markers (inanim physob))
+
+(df pound feats (noun ns n3p measure) markers (measure))
+(jlike ton pound)
+(jlike inch pound)
+(jlike foot inch)
+(df1 feet irreg (foot (npl) (ns)))
+
+(abbrev allphysobs  (# physob hanim anim inanim #))
+;;Adjectives
+(df next feats (ord general-ord))
+(jlike last next)
+(df last feats (ord general-ord))
+(df red feats (adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(jlike blue red)
+(jlike green red)
+(df big  feats (adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(jlike little big)
+(df wide feats (measure adj)
+     cf  (neut)
+     markers (state)
+     neut allphysobs)
+(jlike high wide)
+(jlike tall wide)
+(jlike short wide)
+(df small feats (adj))
+(df smart feats (adj)
+     cf  (neut)
+     markers (state)
+     neut (# hanim # anim))
+(jlike stupid smart)
+(jlike careful smart)
+(df bright feats (adj adv degree)
+     cf  (neut)
+     markers (state)
+     neut (# physob anim inanim #))
+(df1 eager feats (adj  inf-obj)
+     cf ((neut) dat)
+     markers (state)
+     neut (# inf-comp #))
+
+
+;;Determiners
+(df the feats (det ns n3p npl def))
+(df1 this feats (det ns n3p def))
+(df a feats (det ns n3p indef))
+(df an irreg (a nil nil))
+(df1 every feats (det ns indef))
+(df1 no feats (det ns indef))
+(df \'s feats (poss))
+;;Prepositions
+(abbrev prepcf (ess neut))
+(df with feats (prep) cases-marked-by (ins com)) 
+(df to feats (prep auxverb ) cases-marked-by (dat time pto))
+(df on feats (prep)					
+     cf prepcf
+     ess  (# time place physob #)
+     neut (all)
+     cases-marked-by (loc time))
+(jlike in on)
+
+(jlike at on) ;;To a first approximation
+(df before feats (prep)
+     cf prepcf
+     ess (# time #)
+     neut (all)
+      cases-marked-by (time))
+(df about feats (prep)
+     cf prepcf
+     ess (# time place physob #)
+     neut (all)
+     cases-marked-by (neut loc time)) ;;added by candy
+(jlike after before)
+(jlike during before)
+(df1 up feats (prep) cases-marked-by (loc traj))
+(jlike out up)
+(jlike down up)
+(df by feats (prep) cases-marked-by (agt loc time))
+(df of feats (prep) cases-marked-by  nil)
+(df for feats (prep) cases-marked-by (benef exch time goal pdur))
+(df from feats (prep) cases-marked-by (source time pfrom))
+(jlike until on) ;;done by candy
+(jlike till until)
+(jlike \'til until)
+
+;;Punctuation
+(df ? feats (finalpunc punc qpunc))
+(df \. feats (finalpunc punc)) 
+(df \, feats (apunc))
+
+
+;;Adverbs
+(df1 ago feats (adv time))
+(df1 later feats (adv time))
+(df1 very feats (adv degree))
+
+
+
+
+;;Randomness- unfilled for now.
+(df and feats (none-for-now))
+
+;;Definitions added on the fly by the "just like" feature
+
+(jlike mary mitch) 
+(jlike sue mitch) 
+(jlike bill john) 
+(jlike herbert john) 
+(jlike john mitch) 
+(jlike robert bill) 
+(jlike susan sue) 
+(jlike george herbert) 
+(jlike edward mitch) 
+(jlike jack mitch) 
+(jlike harry john) 
+(jlike bob john) 
+(jlike marr marcus) 
+(jlike snodgrass marcus) 
+(jlike winston marcus) 
+(jlike marcus mitch) 
+(jlike jones marcus) 
+(jlike goldstein winston) 
+(jlike dave mitch) 
+(jlike pete john) 
+(jlike tomas mitch) 
+(jlike wilson smith) 
+(jlike smith marcus) 
+(jlike robert bill) 
+(jlike jones marcus) 
+(jlike goldstein winston) 
+(jlike dave mitch) 
+(jlike minnie mary) 
+
+(jlike book box) 
+(jlike fence box) 
+(jlike jeep truck) 
+(jlike plane block) 
+(jlike truck block) 
+(jlike tower block) 
+
+(jlike rabbit elephant) 
+(jlike lamb elephant) 
+
+(jlike sister girl) 
+(jlike undergraduate boy) 
+(jlike student girl) 
+(jlike maid girl) 
+(jlike brothers boys) 
+
+(jlike like want) 
+(jlike would could) 
+
+
+(jlike park store) 
+
+(jlike large big) 
+(jlike out in) 
+(jlike should would) 
+(jlike arrived came) 
+(jlike 3rd third) 
+(jlike nice smart) 
+(jlike evil stupid) 
+(jlike heavy tall) 
+(jlike house store) 
+(jlike philadelphia chicago) 
+(jlike thought believed) 
+(jlike sad smart) 
+(jlike bit hit) 
+(jlike expected believed) 
+(jlike tuesday monday) 
+(jlike \'d would) 
+(jlike \'ll will) 
+(jlike stumbled fell) 
+(jlike left went) 
+(jlike oclock o\'clock) 
+(jlike \: \,) 
+(jlike wednesday monday) 
+ 
+(jlike any some) 
+(jlike minute day) 
+(jlike hour minute) 
+(jlike appointment meeting) 
+(jlike meeting lecture) 
+(jlike miles feet) 
+(jlike ran walked) 
+(jlike philadephia chicago) 
+(jlike boston chicago) 
+(jlike expect believe) 
+(jlike here home) 
+(jlike \4 four) 
+(jlike once yesterday) 
+(jlike \10th tenth) 
+(jlike prof prof\.) 
+(jlike purple red) 
+(jlike put break) 
+(jlike theatre store) 
+
+(jlike party meeting) 
+(jlike restaurant store) 
+(jlike pretty tall) 
+(jlike ira mitch) 
+(jlike philip ira) 
+(jlike may june) 
+(jlike chuck ira) 
+(jlike bruce ira) 
+(jlike arrange schedule) 
+(jlike organize schedule) 
+(jlike plan schedule)
+(jlike candy ira) 
+(jlike tom to) 
+(jlike iwant on) 
+(jlike now today) 
+(jlike pa-meeting meeting) ;;added by candy
+;;this was the end of pal;[defs >
+(jlike him he) 
+(jlike mr |MR.|) 
+(jlike rich goldstein) 
+(jlike meetign meeting) 
+(jlike apartment house) 
+(jlike school house) 
+(jlike rbr ira) 
+
+(jlike movies store) 
+(jlike pm |P.M.|) 
+(jlike jon john) 
+(jlike pa-meeting meeting) 
+(jlike bees children) 
+(jlike hammer rock) 
+(jlike hay paint) 
+(jlike into in) 
+(jlike toys block) 
+(jlike sent gave) 
+(jlike letter book) 
+(jlike floor wall) 
+(jlike water hay) 
+(jlike door window) 
+(jlike \'m am) 
+(jlike massachusetts chicago) 
+(jlike must should) 
+(jlike wed wednesday) 
+(jlike time store) 
+(jlike time store) 
+(jlike yellow red) 
+(jlike time store) 
+
+(jlike yellow the) 
+(jlike yellow red) 
+(jlike rob mitch) 
+(jlike rob mitch) 
+(jlike time store) 
+(jlike - :) 
+(jlike happy smart) 
+(jlike time store) 
+(jlike - :) 
+(jlike rubidium mitch) 
+(jlike bottle block) 
+(jlike re-schedule schedule) 
+(jlike jar bottle) 
+(jlike re-schedule schedule) 
+(jlike re-schedule schedule) 
+(jlike re-schedule schedule) 
+(jlike change give) 
+(jlike re-schedule schedule) 
+(jlike change give) 
+(jlike re-schedule schedule) 
+(jlike change give) 
+(jlike re-schedule schedule) 
+(jlike change give) 
+(jlike re-schedule schedule) 
+(jlike re-schedule schedule) 
+(jlike time store) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike re-schedule schedule) 
+(jlike re-schedule schedule) 
+(jlike invite persuade) 
+(jlike re-schedule schedule) 
+(jlike re-schedule schedule) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike invite persuade) 
+(jlike about on) 
+(jlike beth candy) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike beth mitch) 
+(jlike bullwinkle marcus) 
+(jlike postponed scheduled) 
+(jlike this the) 
+(jlike afternoon today) 
+(jlike talk lecture) 
+(jlike levin marcus) 
+(jlike playroom store) 
+(jlike ball cube) 
+(jlike leture for) 
+(jlike car s) 
+(jlike this a) 
+(jlike car jeep) 
+(jlike car jeep) 
+(jlike bread book) 
+(jlike noon today) 
+(jlike moon block) 
+(jlike under on) 
+(jlike witht with) 
+(jlike lunch pa-meeting) 
+(jlike here there) 
+(jlike night day) 
+(jlike home chicago) 
+(jlike jerry mitch) 
+(jlike inside in) 
+(jlike rat cat) 
+(jlike chased scheduled) 
+(jlike bit scheduled) 
+(jlike ate broke) 
+(jlike cheese block) 
+(jlike meetiong meeting) 
+(jlike answer block) 
+(jlike |MMM(PARSE)_| schedule) 
+(jlike |(PARSE)| meeting) 
+(jlike |(PARSE)| a) 
+(jlike \ meetings) 
+(jlike |(PARSE)| this) 
+(jlike whom john) 
+(jlike jeep1 jeep) 
+(jlike person woman) 
+(jlike mother person) 
+(jlike cover pot) 
+(jlike handle pot) 
+(jlike screw pot) 
+(jlike soup pot) 
+(jlike handle pot) 
+(jlike cover pot) 
+(jlike screw pot) 
+(jlike lid pot) 
+(jlike good happy) 
+(jlike attend come) 
+(jlike til to) 
+(jlike christmas yesterday) 
+(jlike hope tell) 
+(jlike let have) 
+(jlike kiss meet) 
+(jlike buy give) 
+(jlike cancelled scheduled) 
+(jlike flight run) 
+(jlike jone jones) 
+(jlike participate attend) 
+(jlike jessica sue) 
+(jlike osamu john) 
+(jlike hit shoot) 
+(jlike passed schedule) 
+(jlike exam meeting) 
+(jlike mushed shot) 
+(jlike passed scheduled) 
+(jlike exam meeting) 
+(jlike pass schedule) 
+(jlike passed schedule) 
+(jlike seu sue) 
+(jlike unhappy sad) 
+(jlike exam meeting) 
+(jlike take schedule) 
+(jlike exam meeting) 
+

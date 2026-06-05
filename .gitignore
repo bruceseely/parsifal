@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Vim
+*.swp
+*.swo
+
+# Common Lisp build artifacts
+*.fasl
+*.fas
+*.lx32fsl
+*.lx64fsl
+*.dx32fsl
+*.dx64fsl
+.fasls/
+
+# Quicklisp / ASDF caches
+.cache/
+
+# Editor / IDE state
+.idea/
+.vscode/
+.claude/
+
+# Temporary
+*.tmp
+*.bak
+*.orig.bak
