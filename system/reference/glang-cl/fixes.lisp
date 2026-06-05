@@ -90,3 +90,20 @@
   "Mark NAME as a delimiter -- lbp = 0, no nud or led. The parser will
    stop on it (rbp 0 matches lbp 0) but never invoke it."
   `(setf (get ',name :lbp) 0))
+
+
+(defmacro infixm (name bp code)
+  "Multi-argument infix (`mixfix'). The right side is parsed as a
+   NAME-separated list, yielding `(FCN *LEFT* R1 R2 ...)` where FCN is
+   the value CODE evaluates to at parse time. Marcus's `ism' --
+   see glang.l line 211 -- works this way; he uses it for `;', `,',
+   `and', and `or'."
+  (let ((bp-var (gensym "BP")))
+    `(let ((,bp-var ,bp))
+       (setf (get ',name :lbp) ,bp-var)
+       (setf (get ',name :led)
+             (lambda ()
+               (let ((*drbp* ,bp-var))
+                 (let ((fcn ,code))
+                   (cons fcn (cons *left*
+                                   (parse-list *drbp* ',name))))))))))

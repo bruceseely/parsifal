@@ -76,8 +76,15 @@
 (delim |-->|)
 (delim |--->|)
 (delim |,|)
-(delim |;|)
 ;; `}' is already set to lbp = -1 in pratt.lisp.
+
+;; `;' is an infixm: inside a pattern body it builds `(and ...)', elsewhere
+;; `(progn ...)'. See glang.l line 402. Bp 3 is intentional: higher than
+;; `or' / `and' / `is' so it groups statements; lower than `,' so a
+;; comma-list inside one clause doesn't get torn apart.
+(infixm |;| 3
+  (cond ((and (boundp '*semi-flag*) (eq *semi-flag* 'inpat)) 'and)
+        (t 'progn)))
 
 
 ;;; -------------------------------------------------------------------
@@ -204,6 +211,119 @@
 
 (prefix activate 10
   (list 'activate (list 'quote (get-var-list))))
+
+
+;;; -------------------------------------------------------------------
+;;; Other simple parser-control verbs (glang.l lines 438-442)
+;;; -------------------------------------------------------------------
+
+(prefix deactivate 10
+  (list 'deactivate (list 'quote (get-var-list))))
+
+(prefix restore 10
+  (progn (check 'buffer) (list 'bufrestore)))
+
+(prefix run 10
+  (let ((rule-name (eat-token)))
+    (check 'next)
+    (list 'setq :nextrule (list 'quote rule-name))))
+
+;; `Parse is finished.' --> (setq :parsecomplete t)
+(prefix parse 10
+  (progn (check 'is) (check 'finished)
+         (list 'setq :parsecomplete t)))
+
+
+;;; -------------------------------------------------------------------
+;;; Nilfix atoms (glang.l lines 450, 536, 545, 546)
+;;; -------------------------------------------------------------------
+
+(nilfix last (list :last))                 ; (:last) function call form
+(nilfix it :it)                            ; self-evaluating keyword
+(nilfix wh-comp (list 'wh-comp))           ; (wh-comp) call form
+
+;; `Current s' (with `s' a literal delimiter, not an operand).
+(nilfix current
+  (progn (check 's) (list 'current-s)))
+
+
+;;; -------------------------------------------------------------------
+;;; Pattern feature-match `=' (glang.l line 350)
+;;;
+;;; Inside a pattern element (i.e. when *nodevars* is bound), `=foo,bar'
+;;; compiles to `(fast-is INDEX (foo bar))', where INDEX is the position
+;;; (0, 1, 2) of the surrounding pattern element. Outside a pattern
+;;; element it falls back to `(is * (quote (foo bar)))'.
+;;; -------------------------------------------------------------------
+
+(defvar *gram-stats-indexfs* nil
+  "Features that have been used as :indexf in some compiled rule. Used by
+   PICK-INDEX to prefer never-used features (Marcus's heuristic:
+   later/more-obscure features are better discriminators).
+   Mirrors Marcus's (get :gram-stats 'indexfs).")
+
+(defun pick-index (flist)
+  "Pick a feature from FLIST to be the indexf for this rule's pattern.
+   Marcus's heuristic: prefer the last feature not already used as an
+   :indexf, fall back to the last feature. See glang.l line 368."
+  (let (old new)
+    (dolist (f flist)
+      (cond ((member f *gram-stats-indexfs* :test #'eq) (setq old f))
+            (t (setq new f))))
+    (let ((choice (or new old)))
+      (when choice (pushnew choice *gram-stats-indexfs* :test #'eq))
+      choice)))
+
+(defun build-= ()
+  "Body of the `=' pattern-element prefix. See glang.l line 352."
+  (cond
+    (*nodevars*
+     (let ((vars (get-var-list)))
+       (setq *pfeats* (union (reverse vars) *pfeats*))
+       (when (member (car *nodevars*) '(|1ST| nth) :test #'eq)
+         (setq *indexf* (pick-index vars)))
+       (list 'fast-is (cadr *nodevars*) vars)))
+    (t (list 'is '* (list 'quote (get-var-list))))))
+
+(prefix |=| 10 (build-=))
+
+
+;;; -------------------------------------------------------------------
+;;; Relational infixes (glang.l lines 469-478)
+;;;
+;;;   `X is feat-list'        -> (is X '(feat-list))
+;;;   `X is not feat-list'    -> (is-not-all-of X '(feat-list))
+;;;   `X is any of feat-list' -> (is-any-of X '(feat-list))
+;;;   `X is none of feat-list'-> (is-none-of X '(feat-list))
+;;;   `X is not any of feats' -> (is-none-of X '(feats))
+;;;   `X is not all of feats' -> (is-not-all-of X '(feats))
+;;;
+;;; `is' yields *left* unchanged when followed by one of NONE / NOT /
+;;; ANY / GREATER / LESS / EQUAL, because those words start their own
+;;; infix sequence to *left*.
+;;; -------------------------------------------------------------------
+
+(infix is 10
+  (cond
+    ((member *token* '(none not any greater less equal) :test #'eq)
+     *left*)
+    (t (is-token 'labelled)               ; optional `labelled' filler
+       (list 'is *left* (list 'quote (get-var-list))))))
+
+(infix not 10
+  (let ((fn (cond
+              ((is-token 'any) 'is-none-of)
+              (t (is-token 'all) 'is-not-all-of))))
+    (is-token 'of)                         ; optional `of'
+    (list fn *left* (list 'quote (get-var-list)))))
+
+(infix none 10
+  (progn (check 'of)
+         (list 'is-none-of *left* (list 'quote (get-var-list)))))
+
+(infix any 10
+  (progn (check 'of)
+         (list 'is-any-of *left* (list 'quote (get-var-list)))))
 
 
 ;;; -------------------------------------------------------------------

@@ -229,14 +229,28 @@ is a placeholder.
 - Pratt parser machinery (`advance`, `verify`, `associate`, `pratt-parse`,
   `lederr`)
 - Fixity macros (`nilfix`, `prefix`, `suffix`, `infix`, `infixr`, `infixd`,
-  `delim`)
-- Denotations for `rule` (prefix + infix), `[`, `]`, `.`, `,`, `;`, `-->`,
-  `--->`, `activate`, plus `parse-rule` and `parse-rule-header` entry
-  points and the post-parse `compile-rule-form` expander.
+  `infixm`, `delim`)
+- Rule machinery: `rule` (prefix + infix), `[`, `]`, `,`, `-->`, `--->`,
+  plus `parse-rule`, `parse-rule-header`, and `compile-rule-form`
+- Action sequence: `.` (infix), `;` (infixm — `and` inside patterns,
+  `progn` elsewhere)
+- Pattern feature match: `=` with `build-=` and `pick-index`
+- Relational infixes: `is`, `not`, `none`, `any`
+- Action verbs: `activate`, `deactivate`, `restore`, `run`, `parse`
+- Nilfix atoms: `last`, `it`, `current`, `wh-comp`
 
-**Scope not yet done:** the remaining ~25 action verbs (`attach`, `drop`,
-`label`, `transfer`, `if/then/else`, `and/or`, `is/not/any/none`, the test
-and context pattern denotations, the crule denotations, etc.).
+Two complete `gram4.l` rules now compile end-to-end (`NUMBER` and
+`NUMBER-DONE`) — verifies the full pipeline: tokenize → Pratt-parse →
+intermediate AST → emit Marcus's compiled-Lisp triple.
+
+**Scope not yet done:** more action verbs (`attach`, `drop`, `label`,
+`transfer`, `lift`, `features`, `meet`, `word`, `create`, `new`, `make`,
+`insert`, `remove`, `set`, `there`); `if/then/else/andthen`; `and`/`or`
+infixm; the bracketing/quoting operators (`(`, `'`); test-pattern
+denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
+`greatest`, `number`, `semantics`, `filling`, `prepositional`); tree-access
+infixes (`above`, `of`, `binding`, `register`, `node`, `indirect`); and the
+case-rule denotations (`crule`, `upper`, `lower`).
 
 **Per-decision references:**
 - Symbol case → uppercase (see *Deliberate deviations* above)
