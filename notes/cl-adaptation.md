@@ -459,13 +459,34 @@ are `<=`/`>=`, `consprop` becomes a small util, the `[` / `]` syntax
 adjustments are part of our custom tokenizer rather than the reader.
 
 
-### `defs.l` — *not yet ported*
+### `defs.l` — *partial port (feature ontology only)*
 
-Feature ontology. The `redund` declarations define redundant-feature
-implications; we'll either translate them into a small `defredund` macro
-or a data table consulted at parse time. The big constant lists
-(`:nr-types`, `:as-types`, `:specregs`, `:parts-of-speech`,
-`:sentence-types`) translate trivially to `defparameter` forms.
+Lives at `system/core/runtime/defs.lisp`. Ports lines 1-84 of
+Marcus's source — the parser's structural foundation:
+
+- The canonical feature lists `*nr-types*`, `*as-types*`,
+  `*parts-of-speech*`, `*sentence-types*`, `*specregs*`, plus
+  `refillables`. `*as-types*` and `*nr-types*` are already declared
+  in declr.lisp; defs.lisp just `setf`s them to their proper values.
+- The `redund` macro: every declaration records its implications in
+  `*redund-table*` (an EQ hash from feature symbol to implication
+  list). The expansion logic that consults the table is parser-side
+  work for later.
+- All seven `redund` declarations from Marcus's source applied.
+
+The feature symbols Marcus mentions (`np`, `verb`, `decl`, `tens`,
+`ones`, `complete-num`, etc.) are interned in :parsifal and exported
+at compile time, so glang-cl-tokenized grammar source -- which lives
+in :glang-cl with `(:use #:cl #:parsifal)` -- finds the same symbol
+identity. With this in place, the integration tests no longer need
+the `(setq *as-types* (list (intern "NUM" :glang-cl)))` hand-wiring
+that scenarios used to require.
+
+**Deferred:** lines 85-876 -- the lexicon. Hundreds of verb, noun,
+and adjective definitions via `(df ...)`, `(df1 ...)`, `(df+ ...)`,
+`(jlike ...)`, `(abbrev ...)`, and `(irreg ...)`. These don't matter
+until we're parsing real strings, which needs `com.l`'s `sentin` /
+`morpho` ported -- so the lexicon comes alongside that.
 
 
 ### `parse.l` — *not yet ported*

@@ -47,8 +47,12 @@
 ;;; ===========================================================
 
 (defun reset-parser ()
-  "Bring every parser global back to a clean post-load shape so each
-   scenario runs against a known baseline."
+  "Bring every per-parse global back to a clean shape so each
+   scenario runs against a known baseline.
+
+   Configuration values that defs.l populates -- *as-types*,
+   *nr-types*, *parts-of-speech*, *sentence-types*, etc. -- are
+   *not* reset here. They're load-time state, not per-parse state."
   (setq *bufpntr*       0
         *bufmax*       -1
         *bufpntrstak*   nil
@@ -69,8 +73,7 @@
         c                nil
         s                nil
         nth              nil
-        *wstring*        nil
-        *as-types*       nil)
+        *wstring*        nil)
   (dotimes (i (length *buffer*))
     (setf (aref *buffer* i) nil))
   (reset-rule-table))
@@ -122,14 +125,9 @@
 ;;; ===========================================================
 
 (defun gram4-test (&optional verbose)
-  "Three end-to-end scenarios from gram4.l:
-
-   (1) NUMBER-DONE on a single num word ---> labels + packet shift.
-   (2) NINETY-NINE chain on `thirty third'  ---> quant = 33, ord set.
-   (3) AS-rule chain (NUMBER + TWO-HUNDRED)
-       on `two hundred'                     ---> quant = 200.
-
-   Returns T iff every check passes."
+  "End-to-end scenarios from gram4.l. Each compiles a chunk of
+   Marcus's rules verbatim and runs PARSE-LOOP on a hand-built
+   word stream. Returns T iff every check passes."
   (let ((results t))
     (flet ((check (test-name actual expected)
              (let ((pass (equal actual expected)))
@@ -239,7 +237,6 @@
             (hundred (mkword '("*HUNDRED" "NUM") 100)))
         (setq *wstring* (list two hundred)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->
@@ -297,7 +294,6 @@
             (forty   (mkword '("TENS"     "NUM")  40)))
         (setq *wstring* (list three hundred forty)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->
@@ -374,7 +370,6 @@
             (thousand (mkword '("BIGNUM" "NUM") 1000)))
         (setq *wstring* (list three thousand)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->
@@ -436,7 +431,6 @@
             (forty   (mkword '("TENS"     "NUM")  40)))
         (setq *wstring* (list thirty three hundred forty)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->
@@ -525,7 +519,6 @@
             (three2  (mkword '("ONES"     "NUM")   3)))
         (setq *wstring* (list thirty1 three1 hundred thirty2 three2)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->
@@ -617,7 +610,6 @@
             (three2   (mkword '("ONES"   "NUM")      3)))
         (setq *wstring* (list thirty1 three1 thousand thirty2 three2)))
       (mkplaceholder-c)
-      (setq *as-types* (list (intern "NUM" :glang-cl)))
       (register-rules
        '("{AS RULE NUMBER IN NPOOL
           [=num ; * is not complete-num] -->

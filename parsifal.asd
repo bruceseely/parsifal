@@ -26,6 +26,7 @@
    #:attach-monitor   #:create-monitor
    #:for              #:consprop
    #:plus             #:times
+   #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
    #:reset-rule-table #:parse-loop          #:act-of-rule
    #:*rule-table*     #:*deriv*
@@ -80,7 +81,8 @@
                                                          (:file "primitives")
                                                          (:file "buffer-ops")
                                                          (:file "node-ops")
-                                                         (:file "parse-loop")))
+                                                         (:file "parse-loop")
+                                                         (:file "defs")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
