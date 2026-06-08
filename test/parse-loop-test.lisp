@@ -95,7 +95,11 @@
              (*parsecomplete* nil)
              (*deriv*         nil)
              (|1ST| nil) (|2ND| nil) (|3RD| nil)
-             (*bufpntr* 0))
+             (*bufpntr* 0)
+             (*bufmax*  -1)
+             (*buffer*  (make-array 10 :initial-element nil))
+             (*wstring* nil)
+             (*1stfeat* nil) (*2ndfeat* nil) (*3rdfeat* nil))
         (check "parse-loop returns T when *parsecomplete* is set"
                (parse-loop)
                t)
@@ -111,7 +115,11 @@
              (*parsecomplete* nil)
              (*deriv*         nil)
              (|1ST| nil) (|2ND| nil) (|3RD| nil)
-             (*bufpntr* 0))
+             (*bufpntr* 0)
+             (*bufmax*  -1)
+             (*buffer*  (make-array 10 :initial-element nil))
+             (*wstring* nil)
+             (*1stfeat* nil) (*2ndfeat* nil) (*3rdfeat* nil))
         ;; Register the follow-up rule so act-of-rule can find its
         ;; action by name. Packets are empty here -- testrules
         ;; wouldn't pick this up; the chain runs solely via
@@ -138,7 +146,11 @@
             (*parsecomplete* nil)
             (*deriv*         nil)
             (|1ST| nil) (|2ND| nil) (|3RD| nil)
-            (*bufpntr* 0))
+            (*bufpntr* 0)
+            (*bufmax*  -1)
+            (*buffer*  (make-array 10 :initial-element nil))
+            (*wstring* nil)
+            (*1stfeat* nil) (*2ndfeat* nil) (*3rdfeat* nil))
         ;; Set *activerule* to a rule that falls through.
         (setq *activerule*
               (list 'fall-through (lambda () nil)))

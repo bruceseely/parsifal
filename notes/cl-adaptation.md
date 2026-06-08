@@ -350,14 +350,23 @@ MVP deviations in `parse-loop.lisp` worth knowing:
   name. We instead have `rule-index` stash the act-fn under
   `(get rule-name :act-fn)`, so a rule chained via `*nextrule*`
   doesn't need to live in any particular package.
-- **AS / NR rules.** The real loop calls `set*` first, which both
-  advances the buffer AND tests AS / NR rules on the new (or sitting)
-  node. We haven't ported `set*` yet, so this MVP only fires NORMAL
-  rules — the AS / NR branches in `testrules` will simply find no
-  candidates.
-- **Input.** The real loop calls `(sentin)` and `(nextword)` to pull
-  words into the buffer. Both live in `com.l` (not ported). The
-  MVP loop expects the caller to set up the buffer and initial rule.
+- **Buffer advance.** `set*`, `setup*`, and `nextword` are ported.
+  `set*` pulls from `*wstring*` into the buffer, evicts already-
+  attached nodes, and fills the buffer registers via `setup*` /
+  `setup**`. It does **not** yet fire AS or NR rules during advance
+  (the branches that test `*as-types*` / `*nr-types*` are unported).
+- **Sentence input.** Marcus's `(sentin)` reads a sentence string and
+  builds the initial `*wstring*` of word-nodes. That code lives in
+  `com.l` (not ported). The MVP expects the caller to populate
+  `*wstring*` with pre-built nodes; a real lexicon / morphology
+  belongs to the next batch.
+- **setup**.** Marcus's `setup**` (in declr.l) only works correctly
+  when every feature already has a `:findex` (`defs.l` does that for
+  the standard ontology); the "no :findex" branch conses NIL onto the
+  saved index list, which breaks the next cleanup pass. Our port
+  assigns `:findex` lazily inside `setup**` -- same logic as
+  `featindexify` -- so any feature works even if no pattern ever
+  named it.
 - **Trace / break / display.** `cursorpos`, `drain`, `display-trace`,
   `break beforerun`, and the `say` chatter are no-ops here. They
   affect the TTY parser experience, not correctness.

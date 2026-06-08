@@ -28,6 +28,11 @@
    #:rule-index       #:rem-index           #:testrules
    #:reset-rule-table #:parse-loop          #:act-of-rule
    #:*rule-table*     #:*deriv*
+   ;; Rule-type tags emitted by glang-cl (data, not functions);
+   ;; exported so the symbol identity is shared between the
+   ;; rule-index call site and TESTRULES.
+   #:normal           #:as                  #:nr
+   #:noindexf
    ;; Emitted but not yet implemented (pre-declared symbols)
    #:find-node        #:find-node1
    #:father-node      #:node-above
@@ -35,7 +40,7 @@
    #:current-s        #:wh-comp
    #:newnode          #:newcf
    #:makenode         #:makesym
-   #:set*             #:setup*
+   #:set*             #:setup*             #:nextword
    #:word             #:s-type
    #:head             #:root-of
    #:nid              #:node-id
@@ -53,6 +58,7 @@
    #:*1stfvec*        #:*2ndfvec*           #:*3rdfvec*
    #:*int-index*      #:*nr-types*          #:*as-types*
    #:*index-to-fvec-alist*                  #:*findex-counter*
+   #:*wstring*        #:*nodelist*          #:*sentence-types*
    ;; Plain-symbol specials Marcus declared (preserved verbatim because
    ;; glang-cl emits them directly into rule bodies)
    #:s #:c #:nth

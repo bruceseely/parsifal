@@ -143,6 +143,52 @@
 
 
 ;;; ===========================================================
+;;; Buffer advance (parse.l 253-300)
+;;; ===========================================================
+;;;
+;;; SET* is the heart of "wait-and-see": it pulls new words into the
+;;; buffer if needed, and (in Marcus's full version) tests AS rules
+;;; on newly-entered nodes and NR rules on already-attached nodes
+;;; before falling through. Our MVP version doesn't fire AS/NR yet;
+;;; it pulls words and sets up feature vectors only.
+
+(defun set* (index)
+  "Make buffer position (*bufpntr* + INDEX) the current focus,
+   pulling words from *wstring* if the buffer is empty there and
+   removing any already-attached node. Returns T when the buffer is
+   set up (loop should consult TESTRULES), NIL when an AS or NR rule
+   already fired (loop should run *activerule* directly).
+
+   MVP: never returns NIL because we don't fire AS/NR rules here
+   yet. Mirrors parse.l line 253 in shape; documents the deviations."
+  (let ((abs-index (+ index *bufpntr*)))
+    (loop
+      (let ((node (aref *buffer* abs-index)))
+        (cond
+          ;; Empty position -- pull the next word.
+          ((null node)
+           (let ((new (nextword)))
+             (cond
+               ((null new)
+                ;; Input exhausted; leave the position empty. The
+                ;; pattern matcher will see nil and fail to match,
+                ;; eventually deadlocking unless the grammar set
+                ;; *parsecomplete* earlier.
+                (return t))
+               (t
+                (insert-index-pos abs-index new)
+                (setup* new index)
+                (return t)))))
+          ;; Not attached (flag bit 1 = 0) -- set up and we're done.
+          ((zerop (logand 1 (flags node)))
+           (setup* node index)
+           (return t))
+          ;; Attached -- evict it and retry this position.
+          (t
+           (remove-index-pos abs-index)))))))
+
+
+;;; ===========================================================
 ;;; Main loop (parse.l 103-172)
 ;;; ===========================================================
 ;;;
@@ -187,6 +233,11 @@
            |1ST|        nil
            |2ND|        nil
            |3RD|        nil)
+     ;; Advance the buffer (pull words, fire AS/NR rules in future).
+     ;; SET* returning NIL would mean an AS/NR rule was fired and
+     ;; *activerule* was already set -- we'd go straight to runrule.
+     ;; In the MVP SET* always returns T.
+     (unless (set* 0) (go runrule))
      (cond ((testrules 'normal *bufpntr*) (go runrule))
            (t (warn "No rule applies.")
               (return nil)))))

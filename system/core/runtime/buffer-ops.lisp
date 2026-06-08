@@ -188,3 +188,33 @@
    *bufpntr*+INDEX. Mirrors parse.l line 599."
   (activatenode node)
   (drop index))
+
+
+;;; ===========================================================
+;;; Word input / buffer-position setup (parse.l 304-309, 506-514)
+;;; ===========================================================
+
+(defun nextword ()
+  "Pop and return the next word-node from *wstring*. Returns NIL when
+   input is exhausted, which the caller (set*) interprets as
+   end-of-sentence rather than as an error.
+
+   Marcus's nextword (parse.l 506) emits trace / timing chatter when
+   *word-entry-switch* or *ptrace* is set; we skip that until those
+   subsystems land."
+  (pop *wstring*))
+
+(defun setup* (node index)
+  "Make NODE the current buffer-position-INDEX node. Stores INT-INDEX
+   and NTH, then expands SETUP** for the matching position to clear
+   and refill the feature vector and bind the corresponding buffer
+   register (|1ST|/|2ND|/|3RD|). Mirrors parse.l line 304.
+
+   SETUP** is a macro that references `node' lexically -- as long as
+   the caller (i.e. this function) has NODE in scope, the expansion
+   does the right thing."
+  (setq *int-index* index
+        nth         node)
+  (cond ((= index 0) (setup** |1ST| *1stfeat* *1stfvec*))
+        ((= index 1) (setup** |2ND| *2ndfeat* *2ndfvec*))
+        ((= index 2) (setup** |3RD| *3rdfeat* *3rdfvec*))))

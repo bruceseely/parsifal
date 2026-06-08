@@ -61,12 +61,16 @@
 
       ;; --- buffer index manipulation ----------------------------------
 
-      ;; Use the real *buffer*; reset it for each test block.
-      (flet ((reset-buf ()
-               (loop for i from 0 below (length *buffer*)
-                     do (setf (aref *buffer* i) nil))
-               (setq *bufmax* -1)
-               (setq *bufpntr* 0)))
+      ;; Bind *buffer*, *bufmax*, *bufpntr* locally so later tests in
+      ;; the test-all sequence don't inherit our scratch state.
+      (let ((*buffer*  (make-array 10 :initial-element nil))
+            (*bufmax*  -1)
+            (*bufpntr* 0))
+        (flet ((reset-buf ()
+                 (loop for i from 0 below (length *buffer*)
+                       do (setf (aref *buffer* i) nil))
+                 (setq *bufmax* -1)
+                 (setq *bufpntr* 0)))
 
         (reset-buf)
         ;; Set up a buffer [A B C] (bufmax=2).
@@ -94,7 +98,7 @@
                '(a c nil))
         (check "remove-index-pos: decrements *bufmax*"
                *bufmax*
-               1))
+               1)))
 
 
       ;; --- bufrestore -------------------------------------------------
@@ -211,6 +215,77 @@
         (check "drop: c-with-father is NOT inserted into buffer"
                *bufmax*
                -1))
+
+
+      ;; --- nextword / setup* / set* ----------------------------------
+
+      (let ((*wstring* '(a b c)))
+        (check "nextword pops one"
+               (nextword)
+               'a)
+        (check "nextword leaves the rest"
+               *wstring*
+               '(b c))
+        (nextword) (nextword)
+        (check "nextword returns nil on exhaustion"
+               (nextword)
+               nil))
+
+      ;; setup* sets nth + binds 1ST and fills *1stfvec*
+      (let* ((head     (gensym "N"))
+             (np-sym   (gensym "FEAT-"))
+             (node     (cons head 0))
+             (*buffer* (make-array 10 :initial-element nil))
+             (|1ST| nil) (|2ND| nil) (|3RD| nil)
+             (*1stfeat* nil) (*2ndfeat* nil) (*3rdfeat* nil)
+             (*1stfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*2ndfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*3rdfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*index-to-fvec-alist*
+              (list (cons 0 *1stfvec*) (cons 1 *2ndfvec*) (cons 2 *3rdfvec*)))
+             (nth nil)
+             (*int-index* nil))
+        (setf (symbol-value head) (list np-sym)
+              (symbol-plist head) nil)
+        (featindexify (list np-sym))
+        (setup* node 0)
+        (check "setup* sets |1ST| to the node"
+               |1ST|
+               node)
+        (check "setup* sets nth to the node"
+               nth
+               node)
+        (check "setup* records *int-index*"
+               *int-index*
+               0)
+        (check "setup* turned on the feature bit in *1stfvec*"
+               (aref *1stfvec* (get np-sym :findex))
+               1))
+
+      ;; set* MVP: empty buffer + word in *wstring* -> word ends up
+      ;; in buffer[0], 1ST is set to it.
+      (let* ((head (gensym "W-"))
+             (w (cons head 0))
+             (*buffer* (make-array 10 :initial-element nil))
+             (*bufmax* -1) (*bufpntr* 0)
+             (*wstring* (list w))
+             (|1ST| nil) (|2ND| nil) (|3RD| nil)
+             (*1stfeat* nil) (*2ndfeat* nil) (*3rdfeat* nil)
+             (*1stfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*2ndfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*3rdfvec* (make-array 64 :element-type 'bit :initial-element 0))
+             (*index-to-fvec-alist*
+              (list (cons 0 *1stfvec*) (cons 1 *2ndfvec*) (cons 2 *3rdfvec*))))
+        (setf (symbol-value head) nil (symbol-plist head) nil)
+        (check "set* returns t when buffer is set up"
+               (set* 0)
+               t)
+        (check "set*: nextword's word landed in buffer[0]"
+               (aref *buffer* 0)
+               w)
+        (check "set*: 1ST bound to the new node"
+               |1ST|
+               w))
 
 
       ;; --- insert-node -----------------------------------------------

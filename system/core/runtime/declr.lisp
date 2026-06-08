@@ -254,7 +254,17 @@
    Note: the body references `node' as a free variable, matching
    Marcus's MacLISP-era assumption that the caller has a lexical
    `NODE' in scope. We keep that contract here -- callers must
-   establish NODE before invoking SETUP**."
+   establish NODE before invoking SETUP**.
+
+   Deviation from declr.l: Marcus's source conses TEMP (nil when
+   no :findex existed) onto the saved feature list, which only
+   works correctly if every feature has been pre-indexed via
+   FEATINDEXIFY (defs.l does this for the standard ontology). To
+   make setup** robust for features that haven't been touched by
+   a pattern yet, we lazily assign :findex inside the loop --
+   same logic FEATINDEXIFY uses -- and always store the integer
+   index in NFEAT. Cleanup on the next call is then a clean
+   pass over a list of small integers."
   `(progn
      ;; Clear the slots currently held by NFEAT.
      (do ((findex ,nfeat (cdr findex)))
@@ -263,13 +273,16 @@
      ;; Mark NFVEC inconsistent while we update it (in case we get
      ;; interrupted mid-way).
      (setq ,nfeat 'changing)
-     ;; Walk NODE's feature list; for each feature with a :findex,
-     ;; flip the bit on and remember the index.
+     ;; Walk NODE's feature list; flip the corresponding bit on,
+     ;; assigning :findex lazily if needed, and record the index.
      (do ((f (fe node) (cdr f))
           (result nil)
-          (temp   nil))
+          (idx    nil))
          ((null f) (setq ,nfeat result))
-       (if (setq temp (get (car f) :findex))
-           (setf (aref ,nfvec temp) 1)
-           (setq result (cons temp result))))
+       (setq idx (or (get (car f) :findex)
+                     (setf (get (car f) :findex)
+                           (prog1 *findex-counter*
+                             (incf *findex-counter*)))))
+       (setf (aref ,nfvec idx) 1)
+       (push idx result))
      (setq ,nname node)))
