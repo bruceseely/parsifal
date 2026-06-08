@@ -419,6 +419,95 @@
                      (fe (aref *buffer* 0))
                      :test #'eq))                       ; truthy
 
+
+      ;; --- Scenario 6: four-word number, seven-rule chain ------------
+      ;;
+      ;; `thirty three hundred forty' -> 3340 = (30 + 3) * 100 + 40.
+      ;; Fires every gram4.l number-builder rule we've ported plus
+      ;; the AS rule, the final labeler, and the sentinel:
+      ;;   NUMBER -> NINETY-NINE -> TWO-HUNDRED ->
+      ;;   HUNDREDS-STARTS-BIGNUMG -> 99S-ATTACH ->
+      ;;   NUMBER-DONE -> FINAL.
+
+      (reset-parser)
+      (let ((thirty  (mkword '("TENS"     "NUM")  30))
+            (three   (mkword '("ONES"     "NUM")   3))
+            (hundred (mkword '("*HUNDRED" "NUM") 100))
+            (forty   (mkword '("TENS"     "NUM")  40)))
+        (setq *wstring* (list thirty three hundred forty)))
+      (mkplaceholder-c)
+      (setq *as-types* (list (intern "NUM" :glang-cl)))
+      (register-rules
+       '("{AS RULE NUMBER IN NPOOL
+          [=num ; * is not complete-num] -->
+          Deactivate npool.
+          Activate build-number.}"
+         "{RULE NINETY-NINE IN BUILD-NUMBER
+          [=tens] [=ones] -->
+          Label a new num node 99s.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               plus(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 2nd to c.
+          Drop c.}"
+         "{RULE TWO-HUNDRED IN BUILD-NUMBER
+          [ * is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+          Label a new num node hundred+.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               times(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 2nd to c.
+          Drop c.}"
+         "{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+          [ * is any of hundred+, bignum+; * is not ord] -->
+          Create a new num node labelled bignumg.
+          Attach 1st to c as num1.
+          Activate build-number.}"
+         "{RULE 99S-ATTACH IN BUILD-NUMBER
+          [t] [** c; = bignumg] -->
+          If there is a conj of c or 1st is any of 99s, tens, ones then
+                  Attach 1st to c as num2;
+                  Transfer ord from 1st to c;
+                  Set the quant of c to
+                          plus (the quant register of num1 of c,
+                                  the quant register of 1st)
+                  else set the quant register of c to
+                                  the quant register of num1 of c.
+          Drop c.}"
+         "{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+          [t] -->
+          Label 1st complete-num.
+          If 1st is not ord then label 1st quant.
+          If 1st is none of ns,npl then label 1st npl.
+          Deactivate build-number.
+          Activate npool.
+          Restore the buffer.}"
+         "{RULE FINAL IN NPOOL
+          [* is complete-num] -->
+          Parse is finished.}"))
+      (bootstrap-loop '("NPOOL"))
+
+      (check "thirty-three-hundred-forty: parse-loop succeeds"
+             (parse-loop)
+             t)
+      (check "thirty-three-hundred-forty: 7-rule trace"
+             (deriv-names)
+             '("NUMBER" "NINETY-NINE" "TWO-HUNDRED"
+               "HUNDREDS-STARTS-BIGNUMG" "99S-ATTACH"
+               "NUMBER-DONE" "FINAL"))
+      (check "thirty-three-hundred-forty: (30+3)*100 + 40 = 3340"
+             (getr (intern "QUANT" :glang-cl) (aref *buffer* 0))
+             3340)
+      (check "thirty-three-hundred-forty: result is a bignumg node"
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq)
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq))                       ; truthy
+
       results)))
 
 
