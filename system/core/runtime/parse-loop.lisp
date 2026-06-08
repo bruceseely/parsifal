@@ -152,15 +152,35 @@
 ;;; before falling through. Our MVP version doesn't fire AS/NR yet;
 ;;; it pulls words and sets up feature vectors only.
 
+(defun as-check (node abs-index)
+  "After SET* sets up a fresh or unattached node, check whether the
+   node's type triggers an attention-shift rule. Returns T if no AS
+   rule fired (loop should consult NORMAL rules), NIL if one did
+   (loop should run the freshly-set *activerule*).
+
+   Mirrors the AS-CHECK / AS-RULE-SETUP labels in parse.l 299. The
+   bufpntr-stack push lets the rule advance attention to ABS-INDEX
+   non-destructively -- BUFRESTORE pops back later."
+  (cond ((not (is-any-of node *as-types*)) t)
+        ((not (testrules 'as abs-index))   t)
+        (t
+         (setq |1ST| node |2ND| nil |3RD| nil)
+         (push *bufpntr* *bufpntrstak*)
+         (setq *bufpntr* abs-index)
+         nil)))
+
 (defun set* (index)
   "Make buffer position (*bufpntr* + INDEX) the current focus,
    pulling words from *wstring* if the buffer is empty there and
    removing any already-attached node. Returns T when the buffer is
-   set up (loop should consult TESTRULES), NIL when an AS or NR rule
+   set up (loop should consult TESTRULES), NIL when an AS rule
    already fired (loop should run *activerule* directly).
 
-   MVP: never returns NIL because we don't fire AS/NR rules here
-   yet. Mirrors parse.l line 253 in shape; documents the deviations."
+   Mirrors parse.l line 253. We still skip Marcus's NR-rule pre-
+   check at the top of the function -- that branch fires when the
+   *previous* buffer position has an attached NR-type node, and
+   needs the bit-2 'NR-checked' flag bookkeeping we haven't ported
+   yet."
   (let ((abs-index (+ index *bufpntr*)))
     (loop
       (let ((node (aref *buffer* abs-index)))
@@ -178,11 +198,11 @@
                (t
                 (insert-index-pos abs-index new)
                 (setup* new index)
-                (return t)))))
-          ;; Not attached (flag bit 1 = 0) -- set up and we're done.
+                (return (as-check new abs-index))))))
+          ;; Not attached (flag bit 1 = 0) -- set up and check AS.
           ((zerop (logand 1 (flags node)))
            (setup* node index)
-           (return t))
+           (return (as-check node abs-index)))
           ;; Attached -- evict it and retry this position.
           (t
            (remove-index-pos abs-index)))))))

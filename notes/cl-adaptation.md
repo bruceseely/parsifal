@@ -350,11 +350,15 @@ MVP deviations in `parse-loop.lisp` worth knowing:
   name. We instead have `rule-index` stash the act-fn under
   `(get rule-name :act-fn)`, so a rule chained via `*nextrule*`
   doesn't need to live in any particular package.
-- **Buffer advance.** `set*`, `setup*`, and `nextword` are ported.
-  `set*` pulls from `*wstring*` into the buffer, evicts already-
-  attached nodes, and fills the buffer registers via `setup*` /
-  `setup**`. It does **not** yet fire AS or NR rules during advance
-  (the branches that test `*as-types*` / `*nr-types*` are unported).
+- **Buffer advance.** `set*`, `setup*`, `nextword`, and `as-check`
+  are ported. `set*` pulls from `*wstring*` into the buffer, evicts
+  already-attached nodes, fills the buffer registers via `setup*` /
+  `setup**`, then runs `as-check`: if the new node has any feature
+  in `*as-types*` AND an AS-typed rule's pattern matches, `*activerule*`
+  gets set and `set*` returns NIL so the loop fires it before
+  consulting NORMAL rules. **NR rules** are still deferred --
+  Marcus's NR-check at the top of `set*` needs the bit-2
+  "NR-checked" flag bookkeeping we haven't ported yet.
 - **Sentence input.** Marcus's `(sentin)` reads a sentence string and
   builds the initial `*wstring*` of word-nodes. That code lives in
   `com.l` (not ported). The MVP expects the caller to populate
