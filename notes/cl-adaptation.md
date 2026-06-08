@@ -251,7 +251,7 @@ Two complete `gram4.l` rules now compile end-to-end (`NUMBER` and
 intermediate AST → emit Marcus's compiled-Lisp triple.
 
 **Scope not yet done:** remaining action verbs (`lift`, `meet`, `word`,
-`create`, `new`, `make`, `there`); the quoting operator `'`; test-pattern
+`make`, `there`); the quoting operator `'`; test-pattern
 denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
 `greatest`, `number`, `semantics`, `filling`, `prepositional`); the
 `indirect` tree-access prefix; and the case-rule denotations (`crule`,

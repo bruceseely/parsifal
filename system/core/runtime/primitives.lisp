@@ -188,3 +188,16 @@
 (defun liftr (reg source dest)
   "Copy SOURCE's register REG into DEST's."
   (setr reg (getr reg source) dest))
+
+
+;;; ===========================================================
+;;; MacLISP arithmetic name aliases
+;;; ===========================================================
+;;;
+;;; Marcus's grammar writes arithmetic in MacLISP names -- `plus' for
+;;; addition, `times' for multiplication -- and glang-cl's compiler
+;;; emits exactly those symbols. We provide one-line wrappers around
+;;; the CL operators so the emitted code runs without further rewiring.
+
+(defun plus  (&rest args) (apply #'+ args))
+(defun times (&rest args) (apply #'* args))

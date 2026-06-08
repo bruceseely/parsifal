@@ -305,6 +305,26 @@
                                ((activate '(cpool)))))))
 
 
+        ;; --- node creation: new and create ---
+
+        (check "Label a new TYPE node FEATS"
+               (action-of "{RULE X IN P [t] --> Label a new num node 99s.}")
+               '(progn (addf1 (newnode 'num nil) '(|99S|))))
+
+        (check "Label a new TYPE node (no features)"
+               (action-of "{RULE X IN P [t] --> Label a new time node.}")
+               '(progn (addf1 (newnode 'time nil) 'nil)))
+
+        (check "Create [new] TYPE node labelled FEATS"
+               (action-of
+                "{RULE X IN P [t] --> Create a new num node labelled bignumg.}")
+               '(progn (newnode 'num '(bignumg))))
+
+        (check "Create TYPE node (no labelled clause)"
+               (action-of "{RULE X IN P [t] --> Create a num node.}")
+               '(progn (newnode 'num nil)))
+
+
         ;; --- two-clause pattern across positions ---
         ;; Stripped-down version of gram4.l's NINETY-NINE; we don't have
         ;; `new num node' as a denotation yet, so we use a simple `Drop c'

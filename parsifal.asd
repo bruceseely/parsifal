@@ -25,6 +25,7 @@
    #:clear-current-s  #:activatenode
    #:attach-monitor   #:create-monitor
    #:for              #:consprop
+   #:plus             #:times
    #:rule-index       #:rem-index           #:testrules
    #:reset-rule-table #:parse-loop          #:act-of-rule
    #:*rule-table*     #:*deriv*

@@ -47,10 +47,19 @@
 ;;; Helpers used inside denotation bodies
 ;;; -------------------------------------------------------------------
 
+(defparameter *var-list-stoppers* '(|;| |.| |}| |]|)
+  "Tokens that terminate a `get-var-list' run. Marcus's source only
+   checks for `;', because his grammar always has at least one feature
+   in a label/feature position -- a trailing `.' is therefore the
+   *action* separator, not part of the list. Our rule sources include
+   `Label a new num node.' with no features, so we stop at `.', `}',
+   and `]' too rather than silently eat them.")
+
 (defun get-var-list ()
-  "Read a comma-separated sequence of tokens, stopping at `;' or any
-   other separator. Mirrors glang.l line 225."
-  (unless (eq *token* '|;|)
+  "Read a comma-separated sequence of tokens, stopping at `;', `.',
+   `}', `]', or end of input. Mirrors glang.l line 225 with the
+   extra terminator set above."
+  (unless (member *token* *var-list-stoppers* :test #'eq)
     (cons (prog1 *token* (advance))
           (when (eq *token* '|,|)
             (advance)
@@ -391,6 +400,45 @@
   (let ((target (right)))
     (is-token 'with)                          ; optional filler
     (list 'addf1 target (list 'quote (get-var-list)))))
+
+
+;; `new TYPE node [labelled feat, ...]'  --> (newnode 'TYPE '(feats))
+;; `new case frame'                      --> (newcf 'normal)
+;; `new mod case frame'                  --> (newcf 'mod)
+;;
+;; Marcus's denotation (glang.l line 491) dispatches on the token
+;; following `new': `case' or `mod' selects the case-frame branches,
+;; anything else is read as a type symbol followed by the literal
+;; `node' and an optional `labelled <feature-list>'.
+(prefix new 10
+  (cond ((is-token 'case)
+         (check 'frame)
+         (list 'newcf ''normal))
+        ((is-token 'mod)
+         (check 'case)
+         (check 'frame)
+         (list 'newcf ''mod))
+        (t
+         (let ((type-quoted (list 'quote (eat-token))))
+           (check 'node)
+           (let ((labelled (when (is-token 'labelled)
+                             (list 'quote (get-var-list)))))
+             (list 'newnode type-quoted labelled))))))
+
+
+;; `Create [new] TYPE node [labelled feat, ...]' --> (newnode 'TYPE '(feats))
+;;
+;; Identical effect to the third branch of `new', but exposed under its
+;; own verb because gram4.l writes both `Label a new num node ...' and
+;; `Create a new num node labelled ...'.
+(prefix create 10
+  (progn
+    (is-token 'new)                           ; optional filler
+    (let ((type-quoted (list 'quote (eat-token))))
+      (check 'node)
+      (let ((labelled (when (is-token 'labelled)
+                        (list 'quote (get-var-list)))))
+        (list 'newnode type-quoted labelled)))))
 
 
 ;; `Remove [features|feature] f1, f2, ... from NODE'  --> (remf1 '(f1 f2) NODE)
