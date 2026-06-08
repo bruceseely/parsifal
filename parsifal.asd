@@ -15,7 +15,8 @@
                 :components ((:module "core"
                               :components ((:module "runtime"
                                             :serial t
-                                            :components ((:file "declr")))
+                                            :components ((:file "declr")
+                                                         (:file "primitives")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -26,7 +27,8 @@
                 :components ((:file "test-all")
                              (:file "rule-lexer-test")
                              (:file "rule-parser-test")
-                             (:file "declr-test")))))
+                             (:file "declr-test")
+                             (:file "primitives-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

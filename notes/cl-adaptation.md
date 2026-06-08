@@ -9,7 +9,7 @@ The document grows incrementally — each new file we port adds a section under
 [Per-file notes](#per-file-notes).
 
 
-## Purpose
+## 2Purpose
 
 PARSIFAL is being ported with a "minimal-change" philosophy: change as little
 as we can while making the code load and run on a modern ANSI Common Lisp
@@ -293,6 +293,51 @@ contract rather than re-design it.
 Dropped: `(fasl ...)` (→ ASDF), `(declare (macros t))` (compiler-mode
 marker), `(*lexpr ...)` (CL `&rest` covers it), `(setsyntax '\# 2)`
 (handled by `|...|`-escape on the single symbol that needed it).
+
+
+### `parse.l` — *partial port (feature/predicate primitives only)*
+
+`system/core/runtime/primitives.lisp` ports the leaf primitives from
+parse.l ~80-500 — the ones a compiled rule body can call without
+needing the buffer or packet-stack infrastructure:
+
+- Feature-vector matching: `fast-is`, `testindices`, `featindexify`
+- Feature-list mutation: `addf1`, `remf1`
+- Relational predicates: `is`, `is-not-all-of`, `is-none-of`,
+  `is-any-of`
+- Transfer: `transfer`, `liftr`
+
+Two MacLISP/Franz-Lisp idioms used by these bodies are also ported
+here, since they have no other home yet: `for` (Marcus's
+single-binding LET from util/macros1, which he hasn't delivered) and
+`consprop` (from fixes.l).
+
+`fast-is` is a MacLISP `defun NAME macro` (old-style defmacro) that
+runs `featindexify` at macro-expansion time. Our CL `defmacro fast-is`
+keeps that semantics — the expanded form calls `testindices` with a
+list of integer indices baked in. The feature symbols must therefore
+have `:findex` properties set by the time the rule body is compiled;
+`featindexify` assigns them lazily on first reference.
+
+Two CL standard set ops did not preserve element order the way
+Marcus's MacLISP `setminus`/`intersectq2` do; `remf1` and `transfer`
+use `remove-if` / `remove-if-not` loops to keep feature order stable.
+
+**Not yet ported from parse.l:**
+
+- Node creation: `makenode`, `makesym`, `newnode`, `node-reset`,
+  `nodegc`
+- Buffer/packet mutation: `attach`, `attach1`, `drop`, `insert-node`,
+  `activate`, `deactivate`, `set*`, `setup*`, `bufrestore`,
+  `buffer-gc`
+- Tree search: `find-node`, `find-node1`, `father-node`, `node-above`,
+  `binding`, `io`, `s-type`, `head`, `word`, `root-of`
+- The main wait-and-see loop (`parse`) and rule indexing
+  (`rule-index`, `testrules`, `fetchrules`, `rem-index`,
+  `remove-index-pos`, `insert-index-pos`)
+- Misc: `nextword`, `current-s`, `wh-comp`, `setup-current-s`,
+  `:last`, `nid`, `node-id`, `daughters`, `daughter`, `endtime`,
+  `starttime`, `ruletrap`, `breaksw`, `alt-attach`, `alt-fillslot`
 
 
 ### `macros2.l` — *not yet ported*

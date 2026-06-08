@@ -17,7 +17,8 @@
   (let ((results t)
         (test-names '(rule-lexer-test
                       rule-parser-test
-                      declr-test)))
+                      declr-test
+                      primitives-test)))
     (dolist (test-name test-names)
       (let ((result (test-one test-name verbose)))
         (setf results (and results result))))
