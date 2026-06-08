@@ -134,7 +134,7 @@
 
         (check "`it' atom"
                (parse-string "it")
-               :it)
+               '*it*)
 
         (check "`wh-comp' atom"
                (parse-string "wh-comp")
@@ -323,6 +323,21 @@
         (check "Create TYPE node (no labelled clause)"
                (action-of "{RULE X IN P [t] --> Create a num node.}")
                '(progn (newnode 'num nil)))
+
+
+        ;; --- there is / there is not ---
+
+        (check "`there is X' compiles to (setq *it* X)"
+               (action-of
+                "{RULE X IN P [t] --> If there is a conj of c then Drop c.}")
+               '(progn (cond ((setq *it* (find-node 'conj c))
+                              (drop 0)))))
+
+        (check "`there is not X' compiles to (null X)"
+               (action-of
+                "{RULE X IN P [t] -->
+                 If there is not a subj of c then Drop c.}")
+               '(progn (cond ((null (find-node 'subj c)) (drop 0)))))
 
 
         ;; --- two-clause pattern across positions ---

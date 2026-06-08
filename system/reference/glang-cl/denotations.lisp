@@ -253,8 +253,23 @@
 ;;; -------------------------------------------------------------------
 
 (nilfix last (list :last))                 ; (:last) function call form
-(nilfix it :it)                            ; self-evaluating keyword
+(nilfix it '*it*)                          ; the *it* special var
 (nilfix wh-comp (list 'wh-comp))           ; (wh-comp) call form
+
+
+;; `there is X'      --> (setq *it* X)
+;; `there is not X'  --> (null X)
+;;
+;; Marcus uses `there is ...' both as a side-effecting setter for the
+;; antecedent slot (so a later clause can write `it') and as a truthy
+;; existence check. The setq returns the value, so the cond branch in
+;; an `If there is X or ... then ...' construction sees a truthy
+;; result iff X is non-nil. (Mirrors glang.l line 530.)
+(prefix there 10
+  (progn
+    (check 'is)
+    (cond ((is-token 'not) (list 'null (right)))
+          (t (list 'setq '*it* (right))))))
 
 ;; `Current s' (with `s' a literal delimiter, not an operand).
 (nilfix current

@@ -54,7 +54,7 @@
    #:*bufpntr*        #:*bufpntrstak*       #:*bufmax*
    #:*buffer*         #:*buffer-gc*
    #:*current-s*      #:*wh-comp*           #:*rset
-   #:*parsecomplete*
+   #:*parsecomplete*  #:*it*
    #:*1stfeat*        #:*2ndfeat*           #:*3rdfeat*
    #:*1stfvec*        #:*2ndfvec*           #:*3rdfvec*
    #:*int-index*      #:*nr-types*          #:*as-types*

@@ -81,6 +81,12 @@
 (defvar *rset            nil)        ; Marcus's spelling -- one leading *
 (defvar *parsecomplete*  nil)
 
+;;; The most-recently-referenced object. Marcus calls this `:it' and
+;;; sets it via `there is X' so a subsequent clause can write `it' as
+;;; shorthand for the same X. Per the :keyword -> *earmuff* rule we
+;;; rename to *it*.
+(defvar *it*             nil)
+
 ;;; --- Buffer-position registers ---------------------------------------
 ;;;
 ;;; `1ST', `2ND', `3RD' are the three buffer positions; `NTH' is the
@@ -174,7 +180,7 @@
 (declaim (special
           *activepackets* *activerule* *activenodestak* *nextrule*
           *bufpntr* *bufpntrstak* *bufmax* *buffer* *buffer-gc*
-          s c *current-s* *wh-comp* *rset *parsecomplete*
+          s c *current-s* *wh-comp* *rset *parsecomplete* *it*
           |1ST| |2ND| |3RD| nth
           *1stfeat* *2ndfeat* *3rdfeat*
           *1stfvec* *2ndfvec* *3rdfvec*
