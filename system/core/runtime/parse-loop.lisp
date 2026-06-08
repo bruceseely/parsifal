@@ -152,6 +152,22 @@
 ;;; before falling through. Our MVP version doesn't fire AS/NR yet;
 ;;; it pulls words and sets up feature vectors only.
 
+(defun clear-buffer-position (index)
+  "Reset INDEX's buffer register and feature vector so stale bits
+   from a previously-evicted node don't survive past a position
+   that SET* couldn't fill. Marcus's `parse' clears all three at
+   startup; we run the equivalent per-position cleanup whenever
+   NEXTWORD runs dry."
+  (multiple-value-bind (feat fvec)
+      (cond ((= index 0) (values *1stfeat* *1stfvec*))
+            ((= index 1) (values *2ndfeat* *2ndfvec*))
+            ((= index 2) (values *3rdfeat* *3rdfvec*)))
+    (dolist (i feat) (setf (aref fvec i) 0)))
+  (cond ((= index 0) (setq *1stfeat* nil |1ST| nil))
+        ((= index 1) (setq *2ndfeat* nil |2ND| nil))
+        ((= index 2) (setq *3rdfeat* nil |3RD| nil))))
+
+
 (defun as-check (node abs-index)
   "After SET* sets up a fresh or unattached node, check whether the
    node's type triggers an attention-shift rule. Returns T if no AS
@@ -190,10 +206,10 @@
            (let ((new (nextword)))
              (cond
                ((null new)
-                ;; Input exhausted; leave the position empty. The
-                ;; pattern matcher will see nil and fail to match,
-                ;; eventually deadlocking unless the grammar set
-                ;; *parsecomplete* earlier.
+                ;; Input exhausted; explicitly clear this position's
+                ;; fvec / register so a previous occupant's bits
+                ;; don't survive into the next pattern test.
+                (clear-buffer-position index)
                 (return t))
                (t
                 (insert-index-pos abs-index new)

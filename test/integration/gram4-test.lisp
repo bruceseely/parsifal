@@ -359,6 +359,66 @@
                      (fe (aref *buffer* 0))
                      :test #'eq))                       ; truthy
 
+
+      ;; --- Scenario 5: BIGNUM rule -- `three thousand' -> 3000 -------
+      ;;
+      ;; Exercises Marcus's `BIGNUM' [=num] [=bignum] rule, plus the
+      ;; SET* edge case of running off the end of input mid-pattern:
+      ;; after the rule fires once and drops a new bignum+ node into
+      ;; the buffer, BIGNUM's pattern would re-match a (bignum+)
+      ;; against itself unless SET* properly clears the feature
+      ;; vector for the position that just ran dry.
+
+      (reset-parser)
+      (let ((three    (mkword '("ONES"   "NUM")    3))
+            (thousand (mkword '("BIGNUM" "NUM") 1000)))
+        (setq *wstring* (list three thousand)))
+      (mkplaceholder-c)
+      (setq *as-types* (list (intern "NUM" :glang-cl)))
+      (register-rules
+       '("{AS RULE NUMBER IN NPOOL
+          [=num ; * is not complete-num] -->
+          Deactivate npool.
+          Activate build-number.}"
+         "{RULE BIGNUM IN BUILD-NUMBER
+          [=num; * is not bignumg, ord] [=bignum; * is not *hundred] -->
+          Create a new num node labelled bignum+.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               times(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 1st to c.
+          Drop c.}"
+         "{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+          [t] -->
+          Label 1st complete-num.
+          If 1st is not ord then label 1st quant.
+          If 1st is none of ns,npl then label 1st npl.
+          Deactivate build-number.
+          Activate npool.
+          Restore the buffer.}"
+         "{RULE FINAL IN NPOOL
+          [* is complete-num] -->
+          Parse is finished.}"))
+      (bootstrap-loop '("NPOOL"))
+
+      (check "three-thousand: parse-loop succeeds"
+             (parse-loop)
+             t)
+      (check "three-thousand: trace"
+             (deriv-names)
+             '("NUMBER" "BIGNUM" "NUMBER-DONE" "FINAL"))
+      (check "three-thousand: 3 * 1000 = 3000"
+             (getr (intern "QUANT" :glang-cl) (aref *buffer* 0))
+             3000)
+      (check "three-thousand: result is a bignum+ node"
+             (member (intern "BIGNUM+" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq)
+             (member (intern "BIGNUM+" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq))                       ; truthy
+
       results)))
 
 
