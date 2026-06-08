@@ -25,7 +25,9 @@
    #:clear-current-s  #:activatenode
    #:attach-monitor   #:create-monitor
    #:for              #:consprop
-   #:rule-index
+   #:rule-index       #:rem-index           #:testrules
+   #:reset-rule-table #:parse-loop          #:act-of-rule
+   #:*rule-table*     #:*deriv*
    ;; Emitted but not yet implemented (pre-declared symbols)
    #:find-node        #:find-node1
    #:father-node      #:node-above
@@ -70,7 +72,8 @@
                                             :components ((:file "declr")
                                                          (:file "primitives")
                                                          (:file "buffer-ops")
-                                                         (:file "node-ops")))
+                                                         (:file "node-ops")
+                                                         (:file "parse-loop")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -84,7 +87,8 @@
                              (:file "declr-test")
                              (:file "primitives-test")
                              (:file "buffer-ops-test")
-                             (:file "node-ops-test")))))
+                             (:file "node-ops-test")
+                             (:file "parse-loop-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

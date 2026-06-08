@@ -328,6 +328,39 @@ Split across two files:
   - Current-S / wh-comp: `setup-current-s`, `current-s`, `wh-comp`,
     `s-type`
   - Identity helper: `nid1`
+- `system/core/runtime/parse-loop.lisp` — the wait-and-see main loop
+  in MVP form (~enough to actually run a grammar):
+  - Rule indexing: `*rule-table*`, `rule-index`, `rem-index`,
+    `testrules`, `act-of-rule`, `reset-rule-table`
+  - The loop itself: `parse-loop` (preserves Marcus's `PROG` + `GO`
+    structure with `runrule` and `nextrule` labels)
+
+MVP deviations in `parse-loop.lisp` worth knowing:
+
+- **Rule storage.** Marcus indexes rules by feature using nested cons
+  cells (a "type-plist" living in the cdr of `(ncons nil)`) so that
+  `fetchrules` can do quick lookups via the buffer head's feature
+  list. We store rules in `*rule-table*`, a CL hash-table keyed by
+  packet, and `testrules` walks all rules of each active packet
+  linearly, sorting by priority. Same observable behaviour, slower
+  for big grammars. Feature-indexed buckets can be reintroduced
+  later without touching emissions.
+- **`act-of-rule` lookup.** Marcus's loop reconstructs the action
+  function's name by string-concatenating `::act-of-` with the rule
+  name. We instead have `rule-index` stash the act-fn under
+  `(get rule-name :act-fn)`, so a rule chained via `*nextrule*`
+  doesn't need to live in any particular package.
+- **AS / NR rules.** The real loop calls `set*` first, which both
+  advances the buffer AND tests AS / NR rules on the new (or sitting)
+  node. We haven't ported `set*` yet, so this MVP only fires NORMAL
+  rules — the AS / NR branches in `testrules` will simply find no
+  candidates.
+- **Input.** The real loop calls `(sentin)` and `(nextword)` to pull
+  words into the buffer. Both live in `com.l` (not ported). The
+  MVP loop expects the caller to set up the buffer and initial rule.
+- **Trace / break / display.** `cursorpos`, `drain`, `display-trace`,
+  `break beforerun`, and the `say` chatter are no-ops here. They
+  affect the TTY parser experience, not correctness.
 
 Notes on the port:
 
@@ -355,16 +388,13 @@ Notes on the port:
 
 **Not yet ported from parse.l:**
 
-- Node cleanup: `node-reset`, `nodegc` (lazy gennum extension in
-  `makesym` keeps us correct without them, but a long run will leak
-  symbols)
-- The main wait-and-see loop (`parse`) and rule indexing
-  (`testrules`, `fetchrules`, `rem-index`, real `rule-index`)
-- Buffer scan / advance: `set*`, `setup*`, `buffer-gc` (depend on
-  `testrules`)
-- Phrase-structure helpers: `head`, `word`, `root-of` (need
-  morphology and the tree printer)
-- Tree printing: `nid`, `node-id` (need `phrasify` from `util.l`)
+- Node cleanup: `node-reset`, `nodegc`
+- Feature-indexed `fetchrules` (perf optimisation; not needed for
+  correctness)
+- Buffer scan / advance: `set*`, `setup*`, `buffer-gc`
+- AS / NR rule dispatch from `set*`
+- Phrase-structure helpers: `head`, `word`, `root-of`
+- Tree printing: `nid`, `node-id`
 - Misc: `nextword`, `:last`, `endtime`, `starttime`, `ruletrap`,
   `breaksw`, `alt-attach`, `alt-fillslot`
 

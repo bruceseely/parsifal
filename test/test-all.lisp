@@ -20,7 +20,8 @@
                       declr-test
                       primitives-test
                       buffer-ops-test
-                      node-ops-test)))
+                      node-ops-test
+                      parse-loop-test)))
     (dolist (test-name test-names)
       (let ((result (test-one test-name verbose)))
         (setf results (and results result))))
