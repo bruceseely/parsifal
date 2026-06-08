@@ -223,15 +223,20 @@
 (prefix restore 10
   (progn (check 'buffer) (list 'bufrestore)))
 
+;; `Run X next.' --> (setq *nextrule* 'X).
+;; Marcus's source emits the MacLISP keyword-style special `:nextrule';
+;; our runtime renames it `*nextrule*' (see system/core/runtime/declr.lisp
+;; and notes/cl-adaptation.md's :keyword -> *earmuff* rule).
 (prefix run 10
   (let ((rule-name (eat-token)))
     (check 'next)
-    (list 'setq :nextrule (list 'quote rule-name))))
+    (list 'setq '*nextrule* (list 'quote rule-name))))
 
-;; `Parse is finished.' --> (setq :parsecomplete t)
+;; `Parse is finished.' --> (setq *parsecomplete* t).
+;; Same :keyword -> *earmuff* rename as above.
 (prefix parse 10
   (progn (check 'is) (check 'finished)
-         (list 'setq :parsecomplete t)))
+         (list 'setq '*parsecomplete* t)))
 
 
 ;;; -------------------------------------------------------------------

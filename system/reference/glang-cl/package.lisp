@@ -6,7 +6,13 @@
 ;;; for the porting strategy.
 
 (defpackage #:glang-cl
-  (:use #:cl)
+  ;; :use #:parsifal -- so unqualified references in denotation source
+  ;; (e.g. `(prefix attach 10 ...)') resolve to the PARSIFAL runtime
+  ;; symbols, and the tokenizer's `(intern "ATTACH" :glang-cl)' finds
+  ;; the inherited PARSIFAL:ATTACH. Symbols that don't exist in
+  ;; :parsifal (rule names, feature symbols, packet names) are still
+  ;; interned into :glang-cl and form a separate, data-only namespace.
+  (:use #:cl #:parsifal)
   (:nicknames #:glang)
   (:export
    ;; --- entry points ---

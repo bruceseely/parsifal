@@ -116,11 +116,11 @@
 
         (check "Run X next"
                (action-of "{RULE X IN P [t] --> Run aux-inversion next.}")
-               '(progn (setq :nextrule 'aux-inversion)))
+               '(progn (setq *nextrule* 'aux-inversion)))
 
         (check "Parse is finished"
                (action-of "{RULE X IN P [t] --> Parse is finished.}")
-               '(progn (setq :parsecomplete t)))
+               '(progn (setq *parsecomplete* t)))
 
 
         ;; --- new denotations: nilfix atoms ---

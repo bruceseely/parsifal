@@ -2,7 +2,59 @@
 
 (defpackage :parsifal
   (:use #:cl #:cl-user #:uiop)
-  (:nicknames :pa))
+  (:nicknames :pa)
+  (:export
+   ;; --- Runtime functions / macros emitted by glang-cl ----------------
+   ;; (Each one corresponds to a function or macro in Marcus's parse.l;
+   ;; many are not yet implemented, but the symbol must be exported now
+   ;; so the symbol identity is shared between :glang-cl emissions and
+   ;; the :parsifal runtime.)
+   #:activate         #:deactivate
+   #:addf1            #:remf1
+   #:attach           #:attach1
+   #:drop             #:insert-node
+   #:bufrestore
+   #:insert-index-pos #:remove-index-pos
+   #:fast-is          #:testindices         #:featindexify
+   #:fe               #:setfe
+   #:is               #:is-not-all-of
+   #:is-none-of       #:is-any-of
+   #:transfer         #:liftr
+   #:setr             #:getr
+   #:flags            #:setflags            #:setup**
+   #:clear-current-s  #:activatenode
+   #:attach-monitor   #:create-monitor
+   #:for              #:consprop
+   #:rule-index
+   ;; Emitted but not yet implemented (pre-declared symbols)
+   #:find-node        #:find-node1
+   #:father-node      #:node-above
+   #:binding          #:io
+   #:current-s        #:wh-comp
+   #:newnode          #:newcf
+   #:makenode         #:makesym
+   #:set*             #:setup*
+   #:word             #:s-type
+   #:head             #:root-of
+   #:nid              #:node-id
+   #:daughters        #:daughter
+   #:alt-attach       #:alt-fillslot
+   #:setup-current-s
+   ;; --- Special variables --------------------------------------------
+   #:*activepackets*  #:*activerule*
+   #:*activenodestak* #:*nextrule*
+   #:*bufpntr*        #:*bufpntrstak*       #:*bufmax*
+   #:*buffer*         #:*buffer-gc*
+   #:*current-s*      #:*wh-comp*           #:*rset
+   #:*parsecomplete*
+   #:*1stfeat*        #:*2ndfeat*           #:*3rdfeat*
+   #:*1stfvec*        #:*2ndfvec*           #:*3rdfvec*
+   #:*int-index*      #:*nr-types*          #:*as-types*
+   #:*index-to-fvec-alist*                  #:*findex-counter*
+   ;; Plain-symbol specials Marcus declared (preserved verbatim because
+   ;; glang-cl emits them directly into rule bodies)
+   #:s #:c #:nth
+   #:|1ST| #:|2ND| #:|3RD|))
 
 (in-package :asdf-user)
 

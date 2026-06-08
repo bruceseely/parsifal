@@ -72,6 +72,23 @@
 
 
 ;;; ===========================================================
+;;; Rule-indexing stub (parse.l 400 -- not yet ported)
+;;; ===========================================================
+;;;
+;;; The compiler emits one (RULE-INDEX 'kind '(packets) 'indexf
+;;; '(priority pat-fn rule-name act-fn)) call per rule, intended to
+;;; register the rule under the active-packet indexing structures
+;;; the wait-and-see main loop consults. Until we port that loop,
+;;; we accept the call and discard it -- this is what lets a
+;;; freshly-compiled rule body eval as a top-level PROGN without
+;;; an undefined-function error.
+
+(defun rule-index (kind packets indexf rule-record)
+  (declare (ignore kind packets indexf rule-record))
+  nil)
+
+
+;;; ===========================================================
 ;;; Buffer maintenance (parse.l 247-333)
 ;;; ===========================================================
 

@@ -359,14 +359,37 @@ Notes on the port:
   `:last`, `nid`, `node-id`, `daughters`, `daughter`, `endtime`,
   `starttime`, `ruletrap`, `breaksw`, `alt-attach`, `alt-fillslot`
 
-**Known package-alignment issue:** `glang-cl` emits compiled rule
-bodies that reference `c`, `1st`, `attach`, etc. as symbols interned
-in `:glang-cl`, while the runtime defines those in `:parsifal`. A
-glang-cl-emitted rule body can't yet be `funcall`'d as-is against
-the runtime; an end-to-end probe driving the same operations directly
-in `:parsifal` works. Resolving this (probably by having glang-cl
-emit `:parsifal` symbols, or by sharing a runtime package between
-the two) is its own commit.
+**Package alignment between glang-cl and parsifal — resolved.**
+
+`:parsifal` exports the runtime API (functions, macros, special vars)
+and `:glang-cl` does `(:use #:cl #:parsifal)`. This means:
+
+- Unqualified references in denotation source (`(prefix attach 10 ...)`,
+  `(list 'attach ...)`) read in `:glang-cl` resolve via inheritance to
+  the `parsifal:attach` symbol.
+- The tokenizer's `(intern "ATTACH" :glang-cl)` finds the same
+  inherited `parsifal:attach` and returns it, so an emitted
+  `(ATTACH C 1ST 'NP)` evaluates against the parsifal runtime
+  directly.
+- Symbols *not* in parsifal's exports (rule names, feature names,
+  packet names like `NP`, `CPOOL`, `NINETY-NINE`) still intern into
+  `:glang-cl`. They are grammar data, not runtime API, so a separate
+  namespace is the right home for them.
+
+Two related fixes landed in the same commit:
+
+- `denotations.lisp` previously emitted `(setq :nextrule ...)` and
+  `(setq :parsecomplete t)` -- invalid CL because keywords can't be
+  SETQ'd. Now emits `*nextrule*` / `*parsecomplete*` to match the
+  parsifal earmuff-rename convention.
+- `buffer-ops.lisp` gains a `rule-index` stub (no-op) so a
+  freshly-emitted PROGN top-level form -- which calls `rule-index`
+  to register the rule -- evaluates cleanly until the real
+  parse-loop machinery is ported.
+
+End-to-end smoke test: a glang-cl-compiled `Attach 1st to c as np.
+Deactivate cpool.` rule, eval'd against parsifal-bound `c`, `1st`,
+`*activepackets*`, actually mutates the runtime state correctly.
 
 
 ### `macros2.l` — *not yet ported*
