@@ -69,7 +69,8 @@
                                             :serial t
                                             :components ((:file "declr")
                                                          (:file "primitives")
-                                                         (:file "buffer-ops")))
+                                                         (:file "buffer-ops")
+                                                         (:file "node-ops")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -82,7 +83,8 @@
                              (:file "rule-parser-test")
                              (:file "declr-test")
                              (:file "primitives-test")
-                             (:file "buffer-ops-test")))))
+                             (:file "buffer-ops-test")
+                             (:file "node-ops-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

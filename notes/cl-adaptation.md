@@ -308,8 +308,7 @@ Split across two files:
   - Transfer: `transfer`, `liftr`
   - Adaptation utilities: `for` (Marcus's `util/macros1`, which he
     hasn't delivered), `consprop` (from `fixes.l`)
-- `system/core/runtime/buffer-ops.lisp` — the rest of what a compiled
-  rule body needs:
+- `system/core/runtime/buffer-ops.lisp` — buffer/packet machinery:
   - Top-level array bindings: `*buffer*`, `*1stfvec*`, `*2ndfvec*`,
     `*3rdfvec*`, `*index-to-fvec-alist*` (Marcus's `parse.l` lines
     1-15)
@@ -319,7 +318,16 @@ Split across two files:
   - Attach / drop / insert: `attach`, `attach1`, `drop`,
     `insert-node`
   - Stubs for case-frame hooks: `attach-monitor`, `create-monitor`
-    (no-ops until `case.l` is ported)
+    (no-ops until `case.l` is ported), and `rule-index` (no-op until
+    the main parse loop is ported)
+- `system/core/runtime/node-ops.lisp` — node creation and tree
+  traversal:
+  - Node creation: `makesym`, `makenode`, `newnode`
+  - Tree search: `daughters`, `daughter`, `father-node`, `node-above`,
+    `binding`, `find-node`, `find-node1`, `io`
+  - Current-S / wh-comp: `setup-current-s`, `current-s`, `wh-comp`,
+    `s-type`
+  - Identity helper: `nid1`
 
 Notes on the port:
 
@@ -347,17 +355,18 @@ Notes on the port:
 
 **Not yet ported from parse.l:**
 
-- Node creation: `makenode`, `makesym`, `newnode`, `node-reset`,
-  `nodegc`
+- Node cleanup: `node-reset`, `nodegc` (lazy gennum extension in
+  `makesym` keeps us correct without them, but a long run will leak
+  symbols)
 - The main wait-and-see loop (`parse`) and rule indexing
-  (`rule-index`, `testrules`, `fetchrules`, `rem-index`)
+  (`testrules`, `fetchrules`, `rem-index`, real `rule-index`)
 - Buffer scan / advance: `set*`, `setup*`, `buffer-gc` (depend on
   `testrules`)
-- Tree search: `find-node`, `find-node1`, `father-node`, `node-above`,
-  `binding`, `io`, `s-type`, `head`, `word`, `root-of`
-- Misc: `nextword`, `current-s`, `wh-comp`, `setup-current-s`,
-  `:last`, `nid`, `node-id`, `daughters`, `daughter`, `endtime`,
-  `starttime`, `ruletrap`, `breaksw`, `alt-attach`, `alt-fillslot`
+- Phrase-structure helpers: `head`, `word`, `root-of` (need
+  morphology and the tree printer)
+- Tree printing: `nid`, `node-id` (need `phrasify` from `util.l`)
+- Misc: `nextword`, `:last`, `endtime`, `starttime`, `ruletrap`,
+  `breaksw`, `alt-attach`, `alt-fillslot`
 
 **Package alignment between glang-cl and parsifal — resolved.**
 
