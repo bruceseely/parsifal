@@ -236,21 +236,26 @@ is a placeholder.
   `progn` elsewhere)
 - Pattern feature match: `=` with `build-=` and `pick-index`
 - Relational infixes: `is`, `not`, `none`, `any`
-- Action verbs: `activate`, `deactivate`, `restore`, `run`, `parse`
+- Action verbs: `activate`, `deactivate`, `restore`, `run`, `parse`,
+  `attach`, `drop`, `insert`, `label`, `remove`, `transfer`, `features`,
+  `set`
+- Tree-access infixes: `of`, `above`; prefixes: `node`, `binding`;
+  infix: `register`
+- Control flow: `if/then/else/andthen`; logical `and`/`or` (infixm)
+- Grouping / function call: `(` (prefix grouping, infixd call), `)`
+  (delim)
 - Nilfix atoms: `last`, `it`, `current`, `wh-comp`
 
 Two complete `gram4.l` rules now compile end-to-end (`NUMBER` and
 `NUMBER-DONE`) — verifies the full pipeline: tokenize → Pratt-parse →
 intermediate AST → emit Marcus's compiled-Lisp triple.
 
-**Scope not yet done:** more action verbs (`attach`, `drop`, `label`,
-`transfer`, `lift`, `features`, `meet`, `word`, `create`, `new`, `make`,
-`insert`, `remove`, `set`, `there`); `if/then/else/andthen`; `and`/`or`
-infixm; the bracketing/quoting operators (`(`, `'`); test-pattern
+**Scope not yet done:** remaining action verbs (`lift`, `meet`, `word`,
+`create`, `new`, `make`, `there`); the quoting operator `'`; test-pattern
 denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
-`greatest`, `number`, `semantics`, `filling`, `prepositional`); tree-access
-infixes (`above`, `of`, `binding`, `register`, `node`, `indirect`); and the
-case-rule denotations (`crule`, `upper`, `lower`).
+`greatest`, `number`, `semantics`, `filling`, `prepositional`); the
+`indirect` tree-access prefix; and the case-rule denotations (`crule`,
+`upper`, `lower`).
 
 **Per-decision references:**
 - Symbol case → uppercase (see *Deliberate deviations* above)

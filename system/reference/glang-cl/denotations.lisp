@@ -327,6 +327,195 @@
 
 
 ;;; -------------------------------------------------------------------
+;;; Helpers used by the node-op and tree-access denotations below
+;;; -------------------------------------------------------------------
+
+(defun kwote-if-atom (x)
+  "If X is an atom, wrap it in `(quote X)'; otherwise return X.
+   Mirrors Marcus's KWOTE-IF-ATOM at glang.l line 160."
+  (if (atom x) (list 'quote x) x))
+
+
+(defun name-to-index (sym)
+  "Map an ordinal symbol (1ST/2ND/3RD/NTH) to its buffer position 0/1/2.
+   Used by DROP and INSERT for `before NTH' phrases. Mirrors Marcus's
+   NAME-TO-INDEX macro at glang.l line 159; we default to 0 if SYM is
+   not one of the position names."
+  (case sym
+    (|1ST| 0) (|2ND| 1) (|3RD| 2)
+    (NTH 0)
+    (t 0)))
+
+
+;;; -------------------------------------------------------------------
+;;; Node-op verbs (glang.l lines 451-495)
+;;; -------------------------------------------------------------------
+
+;; `Attach 1st to c as np'   --> (attach c 1st 'np)
+;; `Attach c as np'          --> (attach1 c c 'np)  -- Marcus reverses
+;;                                                     args via attach1
+;;                                                     when first arg is c
+(prefix attach 10
+  (let* ((dn (right))
+         (fn (cond ((is-token 'to) (right))
+                   (t 'c)))
+         (funct (progn (check 'as) (list 'quote (eat-token)))))
+    (cond ((eq dn 'c) (list 'attach1 dn fn funct))
+          (t (list 'attach fn dn funct)))))
+
+
+;; `Drop c [into the buffer] [before NTH]'  --> (drop INDEX)
+(prefix drop 10
+  (progn
+    (check 'c)
+    (when (is-token 'into) (check 'buffer))
+    (let ((index (if (is-token 'before) (name-to-index (eat-token)) 0)))
+      (list 'drop index))))
+
+
+;; `Insert NODE [into the buffer] [before NTH]'  --> (insert-node NODE INDEX)
+(prefix insert 10
+  (let ((node (right)))
+    (when (is-token 'into) (check 'buffer))
+    (let ((index (if (is-token 'before) (name-to-index (eat-token)) 0)))
+      (list 'insert-node node index))))
+
+
+;; `Label NODE [with] feat1, feat2, ...'  --> (addf1 NODE '(feat1 feat2 ...))
+(prefix label 10
+  (let ((target (right)))
+    (is-token 'with)                          ; optional filler
+    (list 'addf1 target (list 'quote (get-var-list)))))
+
+
+;; `Remove [features|feature] f1, f2, ... from NODE'  --> (remf1 '(f1 f2) NODE)
+(prefix remove 10
+  (progn
+    (or (is-token 'features) (is-token 'feature))
+    (let ((feats (get-var-list)))
+      (check 'from)
+      (list 'remf1 (list 'quote feats) (right)))))
+
+
+;; `Transfer [feature|features] f1, f2 from SRC to DST'
+;;                                   --> (transfer '(f1 f2) SRC DST)
+(prefix transfer 10
+  (progn
+    (or (is-token 'feature) (is-token 'features))
+    (let ((feats (get-var-list)))
+      (check 'from)
+      (let ((src (right)))
+        (check 'to)
+        (list 'transfer (list 'quote feats) src (right))))))
+
+
+;; `Features [of] NODE'  --> (fe NODE)
+(prefix features 10
+  (progn
+    (is-token 'of)
+    (list 'fe (right))))
+
+
+;; `Set the FOO [register] of NODE to VAL'  --> (setr 'FOO VAL NODE)
+;; (We don't implement Marcus's `:storeform' specialization — the
+;; default SETR form suffices for everything in gram4.l.)
+(prefix set 9
+  (let ((prop (eat-token)))
+    (is-token 'register)                      ; optional filler
+    (check 'of)
+    (let ((node (pratt-parse 1)))
+      (check 'to)
+      (list 'setr (list 'quote prop) (right) node))))
+
+
+;;; -------------------------------------------------------------------
+;;; Tree-access infixes and prefixes (glang.l lines 541-548)
+;;; -------------------------------------------------------------------
+
+;; `X of Y'                  --> (find-node 'X Y)        right-associative
+(infixr of 20
+  (list 'find-node (kwote-if-atom *left*) (right)))
+
+
+;; `X above Y'               --> (node-above 'X Y)       right-associative
+(infixr above 20
+  (list 'node-above (kwote-if-atom *left*) (right)))
+
+
+;; `Node above X'            --> (father-node X)
+(prefix node 19
+  (progn (check 'above)
+         (list 'father-node (right))))
+
+
+;; `Binding of X'            --> (binding X)
+(prefix binding 18
+  (progn (check 'of)
+         (list 'binding (right))))
+
+
+;; `X register of Y'         --> (getr 'X Y)
+(infix register 18
+  (progn (check 'of)
+         (list 'getr (kwote-if-atom *left*) (right))))
+
+
+;;; -------------------------------------------------------------------
+;;; Logical infixes (glang.l lines 445-446)
+;;; -------------------------------------------------------------------
+
+(infixm and 5 'and)
+(infixm or  4 'or)
+
+
+;;; -------------------------------------------------------------------
+;;; Grouping and function-call `(' / `)'  (glang.l lines 380-388)
+;;;
+;;; `(X)' (prefix)          --> X
+;;; `F(A, B, C)' (infixd)   --> (F A B C)
+;;; -------------------------------------------------------------------
+
+(delim |)|)
+
+(prefix |(| 0
+  (prog1 (right) (check '|)|)))
+
+(infixd |(| 30 0
+  (let ((args (cond ((eq *token* '|)|) nil)
+                    (t (parse-list 0 '|,|)))))
+    (check '|)|)
+    (cons *left* args)))
+
+
+;;; -------------------------------------------------------------------
+;;; If/then/else/andthen (glang.l lines 422-435)
+;;;
+;;;   If COND then ACTION                       --> (cond (COND ACTION))
+;;;   If COND then ACTION else OTHER            --> (cond (COND ACTION) (t OTHER))
+;;;   If COND then ACTION else (if A then B)    --> (cond (COND ACTION) (A B))
+;;;     (i.e. an `else (cond ...)' is spliced rather than nested)
+;;;   ... andthen FOLLOWUP                      --> (prog2 IFCLAUSE FOLLOWUP)
+;;; -------------------------------------------------------------------
+
+(prefix if 2
+  (let* ((test       (right))
+         (then-arm   (progn (check 'then) (right)))
+         (ifclause   (list 'cond (list test then-arm)))
+         (else-arm   (when (is-token 'else) (right))))
+    (when else-arm
+      (setq ifclause
+            (append ifclause
+                    (cond ((and (consp else-arm)
+                                (eq (car else-arm) 'cond))
+                           ;; splice the nested cond's clauses in
+                           (cdr else-arm))
+                          (t (list (list else-arm)))))))
+    (cond ((is-token 'andthen)
+           (list 'prog2 ifclause (right)))
+          (t ifclause))))
+
+
+;;; -------------------------------------------------------------------
 ;;; Top-level entry: parse a single `{ ... }' rule from STRING.
 ;;; -------------------------------------------------------------------
 
