@@ -597,6 +597,98 @@
                      (fe (aref *buffer* 0))
                      :test #'eq))                       ; truthy
 
+
+      ;; --- Scenario 8: BIGNUM-flavored 5-word number -----------------
+      ;;
+      ;; `thirty three thousand thirty three' -> 33033.
+      ;; (30 + 3) * 1000 + (30 + 3) = 33000 + 33 = 33033.
+      ;; Same length and chain depth as scenario 7 but using BIGNUM
+      ;; (num + bignum) in the middle instead of TWO-HUNDRED
+      ;; (ones-or-99s + *hundred). NINETY-NINE still fires twice;
+      ;; HUNDREDS-STARTS-BIGNUMG promotes the bignum+ result the
+      ;; same way it does for hundred+, demonstrating the bignumg
+      ;; builder works against either path.
+
+      (reset-parser)
+      (let ((thirty1  (mkword '("TENS"   "NUM")     30))
+            (three1   (mkword '("ONES"   "NUM")      3))
+            (thousand (mkword '("BIGNUM" "NUM")   1000))
+            (thirty2  (mkword '("TENS"   "NUM")     30))
+            (three2   (mkword '("ONES"   "NUM")      3)))
+        (setq *wstring* (list thirty1 three1 thousand thirty2 three2)))
+      (mkplaceholder-c)
+      (setq *as-types* (list (intern "NUM" :glang-cl)))
+      (register-rules
+       '("{AS RULE NUMBER IN NPOOL
+          [=num ; * is not complete-num] -->
+          Deactivate npool.
+          Activate build-number.}"
+         "{RULE NINETY-NINE IN BUILD-NUMBER
+          [=tens] [=ones] -->
+          Label a new num node 99s.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               plus(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 2nd to c.
+          Drop c.}"
+         "{RULE BIGNUM IN BUILD-NUMBER
+          [=num; * is not bignumg, ord] [=bignum; * is not *hundred] -->
+          Create a new num node labelled bignum+.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               times(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 1st to c.
+          Drop c.}"
+         "{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+          [ * is any of hundred+, bignum+; * is not ord] -->
+          Create a new num node labelled bignumg.
+          Attach 1st to c as num1.
+          Activate build-number.}"
+         "{RULE 99S-ATTACH IN BUILD-NUMBER
+          [t] [** c; = bignumg] -->
+          If there is a conj of c or 1st is any of 99s, tens, ones then
+                  Attach 1st to c as num2;
+                  Transfer ord from 1st to c;
+                  Set the quant of c to
+                          plus (the quant register of num1 of c,
+                                  the quant register of 1st)
+                  else set the quant register of c to
+                                  the quant register of num1 of c.
+          Drop c.}"
+         "{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+          [t] -->
+          Label 1st complete-num.
+          If 1st is not ord then label 1st quant.
+          If 1st is none of ns,npl then label 1st npl.
+          Deactivate build-number.
+          Activate npool.
+          Restore the buffer.}"
+         "{RULE FINAL IN NPOOL
+          [* is complete-num] -->
+          Parse is finished.}"))
+      (bootstrap-loop '("NPOOL"))
+
+      (check "thirty-three-thousand-thirty-three: parse-loop succeeds"
+             (parse-loop)
+             t)
+      (check "thirty-three-thousand-thirty-three: 8-rule trace (BIGNUM)"
+             (deriv-names)
+             '("NUMBER" "NINETY-NINE" "BIGNUM"
+               "HUNDREDS-STARTS-BIGNUMG" "NINETY-NINE"
+               "99S-ATTACH" "NUMBER-DONE" "FINAL"))
+      (check "thirty-three-thousand-thirty-three: 33 * 1000 + 33 = 33033"
+             (getr (intern "QUANT" :glang-cl) (aref *buffer* 0))
+             33033)
+      (check "thirty-three-thousand-thirty-three: result is a bignumg node"
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq)
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq))                       ; truthy
+
       results)))
 
 
