@@ -9,7 +9,7 @@ The document grows incrementally — each new file we port adds a section under
 [Per-file notes](#per-file-notes).
 
 
-## 2Purpose
+## Purpose
 
 PARSIFAL is being ported with a "minimal-change" philosophy: change as little
 as we can while making the code load and run on a modern ANSI Common Lisp
@@ -295,49 +295,78 @@ marker), `(*lexpr ...)` (CL `&rest` covers it), `(setsyntax '\# 2)`
 (handled by `|...|`-escape on the single symbol that needed it).
 
 
-### `parse.l` — *partial port (feature/predicate primitives only)*
+### `parse.l` — *partial port (primitives + buffer ops)*
 
-`system/core/runtime/primitives.lisp` ports the leaf primitives from
-parse.l ~80-500 — the ones a compiled rule body can call without
-needing the buffer or packet-stack infrastructure:
+Split across two files:
 
-- Feature-vector matching: `fast-is`, `testindices`, `featindexify`
-- Feature-list mutation: `addf1`, `remf1`
-- Relational predicates: `is`, `is-not-all-of`, `is-none-of`,
-  `is-any-of`
-- Transfer: `transfer`, `liftr`
+- `system/core/runtime/primitives.lisp` — the leaf primitives that
+  don't touch the buffer or packet stack:
+  - Feature-vector matching: `fast-is`, `testindices`, `featindexify`
+  - Feature-list mutation: `addf1`, `remf1`
+  - Relational predicates: `is`, `is-not-all-of`, `is-none-of`,
+    `is-any-of`
+  - Transfer: `transfer`, `liftr`
+  - Adaptation utilities: `for` (Marcus's `util/macros1`, which he
+    hasn't delivered), `consprop` (from `fixes.l`)
+- `system/core/runtime/buffer-ops.lisp` — the rest of what a compiled
+  rule body needs:
+  - Top-level array bindings: `*buffer*`, `*1stfvec*`, `*2ndfvec*`,
+    `*3rdfvec*`, `*index-to-fvec-alist*` (Marcus's `parse.l` lines
+    1-15)
+  - Buffer maintenance: `insert-index-pos`, `remove-index-pos`,
+    `bufrestore`
+  - Packet activation: `activate`, `deactivate`
+  - Attach / drop / insert: `attach`, `attach1`, `drop`,
+    `insert-node`
+  - Stubs for case-frame hooks: `attach-monitor`, `create-monitor`
+    (no-ops until `case.l` is ported)
 
-Two MacLISP/Franz-Lisp idioms used by these bodies are also ported
-here, since they have no other home yet: `for` (Marcus's
-single-binding LET from util/macros1, which he hasn't delivered) and
-`consprop` (from fixes.l).
+Notes on the port:
 
-`fast-is` is a MacLISP `defun NAME macro` (old-style defmacro) that
-runs `featindexify` at macro-expansion time. Our CL `defmacro fast-is`
-keeps that semantics — the expanded form calls `testindices` with a
-list of integer indices baked in. The feature symbols must therefore
-have `:findex` properties set by the time the rule body is compiled;
-`featindexify` assigns them lazily on first reference.
+- `fast-is` is a MacLISP `defun NAME macro` (old-style defmacro) that
+  runs `featindexify` at macro-expansion time. Our CL `defmacro
+  fast-is` keeps that semantics — the expanded form calls `testindices`
+  with a list of integer indices baked in. The feature symbols must
+  therefore have `:findex` properties set by the time the rule body is
+  compiled; `featindexify` assigns them lazily on first reference.
 
-Two CL standard set ops did not preserve element order the way
-Marcus's MacLISP `setminus`/`intersectq2` do; `remf1` and `transfer`
-use `remove-if` / `remove-if-not` loops to keep feature order stable.
+- Marcus's `daughters` register stores a "disembodied property list"
+  — a `(ncons nil)` cons cell whose CDR he extends with MacLISP's
+  `putprop`. CL's `get` only works on symbols, so we substitute a
+  fresh uninterned symbol from `gensym`. Same role (a private namespace
+  for type→daughters mappings), works with CL's plist accessors
+  natively.
+
+- Several CL standard set ops don't preserve element order the way
+  MacLISP's `setminus`/`intersectq2` do. `remf1`, `transfer`, and
+  `deactivate` use `remove-if` / `remove-if-not` loops to keep order
+  stable.
+
+- `attach-monitor` and `create-monitor` are case-frame hooks defined
+  in `case.l`. Until that file is ported they are stubbed as no-ops.
 
 **Not yet ported from parse.l:**
 
 - Node creation: `makenode`, `makesym`, `newnode`, `node-reset`,
   `nodegc`
-- Buffer/packet mutation: `attach`, `attach1`, `drop`, `insert-node`,
-  `activate`, `deactivate`, `set*`, `setup*`, `bufrestore`,
-  `buffer-gc`
+- The main wait-and-see loop (`parse`) and rule indexing
+  (`rule-index`, `testrules`, `fetchrules`, `rem-index`)
+- Buffer scan / advance: `set*`, `setup*`, `buffer-gc` (depend on
+  `testrules`)
 - Tree search: `find-node`, `find-node1`, `father-node`, `node-above`,
   `binding`, `io`, `s-type`, `head`, `word`, `root-of`
-- The main wait-and-see loop (`parse`) and rule indexing
-  (`rule-index`, `testrules`, `fetchrules`, `rem-index`,
-  `remove-index-pos`, `insert-index-pos`)
 - Misc: `nextword`, `current-s`, `wh-comp`, `setup-current-s`,
   `:last`, `nid`, `node-id`, `daughters`, `daughter`, `endtime`,
   `starttime`, `ruletrap`, `breaksw`, `alt-attach`, `alt-fillslot`
+
+**Known package-alignment issue:** `glang-cl` emits compiled rule
+bodies that reference `c`, `1st`, `attach`, etc. as symbols interned
+in `:glang-cl`, while the runtime defines those in `:parsifal`. A
+glang-cl-emitted rule body can't yet be `funcall`'d as-is against
+the runtime; an end-to-end probe driving the same operations directly
+in `:parsifal` works. Resolving this (probably by having glang-cl
+emit `:parsifal` symbols, or by sharing a runtime package between
+the two) is its own commit.
 
 
 ### `macros2.l` — *not yet ported*

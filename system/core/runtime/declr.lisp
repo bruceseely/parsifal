@@ -63,9 +63,14 @@
 (defvar *nextrule*       nil)
 
 ;;; --- Look-ahead buffer ------------------------------------------------
+;;;
+;;; `*bufmax*' tracks the highest occupied buffer index, so an empty
+;;; buffer is -1. The buffer array itself is allocated and bound in
+;;; buffer-ops.lisp (10-element array, matching parse.l line 5).
 (defvar *bufpntr*        0)
 (defvar *bufpntrstak*    nil)
-(defvar *bufmax*         3)
+(defvar *bufmax*        -1)
+(defvar *buffer*         nil)
 (defvar *buffer-gc*      nil)
 
 ;;; --- Current-sentence / wh-completion --------------------------------
@@ -168,7 +173,7 @@
 
 (declaim (special
           *activepackets* *activerule* *activenodestak* *nextrule*
-          *bufpntr* *bufpntrstak* *bufmax* *buffer-gc*
+          *bufpntr* *bufpntrstak* *bufmax* *buffer* *buffer-gc*
           s c *current-s* *wh-comp* *rset *parsecomplete*
           |1ST| |2ND| |3RD| nth
           *1stfeat* *2ndfeat* *3rdfeat*

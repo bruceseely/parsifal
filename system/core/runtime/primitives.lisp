@@ -36,14 +36,23 @@
 ;;; MacLISP / Franz-Lisp idioms used by the primitive bodies
 ;;; ===========================================================
 
-(defmacro for (binding &body body)
-  "Marcus's single-binding LET (from his util/macros1, which we don't
-   have a copy of; this definition is deduced from every use site in
-   parse.l). BINDING is (VAR INIT). The body executes with VAR bound
-   to INIT and the last form's value is returned. If VAR is special,
-   dynamic binding is established -- callers rely on that for forms
-   like `(for (prinlength 5) ...)'."
-  `(let (,binding) ,@body))
+(defmacro for (bindings &body body)
+  "Marcus's util/macros1 `for' (he hasn't supplied that file; we deduce
+   the shape from every use site in parse.l and case.l). BINDINGS is a
+   flat list of alternating var/init pairs:
+
+     (for (v1 i1 v2 i2 ...) body...)
+   =>
+     (let* ((v1 i1) (v2 i2) ...) body...)
+
+   The body is evaluated with the bindings in scope, sequential like
+   LET*, returning the last form's value. Specials get a dynamic
+   rebind, which callers rely on for forms like
+   `(for (prinlength 5) ...)'."
+  (do ((b bindings (cddr b))
+       (pairs nil (cons (list (first b) (second b)) pairs)))
+      ((null b)
+       `(let* ,(nreverse pairs) ,@body))))
 
 (defun consprop (atom value property)
   "From fixes.l: prepend VALUE onto the list stored under
