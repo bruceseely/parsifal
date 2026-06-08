@@ -508,6 +508,95 @@
                      (fe (aref *buffer* 0))
                      :test #'eq))                       ; truthy
 
+
+      ;; --- Scenario 7: five-word number, NINETY-NINE fires twice -----
+      ;;
+      ;; `thirty three hundred thirty three' -> 3333.
+      ;; (30 + 3) * 100 + (30 + 3) = 3300 + 33 = 3333.
+      ;; NINETY-NINE fires once at the start to produce the 33 that
+      ;; feeds TWO-HUNDRED, then again inside the bignumg context
+      ;; to produce the trailing 33 that 99S-ATTACH sums.
+
+      (reset-parser)
+      (let ((thirty1 (mkword '("TENS"     "NUM")  30))
+            (three1  (mkword '("ONES"     "NUM")   3))
+            (hundred (mkword '("*HUNDRED" "NUM") 100))
+            (thirty2 (mkword '("TENS"     "NUM")  30))
+            (three2  (mkword '("ONES"     "NUM")   3)))
+        (setq *wstring* (list thirty1 three1 hundred thirty2 three2)))
+      (mkplaceholder-c)
+      (setq *as-types* (list (intern "NUM" :glang-cl)))
+      (register-rules
+       '("{AS RULE NUMBER IN NPOOL
+          [=num ; * is not complete-num] -->
+          Deactivate npool.
+          Activate build-number.}"
+         "{RULE NINETY-NINE IN BUILD-NUMBER
+          [=tens] [=ones] -->
+          Label a new num node 99s.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               plus(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 2nd to c.
+          Drop c.}"
+         "{RULE TWO-HUNDRED IN BUILD-NUMBER
+          [ * is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+          Label a new num node hundred+.
+          Attach 1st to c as num1.
+          Attach 2nd to c as num2.
+          Set the quant of c to
+               times(the quant register of 1st, the quant register of 2nd).
+          Transfer ord from 2nd to c.
+          Drop c.}"
+         "{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+          [ * is any of hundred+, bignum+; * is not ord] -->
+          Create a new num node labelled bignumg.
+          Attach 1st to c as num1.
+          Activate build-number.}"
+         "{RULE 99S-ATTACH IN BUILD-NUMBER
+          [t] [** c; = bignumg] -->
+          If there is a conj of c or 1st is any of 99s, tens, ones then
+                  Attach 1st to c as num2;
+                  Transfer ord from 1st to c;
+                  Set the quant of c to
+                          plus (the quant register of num1 of c,
+                                  the quant register of 1st)
+                  else set the quant register of c to
+                                  the quant register of num1 of c.
+          Drop c.}"
+         "{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+          [t] -->
+          Label 1st complete-num.
+          If 1st is not ord then label 1st quant.
+          If 1st is none of ns,npl then label 1st npl.
+          Deactivate build-number.
+          Activate npool.
+          Restore the buffer.}"
+         "{RULE FINAL IN NPOOL
+          [* is complete-num] -->
+          Parse is finished.}"))
+      (bootstrap-loop '("NPOOL"))
+
+      (check "thirty-three-hundred-thirty-three: parse-loop succeeds"
+             (parse-loop)
+             t)
+      (check "thirty-three-hundred-thirty-three: 8-rule trace, NINETY-NINE twice"
+             (deriv-names)
+             '("NUMBER" "NINETY-NINE" "TWO-HUNDRED"
+               "HUNDREDS-STARTS-BIGNUMG" "NINETY-NINE"
+               "99S-ATTACH" "NUMBER-DONE" "FINAL"))
+      (check "thirty-three-hundred-thirty-three: 33 * 100 + 33 = 3333"
+             (getr (intern "QUANT" :glang-cl) (aref *buffer* 0))
+             3333)
+      (check "thirty-three-hundred-thirty-three: result is a bignumg node"
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq)
+             (member (intern "BIGNUMG" :glang-cl)
+                     (fe (aref *buffer* 0))
+                     :test #'eq))                       ; truthy
+
       results)))
 
 
