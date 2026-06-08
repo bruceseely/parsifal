@@ -266,13 +266,33 @@ denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
   deliberately*)
 
 
-### `declr.l` — *not yet ported*
+### `declr.l` — *ported*
 
-Will be a CL package + a small set of `(declaim (special ...))` forms.
-Most of `declr.l`'s content is the special-variable list; the macros
-(`flags`, `setflags`, `setup**`, `activatenode`, `setfe`, `fe`, `setr`,
-`getr`, `clear-current-s`) translate directly. The `(declare (include ...))`
-forms drop.
+Lives at `system/core/runtime/declr.lisp` in the `:parsifal` package.
+
+The special-variable list translates to a block of `defvar` forms plus
+a top-level `(declaim (special ...))`. Two naming rules:
+
+- Marcus's `:keyword`-prefixed names (`:activepackets`, `:current-s`,
+  `:wh-comp`, ...) cannot survive because CL's `KEYWORD` package is
+  constant — they become earmuffed specials (`*activepackets*`,
+  `*current-s*`, `*wh-comp*`).
+- Plain symbols Marcus declared special (`s`, `c`, `1st`, `2nd`, `3rd`,
+  `nth`, `tyo`, `tyi`, `pred`, `hypoth-frames`, etc.) are preserved
+  verbatim. glang-cl emits these names directly into compiled rule
+  bodies, so renaming would force a parallel change on the parser-output
+  side.
+
+The macros (`flags`, `setflags`, `fe`, `setfe`, `setr`, `getr`,
+`clear-current-s`, `activatenode`, `setup**`) translate directly —
+`store` → `(setf (aref ...) ...)`, `symeval` → `symbol-value`, `putprop`
+→ `(setf (get ...) ...)`, `if*` → CL `if`. `setup**` keeps Marcus's
+free reference to the caller's lexical `NODE`; we document the
+contract rather than re-design it.
+
+Dropped: `(fasl ...)` (→ ASDF), `(declare (macros t))` (compiler-mode
+marker), `(*lexpr ...)` (CL `&rest` covers it), `(setsyntax '\# 2)`
+(handled by `|...|`-escape on the single symbol that needed it).
 
 
 ### `macros2.l` — *not yet ported*

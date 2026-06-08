@@ -13,7 +13,10 @@
   :depends-on (:cl-lex :yacc)
   :components ((:module "system"
                 :components ((:module "core"
-                              :components ((:module "rule-processing"
+                              :components ((:module "runtime"
+                                            :serial t
+                                            :components ((:file "declr")))
+                                           (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
                                                          (:file "rule-parser")))))))
@@ -22,7 +25,8 @@
                 :depends-on ("system")
                 :components ((:file "test-all")
                              (:file "rule-lexer-test")
-                             (:file "rule-parser-test")))))
+                             (:file "rule-parser-test")
+                             (:file "declr-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser
