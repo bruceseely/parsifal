@@ -253,6 +253,91 @@
         (setf (get openframe 'cases) nil)
         (consolidate-frame)
         (check "consolidate-frame keeps only slots certain in every hypothesis"
-               (get openframe 'cases) '((agt n1 subj)))))
+               (get openframe 'cases) '((agt n1 subj))))
+
+      ;; --- major operations: a clause's case-frame lifecycle ---------
+
+      (labels ((mk-np (marks)
+                 (let ((np (cons (gensym "NP") 0)) (noun (cons (gensym "NOUN") 0)))
+                   (dolist (x (list np noun))
+                     (setf (symbol-plist (car x)) nil (symbol-value (car x)) nil))
+                   (setfe np '(np)) (setfe noun '(noun))
+                   (setr 'markers marks noun)
+                   (attach np noun 'noun)
+                   np))
+               (s-node ()
+                 (let ((n (cons (gensym "S") 0)))
+                   (setf (symbol-plist (car n)) nil (symbol-value (car n)) nil)
+                   (setfe n '(s)) n))
+               (v-node (w)
+                 (let ((v (cons (gensym "V") 0)))
+                   (setf (symbol-plist (car v)) nil)
+                   (setr 'word w v) v)))
+
+        ;; fillpred -> fits -> fillslot(subj/obj) -> finalize-frame
+        (let ((openframe nil) (hypo-slots '((nil nil))) (objs-needed 0)
+              (pred nil) (ctrace nil) (c nil)
+              (s    (s-node))
+              (verb (v-node 'hit))
+              (subj (mk-np '(anim)))
+              (obj  (mk-np '(anim))))
+          (setf (get 'hit 'case-frame) '((obj oblig) (agt oblig))
+                (get 'agt 'markerset)  '(all)
+                (get 'obj 'markerset)  '(all))
+          (associate-cf (newcf 'normal) s)
+          (fillpred verb s)
+          (check "fillpred seeds hypo-slots from the verb's case-frame"
+                 hypo-slots '((((obj oblig) (agt oblig)))))
+          (check "fits: an np fits the clause as subject"
+                 (fits subj 'subj s) t)
+          (fillslot subj 'subj s)
+          (truthy "filling the subject records the agt slot"
+                  (member (list 'agt subj 'subj) (get openframe 'cases)
+                          :test #'equal))
+          (fillslot obj 'obj s)
+          (finalize-frame s)
+          (truthy "finalized frame keeps the agt (subject) slot"
+                  (member (list 'agt subj 'subj) (get openframe 'cases)
+                          :test #'equal))
+          (truthy "finalized frame keeps the obj slot"
+                  (member (list 'obj obj 'obj) (get openframe 'cases)
+                          :test #'equal)))
+
+        ;; fits returns NIL when no case's markers match
+        (let ((openframe nil) (hypo-slots '((nil nil))) (objs-needed 0)
+              (pred nil) (ctrace nil)
+              (node (s-node)) (subj (mk-np '(rock))))
+          (associate-cf (newcf 'normal) node)
+          (setq hypo-slots '((((agt oblig)) nil)))
+          (setf (get 'agt 'markerset) '(hanim))   ; rock is not hanim
+          (check "fits is NIL when the node's markers don't fit any case"
+                 (fits subj 'subj node) nil))
+
+        ;; set-objs-needed prunes hypotheses lacking enough object slots
+        (let ((openframe nil) (hypo-slots '((nil nil))) (objs-needed 0)
+              (pred nil) (ctrace nil)
+              (node (s-node)))
+          (associate-cf (newcf 'normal) node)
+          (setq hypo-slots '((((*obj dat)) nil) (((agt oblig)) nil)))
+          (set-objs-needed 2 node)
+          (check "set-objs-needed keeps only hypotheses with >= n object slots"
+                 hypo-slots '((((*obj dat)) nil))))
+
+        ;; passivize-cf adds an obligatory-object variant
+        (let ((openframe nil) (hypo-slots '((nil nil))) (objs-needed 1)
+              (pred nil) (ctrace nil)
+              (node (s-node)))
+          (associate-cf (newcf 'normal) node)
+          (setq objs-needed 1 hypo-slots '((((obj oblig)) nil)))
+          (passivize-cf node)
+          (check "passivize-cf adds a variant with the object case obligatory"
+                 hypo-slots '(((nil (obj oblig)) nil)))))
+
+      ;; --- prefer ----------------------------------------------------
+
+      (check "prefer: T when value1 leads value2 by at least degree"
+             (prefer 5 2 3) t)
+      (check "prefer: NIL when the lead is smaller than degree"
+             (prefer 5 2 4) nil))
 
     results))

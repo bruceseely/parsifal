@@ -68,6 +68,11 @@
    #:ppcases          #:subjcasegen         #:objcasegen
    #:ppcasegen        #:consolidate-frame   #:filter-out-filled
    #:bind-slots
+   #:need-slots       #:set-objs-needed     #:fits
+   #:fits*            #:fillslot            #:fillcase
+   #:fillmod          #:fillpred            #:fillspec
+   #:finalize-frame   #:passivize-cf        #:passivize-cf1
+   #:prefer           #:domf                #:dom-cf
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules

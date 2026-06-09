@@ -574,7 +574,7 @@ bit-2 NR-checked bookkeeping); and debug/timing (`ruletrap`/`breaksw`/
 `starttime`/`endtime`).
 
 
-### `case.l` — *in progress (data type + access landed)*
+### `case.l` — *ported (core; interactive oracle + a few aux deferred)*
 
 Case-frame mechanism (Marcus's Appendix E): assigns a clause's NPs/PPs
 to a verb's thematic slots by semantic-marker scoring; consumes the
@@ -645,12 +645,30 @@ names in the source (`head`, `cases`, `ppcases`); renamed to
 `read` a 0/1/2 rating from the terminal), like the TTY code, and aren't
 needed for marker-based parsing.
 
-**Increment 4 (pending):** the major operations (`need-slots`/`fits`/
-`fillslot`/`finalize-frame`/`passivize-cf`) with a small end-to-end
-clause. Full declarative-sentence parsing additionally needs the real
-`defs.l` dictionary load (a `#`-constituent readtable), the glang-cl
-`{CREATE}`/`{ATTACHMENT CRULE}` emission, and the NP/clause rules in
-gram2.l/gram3.l.
+**Increment 4 -- major operations (done).**
+The grammar-facing case-frame operations (case.l 99-252, 514-527):
+`need-slots`/`set-objs-needed`, `fits`/`fits*`, `fillslot` and its
+helpers `fillcase`/`fillmod`/`fillpred`/`fillspec`, `finalize-frame`,
+`passivize-cf`/`passivize-cf1`, plus `prefer`/`domf`/`dom-cf`. A clause's
+case-frame lifecycle now runs end to end at the unit level: `fillpred`
+seeds `hypo-slots` from the verb's lexical case-frame, `fits`/`fillslot`
+fit the subject and object NPs into their cases, and `finalize-frame`
+keeps the hypotheses with all obligatory cases filled (verified in
+`case-frame-test`).
+
+Stubs / defers: `pp-cf-check` (referenced by `fillslot` but undefined in
+any delivered file) and `dp1` (util.l case-frame display, only reached
+under `ctrace`) are no-op stubs. Deferred: `pgof` (unused, and stores
+daughters as a raw list incompatible with our gensym holders),
+`real-caseset` (depends on the undefined `poss-pg-cases`), and the
+`super-*` interactive oracle (Increment 3).
+
+With this, **case.l's core is ported.** The remaining work before a full
+English sentence parses is independent of case.l: loading the real
+`defs.l` dictionary (a `#`-constituent readtable), teaching glang-cl to
+compile the `{CREATE}` / `{ATTACHMENT CRULE}` rule forms into
+`crule-index` calls (so grammar rules actually drive the monitors), and
+porting the NP/clause rules in gram2.l/gram3.l.
 
 
 ### `com.l` — *ported (non-interactive core; TTY/define deferred)*

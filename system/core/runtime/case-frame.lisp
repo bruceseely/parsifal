@@ -440,3 +440,192 @@
    trace). Mirrors case.l 390."
   (setf (get openframe 'cases) (append cert-slots (get openframe 'cases)))
   (mapc (lambda (slot) (semcall 'case slot openframe)) cert-slots))
+
+
+;;; ===========================================================
+;;; The major case-frame operations (case.l 99-252)
+;;; ===========================================================
+;;;
+;;;   need-slots      tell the frame to expect N objects
+;;;   fits            can the node fit somewhere in the frame?
+;;;   fillslot        put the node into the frame in a given role
+;;;   finalize-frame  check all obligatory cases are filled
+;;;   passivize-cf    let an object case become obligatory (passive)
+
+;; pp-cf-check is referenced by fillslot in Marcus's source but is not
+;; defined in any delivered file; no-op stub so the pp-on-S branch of
+;; fillslot stays whole. dp1 is util.l's case-frame display, only reached
+;; under ctrace; stubbed for the same reason.
+(defun pp-cf-check (lower) (declare (ignore lower)) nil)
+(defun dp1 (cf) (declare (ignore cf)) nil)
+
+(defun set-objs-needed (n node)
+  "Record that NODE's frame expects N objects, pruning hypotheses that
+   can't supply that many. Mirrors case.l 104."
+  (openchek node)
+  (setq objs-needed n)
+  (when hypo-slots
+    (do ((sfrs hypo-slots (cdr sfrs)) (result))
+        ((null sfrs) (setq hypo-slots result))
+      (unless (< (open-obj-cases (car sfrs)) n)
+        (setq result (cons (car sfrs) result))))))
+
+(defun need-slots (node n)
+  "Tell NODE's frame to expect N objects, then consolidate. Called from
+   the grammar. Mirrors case.l 99."
+  (set-objs-needed n node)
+  (consolidate-frame))
+
+(defun fits* (lower gfunc upper)
+  "Does LOWER fit any of UPPER's cases for GFUNC? Mirrors case.l 134."
+  (openchek upper)
+  (do ((hyposet (cases upper nil gfunc) (cdr hyposet)))
+      ((null hyposet) nil)
+    (when (smqchek (car hyposet) upper lower) (return t))))
+
+(defun fits (lower gfunc upper)
+  "Does LOWER fit UPPER as GFUNC (subj / obj / pp)? For a PP modifying
+   an S, builds a throwaway frame to test it. Mirrors case.l 121."
+  (cond ((and (eq gfunc 'pp) (eq (getr 'type upper) 's))
+         (cond ((getr 'caseframe lower) (fits* upper 'subj lower))
+               (t (associate-cf (newcf 'dummy-mod) '(dummy-node))
+                  (fillslot (find-node 'prep lower) 'pred '(dummy-node))
+                  (fillslot (find-node 'np lower) 'obj '(dummy-node))
+                  (fits* upper 'subj '(dummy-node)))))
+        ((eq gfunc 'pp)
+         (fits* (find-node 'np lower)
+                (word (find-node 'prep lower))
+                upper))
+        (t (fits* lower gfunc upper))))
+
+(defun fillmod (lower upper)
+  "Attach LOWER as a modifier of UPPER's frame. Mirrors case.l 156."
+  (openchek upper)
+  (consprop openframe lower 'mods)
+  (setf (get (getr 'caseframe lower) 'mod-of) openframe)
+  (semcall 'mod lower openframe))
+
+(defun fillcase (lower gfunc upper)
+  "Fill a GFUNC case of UPPER's frame with LOWER, keeping every
+   hypothesis whose markers still agree. Mirrors case.l 162."
+  (openchek upper)
+  (do ((hypos (cases upper t gfunc) (cdr hypos)) (result) (thehypo))
+      ((null hypos) (setq hypo-slots result))
+    (when (smqchek (car (setq thehypo (car hypos))) upper lower)
+      (push (list (cadr thehypo)
+                  (cons (list (caar thehypo) lower gfunc) (caddr thehypo)))
+            result)))
+  (when (and (plusp objs-needed) (eq gfunc 'obj))
+    (set-objs-needed (1- objs-needed) upper))
+  (consolidate-frame)
+  (when ctrace
+    (closeframe openframe) (terpri) (print '|-----------|)
+    (say |New frames for| $ upper)
+    (dp1 (getr 'caseframe upper))
+    (terpri) (print '|-----------|)))
+
+(defun fillpred (lower upper)
+  "Make LOWER (a verb) the predicate of UPPER's frame, seeding
+   hypo-slots from the pred's lexical case-frame. Mirrors case.l 184."
+  (openchek upper)
+  (setq pred (or (get (getr 'word lower) 'root) (getr 'word lower))
+        hypo-slots (list (list (get pred 'case-frame))))
+  (semcall 'head lower openframe))
+
+(defun fillspec (lower upper)
+  "Record LOWER as UPPER's frame specifier (aux for S/VP, q-det for NP).
+   Mirrors case.l 192."
+  (openchek upper)
+  (setf (get openframe 'spec)
+        (list (cond ((is-any-of upper '(s vp)) 'aux)
+                    ((is-any-of upper '(np)) 'q-det)
+                    (t (warn "~s can't be a spec for ~s" lower upper)))
+              lower))
+  (semcall 'spec (get openframe 'spec) openframe))
+
+(defun fillslot (lower gfunc upper)
+  "Put LOWER into UPPER's frame in role GFUNC. Mirrors case.l 142."
+  (cond ((member gfunc '(subj obj)) (fillcase lower gfunc upper))
+        ((and (eq gfunc 'pp) (eq (getr 'type upper) 's))
+         (pp-cf-check lower)
+         (fillmod lower upper)
+         (fillcase upper 'subj lower))
+        ((eq gfunc 'pp)
+         (fillcase (find-node 'np lower)
+                   (word (find-node 'prep lower))
+                   upper))
+        ((eq gfunc 'pred) (fillpred lower upper))
+        ((eq gfunc 'mod)  (fillmod lower upper))
+        ((eq gfunc 'spec) (fillspec lower upper))))
+
+(defun finalize-frame (node)
+  "For an S node, drop any hypothesis that still leaves an obligatory
+   case open (warning if none survive). Mirrors case.l 204."
+  (openchek node)
+  (when (is-any-of node '(s))
+    (do ((hypos hypo-slots (cdr hypos))
+         (badf nil)
+         (result nil))
+        ((null hypos)
+         (cond (result (setq hypo-slots result))
+               (t (warn "some oblig slots left unfilled in ~s -- finalize-frame. ~s"
+                        openframe badf)
+                  (when *carefulsw* (break "badf")))))
+      (do ((casetail (caar hypos) (cdr casetail))
+           (case))
+          ((null casetail) (push (car hypos) result))
+        (cond ((null (setq case (car casetail))))
+              ((eq 'oblig (cadr case))
+               (cond ((and (eq (car case) 'agt) (is c '(np-preposed))))
+                     (t (push (car hypos) badf) (return nil))))
+              ((atom (cadr case)))
+              ((eq '|opt\\oblig| (caadr case))
+               (push (car hypos) badf) (return nil)))))
+    (consolidate-frame))
+  (semcall 'finalize-the-frame openframe)
+  (closeframe openframe))
+
+(defun passivize-cf (node)
+  "Passivize NODE's frame. Mirrors case.l 234."
+  (openchek node)
+  (passivize-cf1 nil))
+
+(defun passivize-cf1 (mode)
+  "Add, for each hypothesis, a variant whose object case is now
+   obligatory. Mirrors case.l 238."
+  (setq hypo-slots
+        (nconc (when mode hypo-slots)
+               (mapcan
+                (lambda (slotfr)
+                  (mapcar (lambda (hypo)
+                            (list (append (cadr hypo)
+                                          (list (list (caar hypo) 'oblig)))
+                                  nil))
+                          (objcasegen slotfr t)))
+                hypo-slots))))
+
+
+;;; ===========================================================
+;;; Miscellaneous (case.l 514-527)
+;;; ===========================================================
+
+(defun prefer (value1 degree value2)
+  "Is VALUE1 within DEGREE of VALUE2 (i.e. not worse by more than
+   DEGREE)? Mirrors case.l 514."
+  (not (> degree (- value1 value2))))
+
+(defun domf (node)
+  "Walk up fathers / higher-clauses from NODE to the nearest node that
+   has a case-frame. Mirrors case.l 517."
+  (closeframe openframe)
+  (do ((tnode (or (getr 'father node) (getr 'highercl node))
+              (or (getr 'father tnode) (getr 'highercl tnode))))
+      ((or (null tnode) (getr 'case-frame tnode)) tnode)))
+
+(defun dom-cf (node)
+  "The nearest caseframe dominating NODE (walking up fathers). Mirrors
+   case.l 523."
+  (do ((n (getr 'father node) (getr 'father n)))
+      ((null n))
+    (let ((temp (getr 'caseframe n)))
+      (when temp (return temp)))))
