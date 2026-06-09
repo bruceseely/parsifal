@@ -231,9 +231,13 @@
         ;; (Embedding them in an action verb that uses EAT-TOKEN would
         ;; capture the literal symbol instead of invoking the atom's nud.)
 
+        ;; `last' emits `(last*)', not Marcus's `(:last)': the runtime
+        ;; renamed the function (`:last' is a keyword, not a legal CL
+        ;; function name). See buffer-ops.lisp's LAST* and the
+        ;; denotations.lisp `last' nilfix.
         (check "`last' atom"
                (parse-string "last")
-               (list :last))
+               (list 'last*))
 
         (check "`it' atom"
                (parse-string "it")
