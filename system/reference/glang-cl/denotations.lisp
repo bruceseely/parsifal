@@ -387,6 +387,14 @@
   (progn (check 'of)
          (list 'is-any-of *left* (list 'quote (get-var-list)))))
 
+;; `X isn't true that Y'  -->  (not Y).  Marcus's `it isn't true that ...'
+;; (glang.l 447): `isn't' tokenizes as `isn' + the apostrophe single-char
+;; symbol + `t', and the left operand (`it') is discarded. bp 6 keeps it
+;; below `and'/`or' so its right operand is the whole following clause.
+(infix isn 6
+  (progn (check '|'|) (check 't) (check 'true) (check 'that)
+         (list 'not (right))))
+
 
 ;;; -------------------------------------------------------------------
 ;;; Helpers used by the node-op and tree-access denotations below

@@ -172,7 +172,32 @@
         (check "set the binding to the indirect object of upper"
                (body "{ATTACHMENT CRULE T3 S OVER NP
                       Set the binding of lower to the indirect object of upper.}")
-               '(progn (setr 'binding (io fnode) snode))))
+               '(progn (setr 'binding (io fnode) snode)))
+
+        ;; gram2.l NP-S: `!'(inf-comp)' -- Marcus's `!' read-macro escapes
+        ;; to Lisp syntax for a literal datum, inside an `if ... then'.
+        (check "!'(...) literal-Lisp quote inside an if/then"
+               (body "{ATTACHMENT CRULE NP-S NP OVER S
+                      If lower is inf-s
+                       then set the markers register of upper to !'(inf-comp).}")
+               '(progn (cond ((is snode '(inf-s))
+                              (setr 'markers '(inf-comp) fnode)))))
+
+        ;; gram1.l VP-NP's delta-subject guard: `it isn't true that X'.
+        (check "it isn't true that <clause>  -->  (not <clause>)"
+               (body "{ATTACHMENT CRULE T4 S OVER NP
+                      If it isn't true that there is a binding of lower
+                       then finalize the cf of lower.}")
+               '(progn (cond ((not (setq *it* (binding snode)))
+                              (finalize-frame snode))))))
+
+      ;; The `!' read-macro at the tokenizer level: read one Lisp form.
+      (check "tokenizer: !'(a b) reads one literal Lisp datum"
+             (tokenize "!'(a b)")
+             '((quote (a b))))
+      (check "tokenizer: !(foo) reads a bare list datum"
+             (tokenize "!(foo)")
+             '((foo)))
 
 
       ;; --- new denotations: action verbs ---

@@ -246,9 +246,21 @@ is a placeholder.
   `associate-cf`), `fills` (→ `fillslot`, with Marcus's optional
   `[ of cf of ]`), `case frame of X` (→ `(getr 'caseframe X)`),
   `finalize` (→ `finalize-frame`), and `indirect object of X` (→
-  `(io X)`). With these (plus the already-ported `new`, `set`,
-  `binding`, `current`, `of`, `if/then/else`), real grammar crules
-  compile end-to-end — e.g. gram1.l's VP-NP and gram5.l's NBAR-PP.
+  `(io X)`).
+- The `isn` infix (glang.l 447): `it isn't true that X` → `(not X)`
+  (the left `it` is discarded; `isn't` tokenizes as `isn` + the
+  apostrophe single-char symbol + `t`). bp 6, below `and`/`or`.
+- The `!` read-macro (glang.l 72-79), handled in the tokenizer: `!`
+  escapes to Lisp syntax and reads one form as a single literal token,
+  so `!'(inf-comp)` becomes the datum `(quote (inf-comp))` flowing
+  through as a self-evaluating operand.
+
+  With these (plus the already-ported `new`, `set`, `binding`,
+  `current`, `of`, `if/then/else`, `there is`, and the self-evaluating
+  atoms `c` / `1st`), **every active crule in gram1-5 now compiles
+  end-to-end** — VP-VERB, PRED-PP, VP-NP, S-WHCOMP, S-CREATE, NP-S,
+  NP-START, NP-ADJ, NP-NBAR, NBAR-PP, NP-PP, S-PREDP, S-PP, VP-PP, and
+  the `*-DUMMY` creation rule. (NP-QP is commented out in gram3.l.)
 - Action sequence: `.` (infix), `;` (infixm — `and` inside patterns,
   `progn` elsewhere)
 - Pattern feature match: `=` with `build-=` and `pick-index`
@@ -270,12 +282,11 @@ intermediate AST → emit Marcus's compiled-Lisp triple.
 **Scope not yet done:** remaining action verbs (`lift`, `meet`, `word`,
 `make`, `there`); the quoting operator `'`; test-pattern
 denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
-`greatest`, `number`, `semantics`, `filling`, `prepositional`); and the
-remaining crule-body constructs the trickiest case rules use (`there
-is`, the `:wh-comp` register verbs, `find-wh-comp`). The crule *frame*
-and the core crule-body verbs (`upper`, `lower`, `associate`, `fills`,
-`case frame of`, `finalize`, `indirect object of`) now compile — see
-*Scope completed*.
+`greatest`, `number`, `semantics`, `filling`, `prepositional`). The
+crule path is complete: the frame (CREATION / ATTACHMENT) and all the
+crule-body constructs the grammar's case rules use now compile (see
+*Scope completed*); what remains are pattern/test denotations used by
+ordinary `{RULE ...}`s, not by crules.
 
 **Per-decision references:**
 - Symbol case → uppercase (see *Deliberate deviations* above)

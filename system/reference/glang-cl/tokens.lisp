@@ -102,6 +102,20 @@
         (unless (< pos n) (return))
         (let ((c (peek)))
           (cond
+            ((char= c #\!)
+             ;; Marcus's `!' read-macro (glang.l 72-79): escape to Lisp
+             ;; syntax and read one form, which becomes a single literal
+             ;; token. `!'(inf-comp)' -> the datum (QUOTE (INF-COMP)),
+             ;; which then flows through the parser as a self-evaluating
+             ;; operand. Read in :glang-cl so its symbols share the
+             ;; tokenizer's data namespace.
+             (incf pos)                            ; consume `!'
+             (multiple-value-bind (form end)
+                 (let ((*package* (find-package :glang-cl))
+                       (*read-eval* nil))
+                   (read-from-string string t nil :start pos))
+               (setf pos end)
+               (push form tokens)))
             ((single-char-symbol-p c)
              (incf pos)
              (push (intern (string c) :glang-cl) tokens))
