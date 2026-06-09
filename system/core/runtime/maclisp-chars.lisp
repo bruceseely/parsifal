@@ -69,8 +69,12 @@
    (readlist '(|(| a b |)|)) => (A B).
    *READ-BASE* is bound to 10: Marcus wraps the numeric uses in
    `(for (ibase 10.) ...)', and base 10 is what every digit-reading
-   call site wants."
-  (let ((*read-base* 10))
+   call site wants. *PACKAGE* is bound to :parsifal so any symbols read
+   are interned there -- matching EXPLODEC / IMPLODE / ASCII and the
+   single MacLISP obarray, rather than whatever package happens to be
+   current at the call site (which df+'s phrase tokens depend on)."
+  (let ((*read-base* 10)
+        (*package* (find-package :parsifal)))
     (with-input-from-string (in (%chars->string parts))
       (read in nil nil))))
 
