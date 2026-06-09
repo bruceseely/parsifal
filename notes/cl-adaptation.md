@@ -239,10 +239,16 @@ is a placeholder.
   with NODE-SPEC the lone node-type (creation) or `(upper . lower)`
   (attachment). This is exactly the shape the runtime `crule-index`
   files (case-frame.lisp), wiring `{CREATION CRULE}` / `{ATTACHMENT
-  CRULE}` grammar rules to the create/attach monitors. The frame
-  compiles end-to-end; the crule *bodies* in the real grammar use
-  action verbs not yet ported (see below), so they're exercised here
-  with a ported body verb (`Activate`).
+  CRULE}` grammar rules to the create/attach monitors.
+- Crule-body verbs (glang.l 344-346, 502-508, 544): `upper` / `lower`
+  (the attachment node references, emitting the runtime specials
+  `fnode` / `snode` that ATTACH-MONITOR binds); `associate` (→
+  `associate-cf`), `fills` (→ `fillslot`, with Marcus's optional
+  `[ of cf of ]`), `case frame of X` (→ `(getr 'caseframe X)`),
+  `finalize` (→ `finalize-frame`), and `indirect object of X` (→
+  `(io X)`). With these (plus the already-ported `new`, `set`,
+  `binding`, `current`, `of`, `if/then/else`), real grammar crules
+  compile end-to-end — e.g. gram1.l's VP-NP and gram5.l's NBAR-PP.
 - Action sequence: `.` (infix), `;` (infixm — `and` inside patterns,
   `progn` elsewhere)
 - Pattern feature match: `=` with `build-=` and `pick-index`
@@ -264,11 +270,12 @@ intermediate AST → emit Marcus's compiled-Lisp triple.
 **Scope not yet done:** remaining action verbs (`lift`, `meet`, `word`,
 `make`, `there`); the quoting operator `'`; test-pattern
 denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
-`greatest`, `number`, `semantics`, `filling`, `prepositional`); the
-`indirect` tree-access prefix; and the crule *body* denotations the real
-grammar's case rules need (`upper`, `lower`, `associate`, `fills`, the
-`:wh-comp` register verbs). The crule *frame* (CREATION / ATTACHMENT)
-now compiles — see *Scope completed*.
+`greatest`, `number`, `semantics`, `filling`, `prepositional`); and the
+remaining crule-body constructs the trickiest case rules use (`there
+is`, the `:wh-comp` register verbs, `find-wh-comp`). The crule *frame*
+and the core crule-body verbs (`upper`, `lower`, `associate`, `fills`,
+`case frame of`, `finalize`, `indirect object of`) now compile — see
+*Scope completed*.
 
 **Per-decision references:**
 - Symbol case → uppercase (see *Deliberate deviations* above)

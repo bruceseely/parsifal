@@ -135,6 +135,46 @@
              '(np pp))
 
 
+      ;; --- crule-body verbs: real grammar crules compile end-to-end ---
+      ;; `upper'/`lower' -> fnode/snode; associate / fills / case-frame-of /
+      ;; finalize / indirect compose with the ported set / binding / current.
+
+      (flet ((body (text) (fifth (parse-rule text))))
+
+        ;; gram1.l VP-NP: the lone attachment statement.
+        (check "fills: `lower ... fills an obj slot of the upper'"
+               (body "{ATTACHMENT CRULE VP-NP VP OVER NP
+                      The lower node fills an obj slot of the upper.}")
+               '(progn (fillslot snode 'obj fnode)))
+
+        ;; gram5.l NBAR-PP: two statements chained by `.'.
+        (check "associate new mod cf, then fills mod slot"
+               (body "{ATTACHMENT CRULE NBAR-PP NBAR OVER PP
+                      Associate a new mod case frame with the lower node.
+                      The lower node fills a mod slot of the upper node.}")
+               '(progn (associate-cf (newcf 'mod) snode)
+                       (fillslot snode 'mod fnode)))
+
+        ;; `case frame of X' accessor + `current s'.
+        (check "associate `the case frame of the upper node' with current s"
+               (body "{ATTACHMENT CRULE T1 S OVER NP
+                      Associate the case frame of the upper node
+                      with the current s.}")
+               '(progn (associate-cf (getr 'caseframe fnode) (current-s))))
+
+        ;; `finalize the cf of X'.
+        (check "finalize the cf of the lower node"
+               (body "{ATTACHMENT CRULE T2 S OVER NP
+                      Finalize the cf of the lower node.}")
+               '(progn (finalize-frame snode)))
+
+        ;; `indirect object of X' composing with the ported `set'/`binding'.
+        (check "set the binding to the indirect object of upper"
+               (body "{ATTACHMENT CRULE T3 S OVER NP
+                      Set the binding of lower to the indirect object of upper.}")
+               '(progn (setr 'binding (io fnode) snode))))
+
+
       ;; --- new denotations: action verbs ---
 
       (flet ((action-of (text)

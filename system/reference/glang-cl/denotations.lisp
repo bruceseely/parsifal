@@ -562,6 +562,56 @@
 
 
 ;;; -------------------------------------------------------------------
+;;; Crule-body verbs -- the case-frame monitors' action vocabulary
+;;; (glang.l lines 344-346, 502-508, 544)
+;;;
+;;; The vocabulary {CREATION CRULE} / {ATTACHMENT CRULE} bodies are
+;;; written in: the attachment node references `upper' / `lower' (the
+;;; runtime specials FNODE / SNODE that ATTACH-MONITOR binds), and the
+;;; case-frame verbs `associate', `fills', `finalize', `case frame of',
+;;; and `indirect object of'. Articles (the/a/an) are flushed by ADVANCE.
+;;; -------------------------------------------------------------------
+
+;; `upper' / `upper node'   --> fnode   (father, bound by attach-monitor)
+(prefix upper 0 (progn (is-token 'node) 'fnode))
+
+;; `lower' / `lower node'   --> snode   (the attached daughter)
+(prefix lower 0 (progn (is-token 'node) 'snode))
+
+;; `case frame of X'        --> (getr 'caseframe X)
+(prefix case 10
+  (progn (check 'frame) (check 'of)
+         (list 'getr ''caseframe (right))))
+
+;; `Associate CF with NODE' --> (associate-cf CF NODE)
+;; (CF is usually `a new [mod] case frame' or `the case frame of X'.)
+(prefix associate 10
+  (let ((cf (right)))
+    (check 'with)
+    (list 'associate-cf cf (right))))
+
+;; `X fills [a|the|an] SLOT slot [of cf] of Y' --> (fillslot X 'SLOT Y)
+;; Marcus's `[ of cf of ]' is an optional group: an `of', then -- only
+;; if a `cf' follows -- a second `of'.
+(infix fills 10
+  (let ((slot (eat-token)))
+    (check 'slot)
+    (when (is-token 'of)
+      (when (is-token 'cf) (check 'of)))
+    (list 'fillslot *left* (list 'quote slot) (right))))
+
+;; `finalize the cf of X'   --> (finalize-frame X)
+(prefix finalize 10
+  (progn (check 'cf) (check 'of)
+         (list 'finalize-frame (right))))
+
+;; `indirect object of X'   --> (io X)
+(prefix indirect 19
+  (progn (check 'object) (check 'of)
+         (list 'io (right))))
+
+
+;;; -------------------------------------------------------------------
 ;;; Logical infixes (glang.l lines 445-446)
 ;;; -------------------------------------------------------------------
 
