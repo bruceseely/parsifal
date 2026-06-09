@@ -815,15 +815,35 @@ case verbatim while a *symbol*'s printname is upcased by the reader; in
 practice `concat` is called with symbols/numbers. Tests in
 `test/util-test.lisp`.
 
+**Increment 2 — phrase display (done).**
+`collectw`, `phrasify`, `prphrase`, `nodes-to-words`, `cfprint` (util.l
+545-575), plus `print2` (the undelivered Franz no-slashification printer
+= `princ`). This is the surface-phrase layer: gather the words a node
+spans, in input order, restore their original case, and print them. It is
+the prerequisite for case.l's interactive supervisor (which prints the
+phrase it asks the operator to grade).
+
+Two adaptations: (1) `collectw` recurses over a node's daughters; Marcus
+walks `(cdr (getr 'daughters node))` of his disembodied-plist daughters
+register, but the port's `daughters` register is a gensym whose plist
+carries the type->kids mappings (see `attach`), so the equivalent is
+`(symbol-plist (getr 'daughters node))` — which *is* that `cdr` (his list
+has a leading NIL header the gensym's plist lacks). Leaf word-nodes are
+found by their `word' register and never reach this branch. (2) `phrasify`
+uses Marcus's `sortcar` (sort pairs by CAR); rendered as `CL:SORT` keyed
+on `car`. `cfprint` prints the cases of the global `certain-frame` (not of
+its argument's frame) — reproduced verbatim; and its output spacing
+differs slightly because the port's `say-it` space-separates items where
+Marcus's `print2` concatenated them.
+
 Still deferred to a later util.l increment: `default-arg` (a port-time
-`&optional` translation, ports with its sole caller `ptree`); the
-phrase-display layer (`phrasify`, `collectw`, `prphrase`, `nodes-to-words`,
-`cfprint`); the tree printers (`tree`, `stree`, `ptree`, `short-ctree`);
-the full `say-it1`/`say1` with `$$`-splice and `$$up` cursor control; and
-case.l's interactive supervisor trio (`super-smqval` / `super-fit-of` /
-`super-fit1-of`), which waits on `cfprint`/`phrasify`/`cursorpos`/`fitspg1`.
-The REPL/top-level loop and the terminal "movie" code will likely port
-last, if at all.
+`&optional` translation, ports with its sole caller `ptree`); the tree
+printers (`tree`, `stree`, `ptree`, `short-ctree`); the full
+`say-it1`/`say1` with `$$`-splice and `$$up` cursor control; and case.l's
+interactive supervisor trio (`super-smqval` / `super-fit-of` /
+`super-fit1-of`), which can now build on `phrasify`/`cfprint` but still
+waits on `cursorpos`/`fitspg1`. The REPL/top-level loop and the terminal
+"movie" code will likely port last, if at all.
 
 
 ### `pautil.l`, `patches.l`, `xutil.l`, `load.l`, `load1.l`, `newdef.l`, `testdef.l`
