@@ -609,10 +609,37 @@ which live in the Lisp / `myutil`, not com.l. Ported faithfully:
   `*read-base*` to 10 (Marcus wraps the numeric uses in
   `(for (ibase 10.) ...)`). Tests in `test/maclisp-chars-test.lisp`.
 
-**Increments 2-4 (pending):** the lexicon loader (word-tree + definers
-+ `expandsim`/`expanddef`), `morpho`, and a non-interactive
-string→`*wstring*` reader plus the full `parse` driver and the real
-`defs.l` lexicon load.
+**Increment 2 — lexicon loader (done).**
+`system/core/runtime/lexicon.lisp` (loaded after `defs`). The
+data-building half of com.l:
+
+- **Word-tree**: `*wstring-tree*`/`*wstring-list*`, `get-string`,
+  `put-string`, `reset-lexicon`. Each tree node is a gensym whose plist
+  maps a char-symbol to its subtree and a `:tree-word` key to the word
+  ending there — the same "gensym for a disembodied cons plist" trick
+  `attach` uses for `daughters`.
+- **Definers** (MacLISP `fexpr`s → CL macros that quote their literal
+  arg list and call a worker): `df`, `df1` (a no-op — Marcus disables a
+  `df` by writing `df1`), `df+` (multi-token phrases), `jlike`,
+  `abbrev`.
+- **Word building**: `buildword`, `buildnumber`, `buildirregword`,
+  `mod-features` (Marcus's `mod`, renamed — the MacLISP name shadows
+  `cl:mod`).
+- **Expansion**: `expandsim`, `expanddef`, `expandm`, `add-redunds`,
+  `expandcf`, plus `modcasef`/`after`.
+
+Deviations: `add-redunds` reads the `*redund-table*` defs.lisp already
+populates (com.l's duplicate `redund` fexpr, which used a `:redunds`
+plist, is dropped). `lowcaseify` folds to **upper**, not lower, so
+symbols rebuilt from raw characters stay `eq` to the ones CL's reader
+interns from the lexicon source (the runtime is uppercase-canonical).
+`modcasef`/`after` are ported but `*caseorder*` is NIL until case.l/defs
+set it, so the rare `cases`-override path orders added cases at the end.
+Tests in `test/lexicon-test.lisp`.
+
+**Increments 3-4 (pending):** `morpho` (+ its char-class globals and the
+case-folding it implies), and a non-interactive string→`*wstring*`
+reader plus the full `parse` driver and the real `defs.l` lexicon load.
 
 
 ### `util.l` — *not yet ported*

@@ -29,6 +29,16 @@
    #:explodec         #:exploden            #:implode
    #:maknam           #:readlist            #:ascii
    #:getchar          #:flatc
+   ;; --- Lexicon loader (com.l) ---------------------------------------
+   #:df               #:df1                 #:df+
+   #:jlike            #:abbrev
+   #:get-string       #:put-string          #:reset-lexicon
+   #:buildword        #:buildnumber         #:buildirregword
+   #:expandsim        #:expanddef           #:expandm
+   #:add-redunds      #:expandcf            #:modcasef
+   #:mod-features     #:lowcaseify
+   #:*wstring-tree*   #:*wstring-list*      #:*numbers*
+   #:*always-expand*  #:*caseorder*
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -90,7 +100,8 @@
                                                          (:file "buffer-ops")
                                                          (:file "node-ops")
                                                          (:file "parse-loop")
-                                                         (:file "defs")))
+                                                         (:file "defs")
+                                                         (:file "lexicon")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -107,7 +118,8 @@
                              (:file "primitives-test")
                              (:file "buffer-ops-test")
                              (:file "node-ops-test")
-                             (:file "parse-loop-test")))))
+                             (:file "parse-loop-test")
+                             (:file "lexicon-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

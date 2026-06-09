@@ -23,7 +23,8 @@
                       primitives-test
                       buffer-ops-test
                       node-ops-test
-                      parse-loop-test)))
+                      parse-loop-test
+                      lexicon-test)))
     (dolist (test-name test-names)
       (let ((result (test-one test-name verbose)))
         (setf results (and results result))))
