@@ -400,6 +400,19 @@
                '(progn (transfer (intersection ns npl)
                                  (find-node 'nbar c) c)))
 
+        ;; The list-building comma `,'. In value position it yields a
+        ;; quoted list; in a function call it splices into arguments.
+        (check "comma in value position  -->  '(ns npl)"
+               (action-of "{RULE X IN P [t] --> Set the markers register of c to ns,npl.}")
+               '(progn (setr 'markers '(ns npl) c)))
+        (check "comma splices into call args: plus(a, b)  -->  (plus a b)"
+               (action-of
+                "{RULE X IN P [t] -->
+                 Set the quant register of c to plus(the quant register of 1st, the quant register of 2nd).}")
+               '(progn (setr 'quant
+                             (plus (getr 'quant 1st) (getr 'quant 2nd))
+                             c)))
+
         ;; `features' is a prefix; test in pattern context where pratt-parse
         ;; sees it as the head of an expression (Activate's arg goes through
         ;; get-var-list, which doesn't invoke nuds).

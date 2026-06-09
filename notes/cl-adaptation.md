@@ -299,16 +299,24 @@ token carries a `:nud` (an expression) vs bare feature atoms; the
 expression is `qlistfy`'d, mirroring Marcus's `(qlistfy right)`
 (glang.l 483, 158).
 
+- The list-building comma `,` (glang.l 415-416). Marcus's `,` is an
+  infixm (bp 17) emitting `(list-build a b c)` = `'(a b c)`; the port
+  gives `,` an `:led` (lbp 17) that emits the quoted list directly. In
+  *value* position it is a list value (gram3 NP-COMPLETE's `... else
+  ns,npl` → `'(ns npl)`); the function-call `(` denotation *splices* a
+  `,`-built list back into argument position (`plus(a, b)` → `(plus a
+  b)`, Marcus's list-build splice, glang.l 387). `get-var-list` consumes
+  commas itself (no `pratt-parse`), so the feature-list contexts
+  (`Activate a,b`, `none of a,b`, `transfer features a,b`, …) are
+  untouched -- verified by re-probing all gram1-5 rules (no regressions)
+  and gram4 cross-validation (still 0 mismatches). With this, **59 of
+  the 60 active gram2/gram3 rules compile** (the lone hold-out is an
+  embedded `find-wh-comp` `{...}` body, not a rule).
+
 **Scope not yet done:** remaining action verbs (`lift`, `make`); the
 standalone matching-quote operator `'`; the rest of the test-pattern
-denotations; and a general `,` list-value operator. The last is the one
-remaining blocker for gram3 NP-COMPLETE: it uses a bare comma-list as a
-*value* (`... else ns,npl`, meaning the feature list `(ns npl)`),
-whereas this port reads comma feature-lists only contextually
-(`get-var-list`, after `features`/`labelled`/etc.), with no `,` operator
-in value position. Adding one without disturbing `,`'s role as the
-call/var-list separator is its own step. (The other unparsed `{...}` in
-gram2 is an embedded `find-wh-comp` body, not a rule.) The
+denotations. gram1/gram4/gram5 have further rules awaiting their own
+denotations (e.g. the date/time semantic rules), tracked separately. The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

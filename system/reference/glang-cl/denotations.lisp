@@ -84,8 +84,30 @@
 (delim |]|)
 (delim |-->|)
 (delim |--->|)
-(delim |,|)
 ;; `}' is already set to lbp = -1 in pratt.lisp.
+
+
+;;; -------------------------------------------------------------------
+;;; The list-building comma `,'  (glang.l 415-416)
+;;;
+;;; Marcus's `,' is an infixm (bp 17) emitting `(list-build a b c)' =
+;;; `'(a b c)'. We emit the quoted list directly. Two consumers:
+;;;   - In *value* position it is a list value -- gram3 NP-COMPLETE's
+;;;     `... else ns,npl' -> '(ns npl).
+;;;   - The function-call `(' denotation splices it back into argument
+;;;     position: `plus(a, b)' -> (plus a b) (Marcus's list-build splice,
+;;;     glang.l 387).
+;;; `get-var-list' consumes commas itself (no pratt-parse), so the
+;;; feature-list contexts (`Activate a,b', `none of a,b', ...) are
+;;; unaffected. The elements parse at rbp 17, above every operator that
+;;; appears inside a grammar comma-list (registers, `of', numbers).
+;;; -------------------------------------------------------------------
+
+(setf (get '|,| :lbp) 17)
+(setf (get '|,| :led)
+      (lambda ()
+        (let ((*drbp* 17))
+          (list 'quote (cons *left* (parse-list 17 '|,|))))))
 
 ;; `;' is an infixm: inside a pattern body it builds `(and ...)', elsewhere
 ;; `(progn ...)'. See glang.l line 402. Bp 3 is intentional: higher than
@@ -725,8 +747,15 @@
   (prog1 (right) (check '|)|)))
 
 (infixd |(| 30 0
-  (let ((args (cond ((eq *token* '|)|) nil)
-                    (t (parse-list 0 '|,|)))))
+  ;; Parse one argument expression. A `,'-built `(quote (a b ...))'
+  ;; splices into separate arguments (Marcus's list-build splice,
+  ;; glang.l 387); anything else is a single argument.
+  (let* ((arg  (unless (eq *token* '|)|) (pratt-parse 0)))
+         (args (cond ((null arg) nil)
+                     ((and (consp arg) (eq (car arg) 'quote)
+                           (listp (cadr arg)))
+                      (cadr arg))
+                     (t (list arg)))))
     (check '|)|)
     (cons *left* args)))
 
