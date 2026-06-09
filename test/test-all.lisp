@@ -18,6 +18,7 @@
         (test-names '(rule-lexer-test
                       rule-parser-test
                       declr-test
+                      macros2-test
                       primitives-test
                       buffer-ops-test
                       node-ops-test

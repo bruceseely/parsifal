@@ -444,19 +444,62 @@ Deactivate cpool.` rule, eval'd against parsifal-bound `c`, `1st`,
 `*activepackets*`, actually mutates the runtime state correctly.
 
 
-### `macros2.l` — *not yet ported*
+### `macros2.l` — *ported (what survives) at `runtime/macros2.lisp`*
 
-Small file (57 lines). `say` and `warn` become CL macros over `format`. The
-`meet`, `set-union`, `set-difference`, `set-intersection` macros translate
-to CL set operations. `default-arg` translates to `&optional` parameter
-defaults.
+Small file (57 lines), and most of it dissolves into the CL standard
+library rather than becoming code. A usage census across `parse.l`,
+`case.l`, `com.l`, and `util.l` drove the disposition:
+
+- **`say` (56 uses) — ported.** A trace/print macro: `(say a b $ x)`
+  prints the literal tokens `a`, `b` then the *value* of `x`; the `$`
+  marker flips an item from quoted to evaluated. We keep Marcus's
+  split between the macro (the quote/escape transform) and the printer
+  (`say-it`), porting both. `say-it` is the minimal `terpri` +
+  space-separated `princ` version; util.l's richer `say-it1`/`say1`
+  (the `$$` splice marker, cursor/highlight control) supersede it when
+  util.l lands.
+- **`warn` (14 uses) — CL's native `cl:warn`.** Marcus's
+  `(warn LEVEL items…)` becomes `(warn "message")`, dropping the
+  numeric severity. `buffer-ops.lisp` already does exactly this.
+  Defining a `warn` macro would shadow `cl:warn`, so we deliberately
+  don't — `warn` is *not* in `macros2.lisp`.
+- **`meet`→`intersectq`, `meet1`→`intersectq2`, `union1`→`unionq2`,
+  `setminus`** — these named MacLISP's external `util/set` library
+  (not in our sources). On feature-symbol lists, `cl:intersection` /
+  `cl:union` / `cl:set-difference` (default `eql`) are identical;
+  where Marcus relies on survivor order (`setminus`), use the
+  `remove-if` idiom as `deactivate` does. Handled at each call site.
+- **`logand`/`logor`** — `cl:logand`/`cl:logior` are native.
+- **`cat`→`concat` and `default-arg`** — deferred to util.l (their
+  only remaining consumers). `cat`'s three `parse.l` uses are already
+  obsoleted by this port: `makesym` (node-ops) builds node symbols and
+  `act-of-rule` (parse-loop) replaced the `(cat ':act-of- …)` symbol
+  synthesis with a plist lookup.
+- **Dropped — zero call sites and natively available:** `meet2`,
+  `setminus1`, `set-union`, `set-difference`, `set-intersection`,
+  `make-eq-set`, `make-equal-set`. (`set-difference` must *not* be
+  redefined as a macro — it is a CL standard function.)
+
+The MacLISP `(declare (macros t))` pragma and the `(*lexpr …)`
+declaration have no CL equivalent and are dropped. Tests in
+`test/macros2-test.lisp`.
 
 
-### `fixes.l` — *not yet ported*
+### `fixes.l` — *ported (dissolves entirely; no new file)*
 
-Pure dialect-shim file (13 lines). Most of it disappears in CL — `le`/`ge`
-are `<=`/`>=`, `consprop` becomes a small util, the `[` / `]` syntax
-adjustments are part of our custom tokenizer rather than the reader.
+Pure dialect-shim file (13 lines); nothing in it needs a `.lisp` of
+its own. Disposition:
+
+- `le`/`ge` → CL `<=`/`>=` at the two `parse.l` call sites.
+- `consprop` → **already ported** (`primitives.lisp`), used by
+  `makesym`.
+- `(putd 'cat (getd 'concat))` — the `cat`=`concat` alias; deferred
+  alongside `cat` (util.l).
+- `(setsyntax '[ …)` / `(setsyntax '] …)` — reader-syntax for the
+  bracket forms, handled by our `rule-lexer` tokenizer, not the CL
+  reader.
+- `linel`/`charpos`/`sprinter`/`sprint` — terminal/display indirections
+  that belong with util.l's display plumbing.
 
 
 ### `defs.l` — *partial port (feature ontology only)*

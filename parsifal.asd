@@ -25,6 +25,7 @@
    #:clear-current-s  #:activatenode
    #:attach-monitor   #:create-monitor
    #:for              #:consprop
+   #:say              #:say-it
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -78,6 +79,7 @@
                               :components ((:module "runtime"
                                             :serial t
                                             :components ((:file "declr")
+                                                         (:file "macros2")
                                                          (:file "primitives")
                                                          (:file "buffer-ops")
                                                          (:file "node-ops")
@@ -94,6 +96,7 @@
                              (:file "rule-lexer-test")
                              (:file "rule-parser-test")
                              (:file "declr-test")
+                             (:file "macros2-test")
                              (:file "primitives-test")
                              (:file "buffer-ops-test")
                              (:file "node-ops-test")
