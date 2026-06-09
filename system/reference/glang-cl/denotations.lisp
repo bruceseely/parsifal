@@ -395,6 +395,14 @@
   (progn (check '|'|) (check 't) (check 'true) (check 'that)
          (list 'not (right))))
 
+;; Numeric comparisons, reached through `is' (which defers to them when
+;; it sees one of these tokens): `X is greater than Y' -> (> X Y),
+;; `X is less than Y' -> (< X Y), `X is equal to Y' -> (= X Y).
+;; (glang.l 524-526.)
+(infix greater 10 (progn (check 'than) (list '> *left* (right))))
+(infix less    10 (progn (check 'than) (list '< *left* (right))))
+(infix equal   10 (progn (check 'to)   (list '= *left* (right))))
+
 
 ;;; -------------------------------------------------------------------
 ;;; Helpers used by the node-op and tree-access denotations below
@@ -617,6 +625,68 @@
 (prefix indirect 19
   (progn (check 'object) (check 'of)
          (list 'io (right))))
+
+;; `greatest possible number of objects of X [is]' --> (maxunls X)
+;; `lowest   possible number of objects of X [is]' --> (minunls X)
+;; (glang.l 510-514; the trailing `is' is optional, often handed on to a
+;; numeric comparison: `... of c is equal to 0'.)
+(prefix greatest 17
+  (progn (check 'possible) (check 'number) (check 'of) (check 'objects) (check 'of)
+         (prog1 (list 'maxunls (right)) (is-token 'is))))
+
+(prefix lowest 17
+  (progn (check 'possible) (check 'number) (check 'of) (check 'objects) (check 'of)
+         (prog1 (list 'minunls (right)) (is-token 'is))))
+
+;; `X fits [a|the|an] SLOT slot [of cf] of Y' --> (fits X 'SLOT Y)
+;; The case-frame sibling of `fills' (glang.l 506); same optional
+;; `[ of cf of ]'.
+(infix fits 10
+  (let ((slot (eat-token)))
+    (check 'slot)
+    (when (is-token 'of)
+      (when (is-token 'cf) (check 'of)))
+    (list 'fits *left* (list 'quote slot) (right))))
+
+;; `the meet of A and B' --> (intersection A B). Marcus's denotation
+;; (glang.l 487) emits `intersectq2'; per the macros2 porting policy
+;; the eq-based set ops dissolve to CL:INTERSECTION (identical on
+;; feature-symbol lists).
+(prefix meet 10
+  (progn (check 'of)
+         (let ((a (right)))
+           (check 'and)
+           (list 'intersection a (right)))))
+
+;; `the number of objects of X will be Y' --> (need-slots X Y)  (glang.l 516)
+(prefix number 10
+  (progn (check 'of) (check 'objects) (check 'of)
+         (let ((node (right)))
+           (check 'will) (check 'be)
+           (list 'need-slots node (right)))))
+
+;; `X filling [a|an|the] SLOT slot of Y' --> (fit-of X 'SLOT Y)  (glang.l 519)
+(infix filling 11
+  (let ((slot (right)))
+    (check 'slot) (check 'of)
+    (list 'fit-of *left* (list 'quote slot) (right))))
+
+;; `semantics prefers A <degree> better than C' --> (prefer A <degree> C)
+;; A and C are `... filling ...' fit values; <degree> is the symbol
+;; somewhat / much / no (a runtime threshold, passed unquoted). glang.l 518.
+(prefix semantics 10
+  (progn (check 'prefers)
+         (let* ((a (right))
+                (degree (right)))
+           (check 'better) (check 'than)
+           (list 'prefer a degree (right)))))
+
+;; `a prepositional phrase of PREP and NP' --> (pgof PREP NP)  (glang.l 520)
+(prefix prepositional 10
+  (progn (check 'phrase) (check 'of)
+         (let ((prep (right)))
+           (check 'and)
+           (list 'pgof prep (right)))))
 
 
 ;;; -------------------------------------------------------------------

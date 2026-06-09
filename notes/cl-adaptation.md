@@ -279,10 +279,25 @@ Two complete `gram4.l` rules now compile end-to-end (`NUMBER` and
 `NUMBER-DONE`) — verifies the full pipeline: tokenize → Pratt-parse →
 intermediate AST → emit Marcus's compiled-Lisp triple.
 
-**Scope not yet done:** remaining action verbs (`lift`, `meet`, `word`,
-`make`, `there`); the quoting operator `'`; test-pattern
-denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
-`greatest`, `number`, `semantics`, `filling`, `prepositional`). The
+- Gate 3 (gram2/gram3 `{RULE}` denotations): `word` (`the word 'X'` →
+  `(wordify 'X)`); the numeric comparisons `greater`/`less`/`equal`
+  (reached through `is`); `greatest`/`lowest` (`... possible number of
+  objects of X` → `(maxunls X)`/`(minunls X)`); `fits` (case-frame
+  sibling of `fills`); `meet` (`the meet of A and B` → CL
+  `(intersection A B)`); `number` (`the number of objects of X will be
+  Y` → `(need-slots X Y)`); `filling` (`X filling SLOT slot of Y` →
+  `(fit-of X 'SLOT Y)`); `semantics` (`semantics prefers A <degree>
+  better than C` → `(prefer A <degree> C)`); and `prepositional` (`a
+  prepositional phrase of P and N` → `(pgof P N)`). 58 of the 60 active
+  gram2/gram3 rules now compile.
+
+**Scope not yet done:** remaining action verbs (`lift`, `make`); the
+standalone matching-quote operator `'`; the rest of the test-pattern
+denotations. One gram3 rule (NP-COMPLETE) needs `transfer` to accept an
+*expression* argument (`transfer the meet of (...) ... from X to Y`) --
+the port's `transfer` currently reads only a literal comma feature-list
+(`get-var-list`); Marcus parses `(qlistfy right)`. Extending it (without
+breaking the literal-list case) is the next gate-3 step. The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

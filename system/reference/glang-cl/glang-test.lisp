@@ -200,6 +200,47 @@
              '((foo)))
 
 
+      ;; --- gate 3: number / comparison / semantic-preference verbs ---
+      ;; The vocabulary the gram2/gram3 wh / diagnostic rules need.
+
+      (flet ((body (text) (fifth (parse-rule text))))
+        (check "greatest possible number of objects of X is equal to N"
+               (body "{RULE X IN P [t] -->
+                      If the greatest possible number of objects of c is equal to 0
+                       then run objects next.}")
+               '(progn (cond ((= (maxunls c) 0) (setq *nextrule* 'objects)))))
+        (check "X fits SLOT slot of Y  -->  (fits X 'SLOT Y)"
+               (body "{RULE X IN P [t] -->
+                      If 1st fits an obj slot of c then run objects next.}")
+               '(progn (cond ((fits 1st 'obj c) (setq *nextrule* 'objects)))))
+        (check "prepositional phrase of P and N  -->  (pgof P N)"
+               (body "{RULE X IN P [t] -->
+                      If a prepositional phrase of 1st and 2nd fits a pp slot of c
+                       then run pp next.}")
+               '(progn (cond ((fits (pgof 1st 2nd) 'pp c)
+                              (setq *nextrule* 'pp)))))
+        (check "the number of objects of X will be N  -->  (need-slots X N)"
+               (body "{RULE X IN P [t] --> The number of objects of c will be 2.}")
+               '(progn (need-slots c 2)))
+        (check "semantics prefers A <degree> better than C  -->  (prefer ...)"
+               (body "{RULE X IN P [t] -->
+                      If semantics prefers 1st filling an obj slot of c somewhat
+                       better than wh-comp filling an obj slot of c
+                       then run objects next.}")
+               '(progn (cond ((prefer (fit-of 1st 'obj c)
+                                      somewhat
+                                      (fit-of (wh-comp) 'obj c))
+                              (setq *nextrule* 'objects))))))
+
+      ;; Standalone via PARSE-STRING (no enclosing verb needed).
+      (check "the meet of A and B  -->  (intersection A B)"
+             (parse-string "the meet of ns and npl")
+             '(intersection ns npl))
+      (check "X is less than N  -->  (< X N)"
+             (parse-string "c is less than 2")
+             '(< c 2))
+
+
       ;; --- new denotations: action verbs ---
 
       (flet ((action-of (text)
