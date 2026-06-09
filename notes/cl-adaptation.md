@@ -583,12 +583,36 @@ case-frame is a gensym with properties `CASE-FRAME` (NORMAL or MOD),
 property-list machinery handles all of this directly.
 
 
-### `com.l` — *not yet ported*
+### `com.l` — *in progress (compat layer landed)*
 
-REPL, sentence input (`sentin`), morphology (`morpho`), word-tree
-manipulation. The REPL needs CL-style stream handling; `morpho` uses
-character-level processing that will translate via `peek-char` and
-`read-char`.
+REPL, sentence input (`sentin`), morphology (`morpho`), word-tree, and
+the lexicon definers (`df`/`df+`/`jlike`/...). Being ported in four
+increments (see the porting scope); the interactive TTY reader,
+`define?`, node-uninterning cleanup, and the case-frame *modification*
+path (`modcasef`/`:caseorder`) are deferred.
+
+**Increment 1 — MacLISP char/symbol compat layer (done).**
+`system/core/runtime/maclisp-chars.lisp`. com.l and `morpho` take words
+apart and rebuild them through MacLISP's symbol/character primitives,
+which live in the Lisp / `myutil`, not com.l. Ported faithfully:
+
+- `explodec` (object → list of one-char symbols), `exploden` (→ char
+  codes), `implode` (char-symbols/codes/strings → interned symbol),
+  `maknam` (→ uninterned symbol), `readlist` (read one form from the
+  concatenated printnames), `ascii` (code → char-symbol), `getchar`
+  (Nth char), `flatc` (printname length).
+- Char-symbols are interned in :parsifal (not gensymed) so they compare
+  `eq` against the char-class lists `morpho` will use (`*vowels*` etc.),
+  mirroring Marcus's obarray-interned characters.
+- `readlist` concatenates printnames with **no** separators (this is
+  what `df+` relies on to read a phrase into a single symbol) and binds
+  `*read-base*` to 10 (Marcus wraps the numeric uses in
+  `(for (ibase 10.) ...)`). Tests in `test/maclisp-chars-test.lisp`.
+
+**Increments 2-4 (pending):** the lexicon loader (word-tree + definers
++ `expandsim`/`expanddef`), `morpho`, and a non-interactive
+string→`*wstring*` reader plus the full `parse` driver and the real
+`defs.l` lexicon load.
 
 
 ### `util.l` — *not yet ported*

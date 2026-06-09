@@ -19,6 +19,7 @@
                       rule-parser-test
                       declr-test
                       macros2-test
+                      maclisp-chars-test
                       primitives-test
                       buffer-ops-test
                       node-ops-test

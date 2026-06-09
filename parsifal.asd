@@ -26,6 +26,9 @@
    #:attach-monitor   #:create-monitor
    #:for              #:consprop
    #:say              #:say-it
+   #:explodec         #:exploden            #:implode
+   #:maknam           #:readlist            #:ascii
+   #:getchar          #:flatc
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -82,6 +85,7 @@
                                             :serial t
                                             :components ((:file "declr")
                                                          (:file "macros2")
+                                                         (:file "maclisp-chars")
                                                          (:file "primitives")
                                                          (:file "buffer-ops")
                                                          (:file "node-ops")
@@ -99,6 +103,7 @@
                              (:file "rule-parser-test")
                              (:file "declr-test")
                              (:file "macros2-test")
+                             (:file "maclisp-chars-test")
                              (:file "primitives-test")
                              (:file "buffer-ops-test")
                              (:file "node-ops-test")
