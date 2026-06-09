@@ -27,7 +27,8 @@
                       lexicon-test
                       morpho-test
                       case-frame-test
-                      util-test)))
+                      util-test
+                      dictionary-test)))
     (dolist (test-name test-names)
       (let ((result (test-one test-name verbose)))
         (setf results (and results result))))

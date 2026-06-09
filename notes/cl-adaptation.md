@@ -520,7 +520,7 @@ its own. Disposition:
   that belong with util.l's display plumbing.
 
 
-### `defs.l` — *partial port (feature ontology only)*
+### `defs.l` — *ported (feature ontology + lexicon)*
 
 Lives at `system/core/runtime/defs.lisp`. Ports lines 1-84 of
 Marcus's source — the parser's structural foundation:
@@ -543,11 +543,45 @@ identity. With this in place, the integration tests no longer need
 the `(setq *as-types* (list (intern "NUM" :glang-cl)))` hand-wiring
 that scenarios used to require.
 
-**Deferred:** lines 85-876 -- the lexicon. Hundreds of verb, noun,
-and adjective definitions via `(df ...)`, `(df1 ...)`, `(df+ ...)`,
-`(jlike ...)`, `(abbrev ...)`, and `(irreg ...)`. These don't matter
-until we're parsing real strings, which needs `com.l`'s `sentin` /
-`morpho` ported -- so the lexicon comes alongside that.
+**The lexicon (lines 85-876):** ~540 verb / noun / adjective
+definitions via `(df ...)`, `(df1 ...)`, `(df+ ...)`, `(jlike ...)`,
+`(abbrev ...)`, and `(irreg ...)`. The definers already live in
+`lexicon.lisp`; this is just their data. Because it is Marcus's source
+verbatim, it is kept as a data file, `defs-dictionary.dict`, and read by
+`dictionary.lisp`'s `load-dictionary` (the last runtime component, run
+at system-load time) rather than transcribed into a CL component.
+
+Two MacLISP reader behaviours the dictionary relies on are supplied by
+`*dictionary-readtable*` (installed only while reading the .dict file):
+
+- **`#` as a constituent.** In the lexicon `#` is the marker-set
+  separator (the "ok `#` great" split `smqval` reads) — i.e. the symbol
+  `|#|`. CL makes `#` a dispatching macro char, so we give it
+  constituent syntax; it then reads as `|#|`, `EQ` to the `|#|` the
+  scorer splits on.
+- **bare `:` as the symbol `|:|`.** A lone colon appears as a
+  punctuation "word" (`(jlike - :)`, defs.l 756/759); CL's token parser
+  rejects it (package marker), so a reader macro returns `|:|`. Escaped
+  colons (`\:`, e.g. `(jlike \: \,)`) and everything else are unaffected
+  — the lexicon has no package-qualified symbols. The MacLISP backslash
+  escapes (`wh\-`, `jan\.`, `det\\relpron-ambig`) already read
+  identically under CL's single-escape.
+
+The `comment` macro (a no-op swallowing its body, used twice in the
+data) is defined in `dictionary.lisp`.
+
+**Six dropped forms.** The .dict file is verbatim defs.l 85-876 *except*
+for six terminal-noise forms at the tail (source lines 830, 832-836):
+captured `(PARSE)` parser-prompt echo and tokens corrupted by literal
+backspace / 0x1E control characters (`meetio<BS>ong`,
+`|MMM...(PARSE)_|`, `\<0x1E>`). These are session detritus that crept
+into the saved source, not lexicon entries, and CL's reader can't read
+the control characters anyway. Documented in the .dict header.
+
+Tests in `test/dictionary-test.lisp`. Because the lexicon is global
+mutable state that other suites (e.g. morpho-test) destructively
+redefine, `dictionary-test` reloads the dictionary first so it is
+order-independent.
 
 
 ### `parse.l` — *largely ported; see the detailed section above*
