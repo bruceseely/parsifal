@@ -291,13 +291,24 @@ intermediate AST → emit Marcus's compiled-Lisp triple.
   prepositional phrase of P and N` → `(pgof P N)`). 58 of the 60 active
   gram2/gram3 rules now compile.
 
+`transfer` now takes either form: a literal comma feature-list
+(`transfer features pres, past from ...` → `'(pres past)`) or an
+*expression* (`transfer the meet of A and B from ...` →
+`(intersection A B)`). It dispatches on whether the argument's first
+token carries a `:nud` (an expression) vs bare feature atoms; the
+expression is `qlistfy`'d, mirroring Marcus's `(qlistfy right)`
+(glang.l 483, 158).
+
 **Scope not yet done:** remaining action verbs (`lift`, `make`); the
 standalone matching-quote operator `'`; the rest of the test-pattern
-denotations. One gram3 rule (NP-COMPLETE) needs `transfer` to accept an
-*expression* argument (`transfer the meet of (...) ... from X to Y`) --
-the port's `transfer` currently reads only a literal comma feature-list
-(`get-var-list`); Marcus parses `(qlistfy right)`. Extending it (without
-breaking the literal-list case) is the next gate-3 step. The
+denotations; and a general `,` list-value operator. The last is the one
+remaining blocker for gram3 NP-COMPLETE: it uses a bare comma-list as a
+*value* (`... else ns,npl`, meaning the feature list `(ns npl)`),
+whereas this port reads comma feature-lists only contextually
+(`get-var-list`, after `features`/`labelled`/etc.), with no `,` operator
+in value position. Adding one without disturbing `,`'s role as the
+call/var-list separator is its own step. (The other unparsed `{...}` in
+gram2 is an embedded `find-wh-comp` body, not a rule.) The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

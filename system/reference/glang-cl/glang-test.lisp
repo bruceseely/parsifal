@@ -392,6 +392,14 @@
                (action-of "{RULE X IN P [t] --> Transfer features pres, past from 1st to c.}")
                '(progn (transfer '(pres past) |1ST| c)))
 
+        ;; transfer of an *expression* (not a literal feature list): the
+        ;; arg begins with a verb (a :nud), so it's parsed and qlistfy'd
+        ;; rather than read as a comma feature-list. (gram3 NP-COMPLETE.)
+        (check "Transfer the meet of A and B from SRC to DST"
+               (action-of "{RULE X IN P [t] --> Transfer the meet of ns and npl from the nbar of c to c.}")
+               '(progn (transfer (intersection ns npl)
+                                 (find-node 'nbar c) c)))
+
         ;; `features' is a prefix; test in pattern context where pratt-parse
         ;; sees it as the head of an expression (Activate's arg goes through
         ;; get-var-list, which doesn't invoke nuds).

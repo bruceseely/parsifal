@@ -413,6 +413,11 @@
    Mirrors Marcus's KWOTE-IF-ATOM at glang.l line 160."
   (if (atom x) (list 'quote x) x))
 
+(defun qlistfy (x)
+  "If X is an atom, wrap it as a quoted singleton list `'(X)'; otherwise
+   return X unchanged (it is already a form). Mirrors glang.l 158."
+  (if (atom x) (list 'quote (list x)) x))
+
 
 (defun name-to-index (sym)
   "Map an ordinal symbol (1ST/2ND/3RD/NTH) to its buffer position 0/1/2.
@@ -516,14 +521,24 @@
 
 ;; `Transfer [feature|features] f1, f2 from SRC to DST'
 ;;                                   --> (transfer '(f1 f2) SRC DST)
+;; `transfer [feature[s]] ARG from SRC to DEST' --> (transfer ARG' SRC DEST)
+;; where ARG' is qlistfy'd. Marcus parses ARG as one operand `(qlistfy
+;; right)' (glang.l 483). ARG is usually a bare comma feature-list
+;; (`indef, def, wh' -> '(indef def wh)), but can be an expression
+;; (`the meet of ... and ...' -> (intersection ...), gram3 NP-COMPLETE).
+;; We distinguish: a token carrying a :nud begins an expression (parse +
+;; qlistfy); otherwise it's a literal feature list (read via get-var-list
+;; and quote).
 (prefix transfer 10
   (progn
     (or (is-token 'feature) (is-token 'features))
-    (let ((feats (get-var-list)))
+    (let ((arg (if (and (symbolp *token*) (get *token* :nud))
+                   (qlistfy (right))
+                   (list 'quote (get-var-list)))))
       (check 'from)
       (let ((src (right)))
         (check 'to)
-        (list 'transfer (list 'quote feats) src (right))))))
+        (list 'transfer arg src (right))))))
 
 
 ;; `Features [of] NODE'  --> (fe NODE)
