@@ -159,6 +159,43 @@
 
 
 ;;; ===========================================================
+;;; Phrase-structure accessors (parse.l 357-378)
+;;; ===========================================================
+;;;
+;;; These walk the phrase structure to find a phrase's lexical head and
+;;; the head's root word. case.l's semantic-marker scoring (`smarkers')
+;;; needs them, so they land here now.
+
+(defun head (node)
+  "The lexical head node of phrase NODE: the noun under an NP/NBAR, the
+   verb under an S's VP, etc. Follows BINDING first. Mirrors parse.l
+   line 357. (Marcus's `nead' typo at case.l 429 is just this `head'.)"
+  (setq node (binding node))
+  (cond ((null node) nil)
+        ((cond ((is node '(np))
+                (or (head (find-node1 'nbar node))
+                    (find-node1 'pronoun node)
+                    (find-node1 's node)
+                    ;; old-style NPs
+                    (find-node1 'noun node)))
+               ((is node '(nbar)) (find-node1 'noun node))
+               ((is node '(s))
+                (find-node1 'verb (find-node1 'vp node)))))
+        (t (warn "failed to find the head of ~s." (nid1 node))
+           nil)))
+
+(defun word (node)
+  "The root word of NODE's `word' register (or the word itself if it
+   has no `root'). Mirrors parse.l line 374."
+  (let ((temp (getr 'word node)))
+    (or (get temp 'root) temp)))
+
+(defun root-of (a-word)
+  "A-WORD's `root', or A-WORD itself. Mirrors parse.l line 377."
+  (or (get a-word 'root) a-word))
+
+
+;;; ===========================================================
 ;;; Node-identity helper (parse.l 384)
 ;;; ===========================================================
 

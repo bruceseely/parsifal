@@ -25,7 +25,8 @@
                       node-ops-test
                       parse-loop-test
                       lexicon-test
-                      morpho-test)))
+                      morpho-test
+                      case-frame-test)))
     (dolist (test-name test-names)
       (let ((result (test-one test-name verbose)))
         (setf results (and results result))))

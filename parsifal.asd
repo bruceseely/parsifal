@@ -54,6 +54,12 @@
    #:nodify           #:nodify*             #:wordify
    #:read-sentence    #:reset-parser-state  #:parse-sentence
    #:*ordercounter*
+   ;; --- Case frames (case.l) -----------------------------------------
+   #:case-frame       #:associate-cf        #:assoc-node
+   #:putc             #:getc                #:clearcf
+   #:closeframe       #:openframe           #:openchek
+   #:maxunls          #:minunls             #:open-obj-cases
+   #:semcall          #:hypo-slots          #:objs-needed
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -118,7 +124,8 @@
                                                          (:file "defs")
                                                          (:file "lexicon")
                                                          (:file "morpho")
-                                                         (:file "input")))
+                                                         (:file "input")
+                                                         (:file "case-frame")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -137,7 +144,8 @@
                              (:file "node-ops-test")
                              (:file "parse-loop-test")
                              (:file "lexicon-test")
-                             (:file "morpho-test")))))
+                             (:file "morpho-test")
+                             (:file "case-frame-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

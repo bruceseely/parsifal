@@ -574,13 +574,44 @@ bit-2 NR-checked bookkeeping); and debug/timing (`ruletrap`/`breaksw`/
 `starttime`/`endtime`).
 
 
-### `case.l` — *not yet ported*
+### `case.l` — *in progress (data type + access landed)*
 
-Case-frame mechanism (Marcus's Appendix E). Kurt Van Lehn's comments at
-the top of the file make the data-type design unusually clear. The
-case-frame is a gensym with properties `CASE-FRAME` (NORMAL or MOD),
-`ASSOC-NODE`, `SPEC`, `CASES`, `PRED`, `HYPO-SLOTS`, `OBJS-NEEDED`. CL's
-property-list machinery handles all of this directly.
+Case-frame mechanism (Marcus's Appendix E): assigns a clause's NPs/PPs
+to a verb's thematic slots by semantic-marker scoring; consumes the
+`case-frame` data the lexicon builds (`expandcf`). Kurt Van Lehn's
+header (case.l 4-46) documents the data type: a frame is a gensym with
+props `case-frame` (NORMAL/MOD), `assoc-node`, `spec`, `cases`, `pred`,
+`hypo-slots`, `objs-needed`. Self-contained -- `semcall` (the "call to
+semantics") is reduced to an optional trace in the delivered source, and
+the scoring is pure marker arithmetic. Being ported in four increments.
+
+**Increment 1 -- data type + access (done).**
+`system/core/runtime/case-frame.lisp` (loaded last): `newcf`,
+`case-frame`, `associate-cf`, `assoc-node`, `open-obj-cases`,
+`maxunls`/`minunls`, the open/close caching (`openchek`, `closeframe`,
+`openframe`, `clearcf`), `putc`/`getc`, the trace hook (`semcall`,
+`node-w-feats`, `nodep`), and the now-unblocked `alt-fillslot`
+(parse.l 586, which needed `putc`). The cached specials `hypo-slots` /
+`objs-needed` are added here (`openframe`/`pred` were already in declr).
+
+Also lands the deferred phrase-structure accessors in `node-ops.lisp`:
+`head`/`word`/`root-of` (parse.l 357-378), which case.l's `smarkers`
+needs. `nead` (case.l 429) is just a typo for `head`.
+
+Notes: `openframe` is both a special var (the open frame) and a function
+(open a frame) -- CL allows both on one symbol, as Marcus relies on.
+`putc` (case.l 537) guards on the node's `caseframe` but writes its
+`case-frame` prop while `getc` reads `caseframe`; reproduced verbatim
+(they don't round-trip, but `putc`'s only caller stores data nothing
+reads and `getc` is unused). Tests in `test/case-frame-test.lisp`.
+
+**Increments 2-4 (pending):** the create/attach monitors (`crule-index`,
+`create-monitor`, `attach-monitor` -- replacing the buffer-ops stubs),
+the marker scoring + hypothesis generation, and the major operations
+(`need-slots`/`fits`/`fillslot`/`finalize-frame`/`passivize-cf`) with a
+small end-to-end clause. Full declarative-sentence parsing additionally
+needs the real `defs.l` dictionary load (a `#`-constituent readtable)
+and the NP/clause rules in gram2.l/gram3.l.
 
 
 ### `com.l` — *ported (non-interactive core; TTY/define deferred)*
