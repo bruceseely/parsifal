@@ -30,7 +30,8 @@
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
    #:reset-rule-table #:parse-loop          #:act-of-rule
-   #:*rule-table*     #:*deriv*
+   #:fetchrules       #:rules-packets
+   #:*rule-index*     #:*deriv*
    ;; Rule-type tags emitted by glang-cl (data, not functions);
    ;; exported so the symbol identity is shared between the
    ;; rule-index call site and TESTRULES.

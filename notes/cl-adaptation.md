@@ -329,22 +329,33 @@ Split across two files:
     `s-type`
   - Identity helper: `nid1`
 - `system/core/runtime/parse-loop.lisp` — the wait-and-see main loop
-  in MVP form (~enough to actually run a grammar):
-  - Rule indexing: `*rule-table*`, `rule-index`, `rem-index`,
-    `testrules`, `act-of-rule`, `reset-rule-table`
+  (enough to actually run a grammar):
+  - Rule indexing (feature-indexed): `*rule-index*`, `rule-index`,
+    `rem-index`, `fetchrules`, `rules-packets`, `testrules`,
+    `act-of-rule`, `reset-rule-table`
+  - Buffer GC: `buffer-gc` (wired into the loop's `nextrule`)
   - The loop itself: `parse-loop` (preserves Marcus's `PROG` + `GO`
     structure with `runrule` and `nextrule` labels)
 
 MVP deviations in `parse-loop.lisp` worth knowing:
 
-- **Rule storage.** Marcus indexes rules by feature using nested cons
-  cells (a "type-plist" living in the cdr of `(ncons nil)`) so that
-  `fetchrules` can do quick lookups via the buffer head's feature
-  list. We store rules in `*rule-table*`, a CL hash-table keyed by
-  packet, and `testrules` walks all rules of each active packet
-  linearly, sorting by priority. Same observable behaviour, slower
-  for big grammars. Feature-indexed buckets can be reintroduced
-  later without touching emissions.
+- **Rule storage (now feature-indexed).** Marcus indexes rules by
+  feature so `fetchrules` can prune the candidate set via the buffer
+  node's feature list before any pattern runs. The port now does this
+  too: `*rule-index*` is a hash-table keyed by `(indexf type packet)`,
+  and `fetchrules` collects only the buckets whose `indexf` is among
+  the node's features (plus the catch-all `noindexf`). `testrules`
+  then stable-sorts the merged buckets by priority. Marcus keeps the
+  buckets on each feature symbol's plist; we keep them in one
+  reboundable hash-table so tests can isolate a rule set and the
+  global feature symbols' plists stay clean (same spirit as the
+  gensym `daughters` plist and the `:act-fn` stash). The glang-cl
+  emission contract is unchanged — it already passes `indexf` to
+  `rule-index`. Marcus additionally restricts AS rules to
+  `(cpool npool)` and NR rules to `(cpool)`; we don't (those packet
+  names live in the grammar's package, and AS/NR rules only ever live
+  in those packets anyway, so filtering by active packet yields the
+  same set). Revisit when NR dispatch from `set*` lands.
 - **`act-of-rule` lookup.** Marcus's loop reconstructs the action
   function's name by string-concatenating `::act-of-` with the rule
   name. We instead have `rule-index` stash the act-fn under
@@ -539,22 +550,28 @@ until we're parsing real strings, which needs `com.l`'s `sentin` /
 `morpho` ported -- so the lexicon comes alongside that.
 
 
-### `parse.l` — *not yet ported*
+### `parse.l` — *largely ported; see the detailed section above*
 
-The English parser. See the `parse-orig-architecture` project memory for
-the architectural overview. Likely porting order, bottom-up:
+The English parser is split across `primitives.lisp`, `buffer-ops.lisp`,
+`node-ops.lisp`, and `parse-loop.lisp` (full breakdown in the "parse.l —
+partial port" section above). The bottom-up porting order is essentially
+complete:
 
-1. Data-structure accessors (`flags`, `setflags`, `fe`, `setfe`, `getr`,
-   `setr`)
-2. Buffer operations (`insert-index-pos`, `remove-index-pos`, `nextword`,
-   `:last`)
-3. Feature operations (`addf1`, `remf1`, `is`, `is-any-of`, `is-none-of`,
-   `transfer`, `liftr`, `featindexify`, `testindices`)
-4. Tree navigation (`node-above`, `father-node`, `find-node`, `binding`)
-5. Node creation and attachment (`newnode`, `makenode`, `attach`,
-   `attach1`, `drop`)
-6. Rule indexing (`rule-index`, `rem-index`, `fetchrules`, `testrules`)
-7. The main `parse` loop
+1. Data-structure accessors (`flags`/`setflags`/`fe`/`setfe`/`getr`/`setr`) — **done** (declr.lisp)
+2. Buffer operations (`insert-index-pos`/`remove-index-pos`/`nextword`/`last*`/`buffer-gc`) — **done**
+3. Feature operations (`addf1`/`remf1`/`is`/`is-any-of`/`is-none-of`/`transfer`/`liftr`/`featindexify`/`testindices`) — **done**
+4. Tree navigation (`node-above`/`father-node`/`find-node`/`binding`) — **done**
+5. Node creation/attachment (`newnode`/`makenode`/`attach`/`attach1`/`drop`/`alt-attach`) — **done**
+6. Rule indexing (`rule-index`/`rem-index`/`fetchrules`/`testrules`, feature-indexed) — **done**
+7. The main loop (`parse-loop`, with `buffer-gc` wired in) — **done**
+
+Still deferred (each blocked on another file or a non-exercised path):
+the full `parse` driver (needs `sentin`, com.l); the morphology/tree-print
+accessors `head`/`word`/`root-of`/`nid`/`node-id` (need `phrasify`, util.l,
+and the lexicon); node cleanup `nodegc`/`node-reset` (uninterning + `cat`);
+`alt-fillslot` (needs `putc`, case.l); AS/NR dispatch from `set*` (the
+bit-2 NR-checked bookkeeping); and debug/timing (`ruletrap`/`breaksw`/
+`starttime`/`endtime`).
 
 
 ### `case.l` — *not yet ported*

@@ -7,8 +7,8 @@
 ;;;
 ;;; What this file covers:
 ;;;
-;;;   Rule indexing (parse.l 400-431)
-;;;     *rule-table*, rule-index, rem-index, testrules
+;;;   Rule indexing (parse.l 400-443)
+;;;     *rule-index*, rule-index, rem-index, fetchrules, testrules
 ;;;
 ;;;   Main loop (parse.l 103-172)
 ;;;     parse-loop, nextrule label, runrule label,
@@ -16,16 +16,15 @@
 ;;;
 ;;; Deviations from Marcus's source (worth knowing):
 ;;;
-;;; - Rule storage. Marcus indexes rules by feature using nested cons
-;;;   cells (a "type-plist" living in the cdr of `(ncons nil)') so that
-;;;   `(fetchrules 'normal bpnt)' can do quick lookups via the buffer
-;;;   head's feature list. That's a perf optimisation that pays off
-;;;   when there are 100s of rules per packet. For the MVP we store
-;;;   rules in *RULE-TABLE* -- a CL hash-table keyed by packet -- and
-;;;   TESTRULES walks all rules of each active packet linearly,
-;;;   sorting by priority. Same observable behaviour, slower for big
-;;;   grammars. The fetchrules feature-indexing can be reintroduced
-;;;   later without touching the loop or rule emissions.
+;;; - Rule storage. Marcus indexes rules by feature so FETCHRULES can
+;;;   prune the candidate set via the buffer node's feature list before
+;;;   any pattern runs. We now do this too: *RULE-INDEX* is keyed by
+;;;   (INDEXF TYPE PACKET) and FETCHRULES looks up only the buckets
+;;;   whose INDEXF is among the node's features (plus the catch-all
+;;;   NOINDEXF). Marcus keeps the buckets on each feature symbol's
+;;;   plist; we keep them in one reboundable hash-table (see the
+;;;   *RULE-INDEX* docstring). The glang-cl emission contract is
+;;;   unchanged -- it already passes INDEXF to RULE-INDEX.
 ;;;
 ;;; - AS/NR rules. The loop's NEXTRULE label calls `(set* 0)' first --
 ;;;   that function both advances the buffer AND tests AS rules (when
@@ -50,96 +49,129 @@
 
 
 ;;; ===========================================================
-;;; Rule indexing (parse.l 400-431)
+;;; Rule indexing (parse.l 400-443)
 ;;; ===========================================================
 
-(defparameter *rule-table* (make-hash-table :test #'eq)
-  "Packet symbol -> list of rule entries.
-   Each entry is (PRIORITY PAT-FN RULE-NAME ACT-FN TYPE), where TYPE
-   is one of NORMAL, AS, NR. Entries inside a packet's list are sorted
-   by priority ascending (lower number = higher priority -- Marcus's
-   convention).")
+(defparameter *rule-index* (make-hash-table :test #'equal)
+  "Feature-indexed rule store. The key is a list (INDEXF TYPE PACKET);
+   the value is the priority-sorted list of ITEMs -- each ITEM being
+   (PRIORITY PAT-FN RULE-NAME ACT-FN) -- registered under that
+   index/type/packet. TYPE is NORMAL, AS, or NR. A rule is fetched
+   only when its INDEXF appears among the buffer node's features (or
+   is the catch-all NOINDEXF), so FETCHRULES prunes the candidate set
+   by feature before any pattern is evaluated. Within a bucket, lower
+   PRIORITY numbers come first (Marcus's convention).
+
+   Marcus keeps these lists on the INDEXF symbol's plist, indexed by
+   TYPE then PACKET (parse.l 400-431). We keep them in one reboundable
+   special instead: tests can isolate a rule set with a fresh table,
+   and the global feature symbols' plists stay clean. Same spirit as
+   the gensym `daughters' plist and the :act-fn stash.")
 
 (defun reset-rule-table ()
   "Forget every rule. Useful between grammar reloads."
-  (clrhash *rule-table*))
+  (clrhash *rule-index*))
 
-(defun priority-insert (entry rules)
-  "Insert ENTRY into RULES, keeping ascending priority order."
-  (cond ((null rules) (list entry))
-        ((<= (first entry) (first (first rules)))
-         (cons entry rules))
-        (t (cons (first rules)
-                 (priority-insert entry (rest rules))))))
+(defun priority-insert (item items)
+  "Insert ITEM into ITEMS keeping ascending priority order. Equal
+   priorities land before existing ones, matching Marcus's `le'
+   (<=) insertion at parse.l 421-430."
+  (cond ((null items) (list item))
+        ((<= (first item) (first (first items)))
+         (cons item items))
+        (t (cons (first items)
+                 (priority-insert item (rest items))))))
 
 (defun rule-index (type packets indexf item)
   "Register a rule. ITEM is (PRIORITY PAT-FN RULE-NAME ACT-FN). The
-   rule will be found by TESTRULES whenever its TYPE matches and any
-   packet in PACKETS is active. INDEXF is the feature-indexing key
-   Marcus uses to speed up rule lookup; we ignore it for now (see
-   header)."
-  (declare (ignore indexf))
-  (let ((rule-name (third item))
-        (act-fn    (fourth item))
-        (entry     (append item (list type))))
-    ;; If a rule with this name was previously indexed, drop the
-    ;; stale entries first so reloading a grammar doesn't double up.
-    (rem-index rule-name)
-    (dolist (pkt packets)
-      (setf (gethash pkt *rule-table*)
-            (priority-insert entry (gethash pkt *rule-table*))))
-    ;; Cache the act-fn under the rule-name's plist. The loop reads it
-    ;; via ACT-OF-RULE when chasing *nextrule*, so a follow-up rule
-    ;; doesn't have to live in any particular package -- only the
-    ;; rule-name symbol matters.
-    (setf (get rule-name :act-fn) act-fn)
-    ;; Remember where this rule lives, so REM-INDEX can find it.
-    (setf (get rule-name :indexinfo)
-          (list type packets item))))
+   rule becomes a candidate when TYPE matches, one of PACKETS is in
+   the relevant active set, and INDEXF is among the tested node's
+   features (INDEXF = NOINDEXF means `always'). Mirrors parse.l 400."
+  (let ((name (third item)))
+    ;; Re-registering a rule (grammar reload) drops the stale copies.
+    (when (get name :indexinfo) (rem-index name))
+    (setf (get name :indexinfo) (list indexf type packets item))
+    ;; Stash the act-fn so ACT-OF-RULE can find it by name when the
+    ;; loop chases *nextrule*, regardless of the rule's home package.
+    (setf (get name :act-fn) (fourth item))
+    (dolist (packet packets)
+      (let ((key (list indexf type packet)))
+        (setf (gethash key *rule-index*)
+              (priority-insert item (gethash key *rule-index*)))))))
 
-(defun rem-index (rule-name)
-  "Remove RULE-NAME from every packet it was indexed under. No-op if
-   the rule was never indexed."
-  (let ((info (get rule-name :indexinfo)))
+(defun rem-index (name)
+  "Remove NAME from every (INDEXF TYPE PACKET) bucket it was indexed
+   under. No-op if the rule was never indexed. Mirrors parse.l 432."
+  (let ((info (get name :indexinfo)))
     (when info
-      (let ((packets (second info)))
-        (dolist (pkt packets)
-          (setf (gethash pkt *rule-table*)
-                (remove rule-name (gethash pkt *rule-table*)
-                        :key #'third))))
-      (remprop rule-name :indexinfo)
-      (remprop rule-name :act-fn))))
+      (destructuring-bind (indexf type packets item) info
+        (dolist (packet packets)
+          (let ((key (list indexf type packet)))
+            (setf (gethash key *rule-index*)
+                  (delete item (gethash key *rule-index*) :test #'eq)))))
+      (remprop name :indexinfo)
+      (remprop name :act-fn))))
 
 
 ;;; ===========================================================
-;;; Rule selection (parse.l 188-225)
+;;; Rule selection (parse.l 188-244)
 ;;; ===========================================================
+
+(defun rules-packets (type)
+  "The active packets to search for rules of TYPE. Marcus additionally
+   restricts AS rules to (cpool npool) and NR rules to (cpool) at
+   parse.l 237-240; we don't, because (a) those packet names live in
+   the grammar's package, not the runtime's, and (b) AS/NR rules are
+   only ever registered in those packets, so filtering by active
+   packet already yields the same set. Revisit when NR dispatch from
+   set* lands."
+  (declare (ignore type))
+  *activepackets*)
+
+(defun fetchrules (type bpnt)
+  "Collect the priority-sorted rule buckets that could fire at buffer
+   position BPNT: for each feature of the node there -- plus the
+   catch-all NOINDEXF -- that indexes rules of TYPE, the bucket for
+   each relevant active packet. Mirrors parse.l 227-244."
+  (let ((features (cons 'noindexf
+                        (let ((node (aref *buffer* bpnt)))
+                          (and node (fe node)))))
+        (packets  (rules-packets type))
+        (buckets  nil))
+    (dolist (f features buckets)
+      (dolist (p packets)
+        (let ((bucket (gethash (list f type p) *rule-index*)))
+          (when bucket (push bucket buckets)))))))
 
 (defun testrules (type bpnt)
-  "Find the highest-priority rule of TYPE in any active packet
-   whose pattern matches. On success, set *activerule* to
-   (NAME ACT-FN) and return T. On failure, return NIL.
+  "Find the highest-priority rule of TYPE whose pattern matches at
+   buffer position BPNT, considering only rules indexed under a
+   feature the node there actually has (plus NOINDEXF). On success set
+   *activerule* to (NAME ACT-FN) and return T; otherwise NIL.
 
-   BPNT is the buffer position the rule is being tested against;
-   Marcus's full implementation uses it to pick the indexing
-   feature, but our simpler hash-keyed table doesn't, so it is
-   ignored here. Patterns access the buffer via the bound buffer
-   registers (*1ST*, *2ND*, *3RD*) which the caller is responsible
-   for setting up."
-  (declare (ignore bpnt))
-  (let ((candidates nil))
-    (dolist (pkt *activepackets*)
-      (dolist (rule (gethash pkt *rule-table*))
-        (when (eq (fifth rule) type)
-          (push rule candidates))))
-    ;; Stable sort by priority so equal-priority rules retain
-    ;; their relative order across packets.
-    (setf candidates
-          (stable-sort candidates #'< :key #'first))
+   Mirrors parse.l 188-225 (testrules + testrules1/testrules2). Each
+   bucket FETCHRULES returns is already priority-sorted, so merging
+   them is a stable sort by priority: equal-priority rules keep their
+   bucket order, which (with NOINDEXF and the feature buckets pushed
+   in order) matches Marcus's earliest-bucket-wins tie-break. As
+   Marcus notes, while testing a NORMAL rule's pattern an AS/NR rule
+   may set *activerule* as a side effect; if so we stop and let the
+   loop run it.
+
+   Patterns read the buffer through the bound registers |1ST|/|2ND|/
+   |3RD|, which the caller (the loop, via set*) sets up."
+  (let ((candidates
+          (stable-sort (apply #'append
+                              (mapcar #'copy-list (fetchrules type bpnt)))
+                       #'< :key #'first)))
     (dolist (rule candidates nil)
-      (when (funcall (second rule))
-        (setq *activerule* (list (third rule) (fourth rule)))
-        (return t)))))
+      (cond ((funcall (second rule))
+             (setq *activerule* (list (third rule) (fourth rule)))
+             (return t))
+            ;; A NORMAL pattern test that fired an AS/NR rule already
+            ;; set *activerule* -- short-circuit so the loop runs it.
+            ((and (eq type 'normal) *activerule*)
+             (return t))))))
 
 
 ;;; ===========================================================

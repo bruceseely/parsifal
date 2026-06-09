@@ -22,7 +22,12 @@
 
       ;; --- rule-index / testrules basics -----------------------------
 
-      (let ((*rule-table* (make-hash-table :test #'eq))
+      ;; FETCHRULES reads (aref *buffer* bpnt) to pick indexing
+      ;; features, so each testrules call needs *buffer* bound. A NIL
+      ;; node means features = (noindexf), which is where these
+      ;; always-match rules are indexed.
+      (let ((*rule-index* (make-hash-table :test #'equal))
+            (*buffer*     (make-array 4 :initial-element nil))
             (*activepackets* '(pkt-a))
             (*activerule* nil))
         ;; Register one rule whose pattern always matches.
@@ -31,8 +36,8 @@
                           (lambda () t)
                           'rule-x
                           (lambda () 'fired-x)))
-        (check "rule-index stored under packet"
-               (and (gethash 'pkt-a *rule-table*) t)
+        (check "rule-index stored under (indexf type packet) key"
+               (and (gethash (list 'noindexf 'normal 'pkt-a) *rule-index*) t)
                t)
         (check "testrules finds and sets *activerule*"
                (testrules 'normal 0)
@@ -42,7 +47,8 @@
                'rule-x))
 
       ;; testrules respects priority across packets
-      (let* ((*rule-table* (make-hash-table :test #'eq))
+      (let* ((*rule-index* (make-hash-table :test #'equal))
+             (*buffer*     (make-array 4 :initial-element nil))
              (*activepackets* '(pkt-a pkt-b))
              (*activerule* nil)
              (low-pri-fn  (lambda () 'low))
@@ -57,7 +63,8 @@
                'high-rule))
 
       ;; A pattern that returns nil is skipped
-      (let* ((*rule-table* (make-hash-table :test #'eq))
+      (let* ((*rule-index* (make-hash-table :test #'equal))
+             (*buffer*     (make-array 4 :initial-element nil))
              (*activepackets* '(pkt-a))
              (*activerule* nil))
         (rule-index 'normal '(pkt-a) 'noindexf
@@ -70,25 +77,47 @@
                'fires))
 
       ;; rem-index removes a rule
-      (let ((*rule-table* (make-hash-table :test #'eq))
+      (let ((*rule-index* (make-hash-table :test #'equal))
+            (*buffer*     (make-array 4 :initial-element nil))
             (*activepackets* '(pkt-a))
             (*activerule* nil))
         (rule-index 'normal '(pkt-a) 'noindexf
                     (list 10 (lambda () t) 'gone (lambda () nil)))
         (rem-index 'gone)
         (check "rem-index empties the bucket"
-               (gethash 'pkt-a *rule-table*)
+               (gethash (list 'noindexf 'normal 'pkt-a) *rule-index*)
                nil)
         (check "after removal, testrules finds nothing"
                (testrules 'normal 0)
                nil))
+
+      ;; Feature indexing: a rule is a candidate only when its INDEXF
+      ;; is among the buffer node's features (or is NOINDEXF). Here the
+      ;; node has feature FOO only, so the lower-priority BAR rule is
+      ;; pruned and the FOO rule wins despite its higher number.
+      (let* ((head    (gensym "N"))
+             (node    (cons head 0))
+             (*rule-index*    (make-hash-table :test #'equal))
+             (*buffer*        (make-array 4 :initial-element nil))
+             (*activepackets* '(pkt-a))
+             (*activerule*    nil))
+        (setf (symbol-value head) '(foo))     ; fe(node) = (foo)
+        (setf (aref *buffer* 0) node)
+        (rule-index 'normal '(pkt-a) 'bar
+                    (list 5 (lambda () t) 'bar-rule (lambda () nil)))
+        (rule-index 'normal '(pkt-a) 'foo
+                    (list 9 (lambda () t) 'foo-rule (lambda () nil)))
+        (testrules 'normal 0)
+        (check "fetchrules prunes by feature (off-feature rule ignored)"
+               (first *activerule*)
+               'foo-rule))
 
 
       ;; --- parse-loop drives the cycle correctly ----------------------
 
       ;; One rule that sets *parsecomplete* -- loop fires once and ends.
       (let* ((act-fn-one (lambda () (setq *parsecomplete* t)))
-             (*rule-table*    (make-hash-table :test #'eq))
+             (*rule-index*    (make-hash-table :test #'equal))
              (*activepackets* '(pkt-a))
              (*activerule*    (list 'rule-one act-fn-one))
              (*nextrule*      nil)
@@ -109,7 +138,7 @@
 
       ;; A rule that sets *nextrule* -- loop fires it, then fires the
       ;; named follow-up rule, which sets *parsecomplete*.
-      (let* ((*rule-table*    (make-hash-table :test #'eq))
+      (let* ((*rule-index*    (make-hash-table :test #'equal))
              (*activepackets* nil)
              (*nextrule*      nil)
              (*parsecomplete* nil)
@@ -140,7 +169,7 @@
                '(follow-up starter)))
 
       ;; No matching rule -> deadlock -> NIL
-      (let ((*rule-table*    (make-hash-table :test #'eq))
+      (let ((*rule-index*    (make-hash-table :test #'equal))
             (*activepackets* nil)
             (*nextrule*      nil)
             (*parsecomplete* nil)

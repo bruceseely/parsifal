@@ -109,7 +109,7 @@
 
 (defun register-rules (srcs)
   "Compile and EVAL each source string so rule-index lands the rule
-   in *rule-table* and its action functions become callable."
+   in *rule-index* and its action functions become callable."
   (dolist (src srcs)
     (eval (glang-cl::compile-rule-form (glang-cl::parse-rule src)))))
 
