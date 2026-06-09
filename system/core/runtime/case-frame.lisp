@@ -636,7 +636,7 @@
 
 
 ;;; ===========================================================
-;;; Miscellaneous (case.l 514-527)
+;;; Miscellaneous (case.l 514-528)
 ;;; ===========================================================
 
 (defun prefer (value1 degree value2)
@@ -659,3 +659,27 @@
       ((null n))
     (let ((temp (getr 'caseframe n)))
       (when temp (return temp)))))
+
+;; poss-pg-cases (the possessive prepositional-group case candidates for
+;; a node) is referenced by real-caseset but is not defined in any
+;; delivered file; no-op stub returning NIL so the genitive branch stays
+;; whole. (cf. pp-cf-check / dp1 above.) NOTINLINE so the constant NIL
+;; doesn't make real-caseset's genitive loop look like dead code.
+(declaim (notinline poss-pg-cases))
+(defun poss-pg-cases (sourcenode) (declare (ignore sourcenode)) nil)
+
+(defun real-caseset (caseset sourcenode)
+  "CASESET's cases, plus a `genlc' (genitive) case for every possessive
+   PG case whose `genl-case-for' markers meet CASESET's markers. CASESET
+   is (cases markers). Mirrors case.l 528.
+
+   The genitive branch is dormant in this port: `poss-pg-cases' is not in
+   any delivered file (stubbed to NIL), so REAL-CASESET currently returns
+   just CASESET's own cases."
+  (append (car caseset)
+          (do ((possc-tail (poss-pg-cases sourcenode) (cdr possc-tail))
+               (result)
+               (markers (cadr caseset)))
+              ((null possc-tail) result)
+            (when (intersection (get (car possc-tail) 'genl-case-for) markers)
+              (setq result (cons (list (car possc-tail) 'genlc) result))))))

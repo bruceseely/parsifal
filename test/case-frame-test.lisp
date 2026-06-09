@@ -348,6 +348,16 @@
         (check "pgof's node exposes the prep via the daughter accessor"
                (daughter 'prep node) prep))
 
+      ;; --- real-caseset ----------------------------------------------
+      ;; poss-pg-cases is undelivered (stubbed to NIL), so the genitive
+      ;; branch is dormant: real-caseset returns just the caseset's cases.
+
+      (check "real-caseset returns the caseset's own cases"
+             (real-caseset '(((agt oblig) (obj)) (hanim)) (cons (gensym "N") 0))
+             '((agt oblig) (obj)))
+      (check "poss-pg-cases is a NIL no-op stub"
+             (poss-pg-cases (cons (gensym "N") 0)) nil)
+
       ;; --- prefer ----------------------------------------------------
 
       (check "prefer: T when value1 leads value2 by at least degree"
