@@ -52,24 +52,15 @@
 
 
 ;;; ===========================================================
-;;; Stubs for case-frame hooks (case.l -- not yet ported)
+;;; Case-frame hooks
 ;;; ===========================================================
 ;;;
-;;; Marcus's `attach' calls `attach-monitor' and `newnode' calls
-;;; `create-monitor'. Both look up rules under :attach-rules /
-;;; :create-rules; when no case-frame rules are defined (which is
-;;; how a grammar without case-frame rules behaves), they are
-;;; effectively no-ops. We provide that no-op shape here so attach
-;;; can call them without an unbound-function error.
-
-(defun create-monitor (type)
-  (declare (ignore type))
-  nil)
-
-(defun attach-monitor (fn dn type)
-  (declare (ignore fn dn type))
-  nil)
-
+;;; `attach' (below) calls `attach-monitor' and `newnode' (node-ops)
+;;; calls `create-monitor'. These are the real case-frame surface-
+;;; structure monitors, now defined in case-frame.lisp (case.l 585-598);
+;;; with no create/attach crules registered they are no-ops, so a
+;;; grammar without case-frame rules behaves as before. They are
+;;; forward-referenced here (case-frame.lisp loads last).
 
 ;; (Real RULE-INDEX lives in parse-loop.lisp now -- this file used to
 ;; carry a no-op stub during the bootstrap.)

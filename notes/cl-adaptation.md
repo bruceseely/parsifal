@@ -605,13 +605,36 @@ Notes: `openframe` is both a special var (the open frame) and a function
 (they don't round-trip, but `putc`'s only caller stores data nothing
 reads and `getc` is unused). Tests in `test/case-frame-test.lisp`.
 
-**Increments 2-4 (pending):** the create/attach monitors (`crule-index`,
-`create-monitor`, `attach-monitor` -- replacing the buffer-ops stubs),
-the marker scoring + hypothesis generation, and the major operations
-(`need-slots`/`fits`/`fillslot`/`finalize-frame`/`passivize-cf`) with a
-small end-to-end clause. Full declarative-sentence parsing additionally
-needs the real `defs.l` dictionary load (a `#`-constituent readtable)
-and the NP/clause rules in gram2.l/gram3.l.
+**Increment 2 -- surface-structure monitors (done).**
+`crule-index`, `create-monitor`, `attach-monitor` (case.l 574-598), now
+the real implementations in `case-frame.lisp`; the `buffer-ops.lisp`
+no-op stubs are removed (the functions are forward-referenced from
+`attach`/`newnode`, which load earlier). A `create` crule runs when a
+node of its type is created (via `newnode`); an `attachment` crule runs
+when a node is attached under a father of its type (via `attach`), with
+`fnode`/`snode` bound for the crule body.
+
+Storage mirrors Marcus but is reboundable for tests (cf. `*rule-index*`):
+creation crules in the list `*create-rules*`, attachment crules in the
+hash `*attach-rules*` keyed by father-node type (Marcus keeps them on
+the `:create-rules` variable and the `:attach-rules` symbol's plist).
+`crule-index` for `attachment` rewrites its `((father . attach) fn name)`
+argument in place to `(attach fn name)`, filed under the father type,
+exactly as case.l 574 does. With no crules registered the monitors are
+no-ops, so gram4 / parse-string stay green.
+
+**NB -- glang-cl gap:** glang-cl does not yet compile the
+`{CREATE ...}` / `{ATTACHMENT CRULE ...}` grammar rule forms into
+`crule-index` calls; that is a separate glang-cl extension. The runtime
+monitor mechanism is exercised in tests by registering crules directly.
+
+**Increments 3-4 (pending):** the marker scoring + hypothesis generation,
+and the major operations (`need-slots`/`fits`/`fillslot`/
+`finalize-frame`/`passivize-cf`) with a small end-to-end clause. Full
+declarative-sentence parsing additionally needs the real `defs.l`
+dictionary load (a `#`-constituent readtable), the glang-cl
+`{CREATE}`/`{ATTACHMENT CRULE}` emission, and the NP/clause rules in
+gram2.l/gram3.l.
 
 
 ### `com.l` — *ported (non-interactive core; TTY/define deferred)*

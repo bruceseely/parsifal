@@ -123,6 +123,63 @@
       (let ((s (cons (gensym "S") 0)))
         (setf (symbol-plist (car s)) nil)
         (check "alt-fillslot runs without error"
-               (progn (alt-fillslot 'agt 'verb 'np) t) t)))
+               (progn (alt-fillslot 'agt 'verb 'np) t) t))
+
+      ;; --- creation crules / create-monitor --------------------------
+
+      (let ((*create-rules* nil) (fired nil))
+        (crule-index 'creation
+                     (list 'foo (lambda () (setq fired 'yes)) 'foo-crule))
+        (create-monitor 'foo)
+        (check "create-monitor fires the matching creation crule" fired 'yes)
+        (setq fired nil)
+        (create-monitor 'other)
+        (check "create-monitor ignores an unmatched type" fired nil))
+
+      ;; ...and create-monitor is reached through newnode
+      (let ((*create-rules* nil) (*nodelist* nil) (*activenodestak* nil)
+            (*activepackets* nil) (c nil) (*current-s* nil) (*wh-comp* nil)
+            (fired nil))
+        (crule-index 'creation
+                     (list 'baz (lambda () (setq fired (getr 'type c))) 'baz-crule))
+        (newnode 'baz nil)
+        (check "newnode fires create-monitor for the new node's type"
+               fired 'baz))
+
+      ;; --- attachment crules / attach-monitor ------------------------
+
+      (let ((*attach-rules* (make-hash-table :test #'eq))
+            (fnode nil) (snode nil) (fired nil)
+            (father   (cons (gensym "F") 0))
+            (daughter (cons (gensym "D") 0)))
+        (setf (symbol-plist (car father)) nil
+              (symbol-plist (car daughter)) nil)
+        (setr 'type 'vp father)
+        (crule-index 'attachment
+                     (list (cons 'vp 'verb)
+                           (lambda () (setq fired (list fnode snode)))
+                           'vp-verb))
+        (attach-monitor father daughter 'verb)
+        (check "attach-monitor fires the matching attachment crule"
+               fired (list father daughter))
+        (check "attach-monitor binds fnode/snode for the crule body"
+               (and (eq fnode father) (eq snode daughter)) t)
+        (setq fired nil)
+        (attach-monitor father daughter 'obj)   ; no crule for obj
+        (check "attach-monitor ignores an unmatched attach type" fired nil))
+
+      ;; ...and attach-monitor is reached through attach
+      (let ((*attach-rules* (make-hash-table :test #'eq))
+            (fnode nil) (snode nil) (fired nil)
+            (father   (cons (gensym "F") 0))
+            (daughter (cons (gensym "D") 0)))
+        (setf (symbol-plist (car father)) nil
+              (symbol-plist (car daughter)) nil)
+        (setfe father nil) (setfe daughter nil)
+        (setr 'type 'np father)
+        (crule-index 'attachment
+                     (list (cons 'np 'det) (lambda () (setq fired t)) 'np-det))
+        (attach father daughter 'det)
+        (check "attach fires attach-monitor -> the crule" fired t)))
 
     results))

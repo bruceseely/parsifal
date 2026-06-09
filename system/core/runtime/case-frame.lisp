@@ -185,3 +185,71 @@
    than committing it. Mirrors parse.l 586; needed `putc', hence it
    lands with case.l. (Companion of alt-attach in buffer-ops.)"
   (putc 'ambig-fillslot (list a b c) s))
+
+
+;;; ===========================================================
+;;; Surface-structure monitoring (case.l 574-598)
+;;; ===========================================================
+;;;
+;;; `create' and `attachment' crules are the grammar's way to run a bit
+;;; of code whenever a node of some type is created, or a node of some
+;;; type is attached under a father of some type. They are registered by
+;;; CRULE-INDEX and fired by CREATE-MONITOR (from NEWNODE) and
+;;; ATTACH-MONITOR (from ATTACH).
+;;;
+;;; Storage: Marcus keeps creation crules on the variable :create-rules
+;;; and attachment crules on the :attach-rules symbol's plist (keyed by
+;;; father-node type). We use one reboundable list and one reboundable
+;;; hash-table -- same shape, isolable in tests (cf. *rule-index*).
+;;;
+;;; NB: glang-cl does not yet compile the `{CREATE ...}' /
+;;; `{ATTACHMENT CRULE ...}' rule forms into CRULE-INDEX calls; that is
+;;; a separate glang-cl extension. The runtime monitor mechanism here
+;;; works against crules registered directly (or by a future emission).
+
+(defvar *create-rules* nil
+  "Alist of creation crules: each entry (NODE-TYPE FN NAME).")
+(defvar *attach-rules* (make-hash-table :test #'eq)
+  "Father-node-type -> alist of attachment crules (ATTACH-TYPE FN NAME).")
+(defvar fnode nil "Father node, bound by ATTACH-MONITOR for a crule body.")
+(defvar snode nil "Attached node, bound by ATTACH-MONITOR for a crule body.")
+
+(defun reset-crules ()
+  "Forget all create/attach crules (between grammar reloads / tests)."
+  (setq *create-rules* nil)
+  (clrhash *attach-rules*))
+
+(defun crule-index (type indexinfo)
+  "Register a crule. For 'creation, INDEXINFO is (NODE-TYPE FN NAME).
+   For 'attachment, INDEXINFO arrives as ((FATHER-TYPE . ATTACH-TYPE)
+   FN NAME) and is rewritten in place to (ATTACH-TYPE FN NAME), filed
+   under FATHER-TYPE. Mirrors case.l 574."
+  (cond ((eq type 'attachment)
+         (let* ((ftype  (caar indexinfo))
+                (bucket (gethash ftype *attach-rules*)))
+           (rplaca indexinfo (cdar indexinfo))
+           (unless (member indexinfo bucket :test #'equal)
+             (setf (gethash ftype *attach-rules*)
+                   (cons indexinfo bucket)))))
+        ((eq type 'creation)
+         (push indexinfo *create-rules*))))
+
+(defun create-monitor (type)
+  "Run the creation crule for TYPE, if any. Called by NEWNODE. Mirrors
+   case.l 585."
+  (let ((crule (assoc type *create-rules* :test #'eq)))
+    (when crule
+      (when *crtrace* (say |Running create-rule| $ (caddr crule)))
+      (funcall (cadr crule)))))
+
+(defun attach-monitor (fn dn type)
+  "When DN is attached under FN as TYPE, run the matching attachment
+   crule (if FN's node-type has one for TYPE), with FNODE/SNODE bound to
+   FN/DN. Called by ATTACH. Mirrors case.l 591."
+  (let* ((attach-rules (gethash (getr 'type fn) *attach-rules*))
+         (crule (and attach-rules (assoc type attach-rules :test #'eq))))
+    (when crule
+      (when *crtrace* (say |Running attach-rule| $ (caddr crule)))
+      (setq fnode fn snode dn)
+      (funcall (cadr crule))))
+  t)

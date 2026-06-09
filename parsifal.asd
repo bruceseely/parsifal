@@ -60,6 +60,8 @@
    #:closeframe       #:openframe           #:openchek
    #:maxunls          #:minunls             #:open-obj-cases
    #:semcall          #:hypo-slots          #:objs-needed
+   #:crule-index      #:reset-crules
+   #:*create-rules*   #:*attach-rules*      #:fnode #:snode
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
