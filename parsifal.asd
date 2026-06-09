@@ -62,6 +62,12 @@
    #:semcall          #:hypo-slots          #:objs-needed
    #:crule-index      #:reset-crules
    #:*create-rules*   #:*attach-rules*      #:fnode #:snode
+   #:smqval           #:smqchek             #:smarkers
+   #:maxsmqval        #:fit-of              #:fit-of-1
+   #:cases            #:subjcases           #:objcases
+   #:ppcases          #:subjcasegen         #:objcasegen
+   #:ppcasegen        #:consolidate-frame   #:filter-out-filled
+   #:bind-slots
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules

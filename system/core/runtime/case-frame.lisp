@@ -253,3 +253,190 @@
       (setq fnode fn snode dn)
       (funcall (cadr crule))))
   t)
+
+
+;;; ===========================================================
+;;; Semantic markers (case.l 405-440)
+;;; ===========================================================
+;;;
+;;; A case's marker requirement is a list of semantic markers split by
+;;; `#' into an "ok" set (before #) and a "great" set (after #). SMQVAL
+;;; scores a node against a case: 1 if a node marker is in the great
+;;; set (or the case wants `all'), 0 if in the ok set (or the node has
+;;; no markers), -2 if nothing matches.
+
+(defun smarkers (node)
+  "The semantic markers to score NODE by: for a PP, the markers of its
+   NP's head; otherwise the markers of NODE's head, else NODE's own.
+   Mirrors case.l 427 (`nead' there is a typo for `head')."
+  (cond ((is node '(pp)) (getr 'markers (head (find-node 'np node))))
+        ((getr 'markers (head node)))
+        ((getr 'markers node))))
+
+(defun smqval (case node)
+  "Score NODE against CASE: 1 (great / `all'), 0 (ok / no markers),
+   -2 (no marker matches). The marker set is the pred-specific markers
+   (GET PRED case-name) or the case name's generic `markerset', split
+   by `#' into ok | great. Mirrors case.l 405."
+  (do ((marktail (or (get pred (car case)) (get (car case) 'markerset))
+                 (cdr marktail))
+       (nmarkers (smarkers node))
+       (value 0)
+       (marker)
+       (great-sw))                       ; Marcus's #sw: past the `#' yet?
+      ((null marktail) -2)
+    (cond ((eq (car marktail) 'all) (return 1))
+          ((null nmarkers)
+           (when *carefulsw* (warn "NO markers for ~s." node))
+           (return 0))
+          ((member (setq marker (car marktail)) nmarkers) (return value))
+          ((eq marker '|#|)
+           (setq value (if great-sw 0 (progn (setq great-sw t) 1)))))))
+
+(defun smqchek (case upper node)
+  "Does NODE fit CASE at all (score >= 0)? Mirrors case.l 424."
+  (declare (ignore upper))
+  (>= (smqval case node) 0))
+
+(defun maxsmqval (caseset node)
+  "Best SMQVAL of NODE over CASESET. Mirrors case.l 433. (Errors on an
+   empty CASESET, as in the original -- callers supply a non-empty set.)"
+  (apply #'max (mapcar (lambda (case) (smqval case node)) caseset)))
+
+(defun fit-of (lower gfunc upper)
+  "How well LOWER fits as UPPER's GFUNC argument. Mirrors case.l 437."
+  (fit-of-1 lower (cases upper nil gfunc)))
+
+(defun fit-of-1 (node caseset)
+  "Mirrors case.l 440."
+  (maxsmqval caseset node))
+
+
+;;; ===========================================================
+;;; Hypothesis generation (case.l 268-394)
+;;; ===========================================================
+;;;
+;;; Given the open frame's HYPO-SLOTS (the ways its slots might still be
+;;; filled), these enumerate the <case>s a node could fill in a given
+;;; grammatical function (subj / obj / pp). With MODE non-nil each
+;;; result is a <hypoframe> (<case> <remaining-open-cases> <full-slots>);
+;;; with MODE nil it's just the <case>.
+
+(defun cases (node mode gfunc)
+  "The cases NODE's frame offers for grammatical function GFUNC
+   (obj / subj / a preposition). Mirrors case.l 268."
+  (openchek node)
+  (cond ((eq gfunc 'obj)  (objcases mode))
+        ((eq gfunc 'subj) (subjcases mode))
+        (t (ppcases gfunc mode))))
+
+(defun subjcases (mode)
+  (mapcan (lambda (fr) (subjcasegen fr mode)) hypo-slots))
+
+(defun objcases (mode)
+  (mapcan (lambda (fr) (objcasegen fr mode)) hypo-slots))
+
+(defun ppcases (gfunc mode)
+  (mapcan (lambda (fr) (ppcasegen fr gfunc mode)) hypo-slots))
+
+(defun subjcasegen (slotfr mode)
+  "Subject cases of SLOTFR, read in reverse, stopping after the first
+   obligatory case. Mirrors case.l 286."
+  (do ((open-cases (reverse (car slotfr)) (cdr open-cases))
+       (result)
+       (next))
+      ((or (eq (cadr next) 'oblig) (null (car open-cases))) result)
+    (setq next (car open-cases))
+    (push (if mode
+              (list next (reverse (cdr open-cases)) (cadr slotfr))
+              next)
+          result)))
+
+(defun objcasegen (slotfr mode)
+  "Object cases of SLOTFR -- usually just the first open case, with
+   special handling of an `*obj' (indirect-object) marker. Mirrors
+   case.l 299."
+  (block objcasegen
+    (let ((result nil)
+          (open-cases (car slotfr)))
+      (when (null (car open-cases)) (return-from objcasegen nil))
+      (when (eq (caar open-cases) '*obj)
+        (do ((l (cdr open-cases) (cdr l))
+             (hd nil (cons (car l) hd))          ; Marcus's `head' local
+             (obj-case (cadar open-cases)))      ; Marcus's `*objcase'
+            ((or (null l)
+                 (when (eq (caar l) obj-case)
+                   (push (if mode
+                             (list (car l)
+                                   (append (nreverse hd) (cdr l))
+                                   (cadr slotfr))
+                             (car l))
+                         result)
+                   t))
+             ;; flush the *obj entry whether or not it was matched
+             (setq open-cases (cdr open-cases)))))
+      (unless (< (open-obj-cases (list open-cases)) objs-needed)
+        (push (if mode
+                  (list (car open-cases) (cons nil (cdr open-cases)) (cadr slotfr))
+                  (car open-cases))
+              result))
+      result)))
+
+(defun ppcasegen (slotfr prep mode)
+  "Cases of SLOTFR markable by preposition PREP, read forward; a
+   refillable case stays available. Mirrors case.l 333."
+  (do ((open-cases (car slotfr) (cdr open-cases))
+       (csave nil (cons (car open-cases) csave))
+       (result)
+       (prep-cases (or (get (get pred 'preps) prep)   ; Marcus's `ppcases' local
+                       (get prep 'cases-marked-by))))
+      ((null open-cases) result)
+    (when (member (caar open-cases) prep-cases)
+      (push (if mode
+                (list (car open-cases)
+                      (append (reverse csave)
+                              (if (member (caar open-cases) refillables)
+                                  open-cases
+                                  (cdr open-cases)))
+                      (cadr slotfr))
+                (car open-cases))
+            result))))
+
+
+;;; ===========================================================
+;;; consolidate-frame (case.l 366-394)
+;;; ===========================================================
+;;;
+;;; Keep the frame's CASES the intersection of the filled slots across
+;;; all hypothetical slotframes -- a slot certain in every hypothesis.
+
+(defun consolidate-frame ()
+  "Mirrors case.l 366."
+  (cond
+   ((null hypo-slots)
+    (warn "no consistent hypo-slot")
+    (when *carefulsw* (break "no consistent hypo-slot")))
+   ((null (cdr hypo-slots))
+    (bind-slots (filter-out-filled (car hypo-slots))))
+   (t (do ((pcercs (filter-out-filled (car hypo-slots)) (cdr pcercs))
+           (cert-slots))
+          ((null pcercs) (bind-slots cert-slots))
+        (do ((otherslotfrs (cdr hypo-slots) (cdr otherslotfrs))
+             (slot (car pcercs)))
+            ((null otherslotfrs) (push slot cert-slots))
+          (unless (member slot (cadar otherslotfrs)) (return nil)))))))
+
+(defun filter-out-filled (hslotfr)
+  "The full-slots of HSLOTFR not already in the open frame's CASES.
+   Mirrors case.l 382."
+  (do ((hslots (cadr hslotfr) (cdr hslots))
+       (result)
+       (filled-cases (get openframe 'cases)))   ; Marcus's `cases' local
+      ((null hslots) result)
+    (unless (member (car hslots) filled-cases) (push (car hslots) result))))
+
+(defun bind-slots (cert-slots)
+  "Add CERT-SLOTS to the open frame's CASES (and announce each to the
+   trace). Mirrors case.l 390."
+  (setf (get openframe 'cases) (append cert-slots (get openframe 'cases)))
+  (mapc (lambda (slot) (semcall 'case slot openframe)) cert-slots))

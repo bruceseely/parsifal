@@ -628,11 +628,27 @@ no-ops, so gram4 / parse-string stay green.
 `crule-index` calls; that is a separate glang-cl extension. The runtime
 monitor mechanism is exercised in tests by registering crules directly.
 
-**Increments 3-4 (pending):** the marker scoring + hypothesis generation,
-and the major operations (`need-slots`/`fits`/`fillslot`/
-`finalize-frame`/`passivize-cf`) with a small end-to-end clause. Full
-declarative-sentence parsing additionally needs the real `defs.l`
-dictionary load (a `#`-constituent readtable), the glang-cl
+**Increment 3 -- scoring + hypothesis generation (done).**
+The semantic-marker scoring (`smqval`, `smqchek`, `smarkers`,
+`maxsmqval`, `fit-of`/`fit-of-1`) and the hypothesis generators
+(`cases`, `subjcases`/`objcases`/`ppcases`, `subjcasegen`/`objcasegen`/
+`ppcasegen`, `consolidate-frame`, `filter-out-filled`, `bind-slots`),
+case.l 268-440. A case's marker requirement is a list split by `#` into
+an "ok" set (score 0) and a "great" set (score 1); a node scores -2 if
+nothing matches. The `#` marker is written `'|#|` and Marcus's `#sw`
+flag is renamed `great-sw`. Several generator locals shadow function
+names in the source (`head`, `cases`, `ppcases`); renamed to
+`hd`/`filled-cases`/`prep-cases`.
+
+**Deferred:** `super-smqval`/`super-fit-of`/`super-fit1-of` (case.l
+448-477) -- these are the *interactive* "smart semantics" oracle (they
+`read` a 0/1/2 rating from the terminal), like the TTY code, and aren't
+needed for marker-based parsing.
+
+**Increment 4 (pending):** the major operations (`need-slots`/`fits`/
+`fillslot`/`finalize-frame`/`passivize-cf`) with a small end-to-end
+clause. Full declarative-sentence parsing additionally needs the real
+`defs.l` dictionary load (a `#`-constituent readtable), the glang-cl
 `{CREATE}`/`{ATTACHMENT CRULE}` emission, and the NP/clause rules in
 gram2.l/gram3.l.
 

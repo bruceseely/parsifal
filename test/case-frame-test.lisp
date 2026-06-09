@@ -180,6 +180,79 @@
         (crule-index 'attachment
                      (list (cons 'np 'det) (lambda () (setq fired t)) 'np-det))
         (attach father daughter 'det)
-        (check "attach fires attach-monitor -> the crule" fired t)))
+        (check "attach fires attach-monitor -> the crule" fired t))
+
+      ;; --- semantic-marker scoring (smqval / smqchek / maxsmqval) ----
+
+      (let ((noun (cons (gensym "NOUN") 0))
+            (nbar (cons (gensym "NBAR") 0))
+            (np   (cons (gensym "NP")   0))
+            (pred nil))
+        (dolist (n (list noun nbar np))
+          (setf (symbol-plist (car n)) nil (symbol-value (car n)) nil))
+        (setfe noun '(noun)) (setfe nbar '(nbar)) (setfe np '(np))
+        (setr 'markers '(anim) noun)
+        (attach nbar noun 'noun)
+        (attach np   nbar 'nbar)
+        (setf (get 'agt   'markerset) (list 'hanim '|#| 'anim)   ; ok # great
+              (get 'pat   'markerset) (list 'rock)
+              (get 'thing 'markerset) (list 'all))
+        (check "smarkers finds the phrase head's markers" (smarkers np) '(anim))
+        (check "smqval: a great-set marker scores 1"  (smqval '(agt oblig) np) 1)
+        (check "smqval: no matching marker scores -2" (smqval '(pat oblig) np) -2)
+        (check "smqval: an `all' case scores 1"       (smqval '(thing oblig) np) 1)
+        (check "smqchek: a fitting case is T"     (smqchek '(agt oblig) nil np) t)
+        (check "smqchek: a non-fitting case is NIL" (smqchek '(pat oblig) nil np) nil)
+        (check "maxsmqval picks the best fit"
+               (maxsmqval '((agt oblig) (pat oblig)) np) 1))
+
+      ;; --- hypothesis generation -------------------------------------
+
+      (check "subjcasegen reads in reverse, stops after the oblig case"
+             (subjcasegen '(((agt oblig) (loc opt)) nil) t)
+             '(((agt oblig) nil nil) ((loc opt) ((agt oblig)) nil)))
+
+      (let ((objs-needed 1))
+        (check "objcasegen returns the first open case (with the nil hack)"
+               (objcasegen '(((obj oblig) (loc opt)) nil) t)
+               '(((obj oblig) (nil (loc opt)) nil))))
+
+      (let ((pred nil) (refillables '(time)))
+        (setf (get 'with 'cases-marked-by) '(instr))
+        (check "ppcasegen fronts the preposition-marked case"
+               (ppcasegen '(((agt oblig) (instr opt)) nil) 'with t)
+               '(((instr opt) ((agt oblig)) nil))))
+
+      ;; cases dispatches through openchek to the right generator
+      (let ((openframe nil) (hypo-slots '((nil nil))) (objs-needed 1) (pred nil)
+            (node (cons (gensym "N") 0)))
+        (setf (symbol-plist (car node)) nil)
+        (let ((cf (newcf 'normal)))
+          (associate-cf cf node)
+          (setf (get cf 'hypo-slots)  '((((obj oblig)) nil))
+                (get cf 'objs-needed) 1)
+          (openframe nil)                       ; force openchek to reload
+          (check "cases dispatches obj -> objcases"
+                 (cases node t 'obj)
+                 '(((obj oblig) (nil) nil)))))
+
+      ;; --- consolidate-frame -----------------------------------------
+
+      (let ((openframe (make-symbol "CF"))
+            (hypo-slots '((nil ((agt n1 subj)))))
+            (objs-needed 0) (pred nil) (ctrace nil))
+        (setf (get openframe 'cases) nil)
+        (consolidate-frame)
+        (check "consolidate-frame binds a single hypothesis's slots"
+               (get openframe 'cases) '((agt n1 subj))))
+
+      (let ((openframe (make-symbol "CF"))
+            (hypo-slots '((nil ((agt n1 subj) (obj n2 obj)))
+                          (nil ((agt n1 subj)))))
+            (objs-needed 0) (pred nil) (ctrace nil))
+        (setf (get openframe 'cases) nil)
+        (consolidate-frame)
+        (check "consolidate-frame keeps only slots certain in every hypothesis"
+               (get openframe 'cases) '((agt n1 subj)))))
 
     results))
