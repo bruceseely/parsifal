@@ -121,3 +121,89 @@
           (prphrase (phrasify (cadr case))))
         (cadr certain-frame))
   t)
+
+
+;;; ===========================================================
+;;; Interactive supervisor (case.l 448-477)
+;;; ===========================================================
+;;;
+;;; These three belong to case.l but were deferred to util.l because
+;;; they need the phrase-display layer above. They are the hand-scoring
+;;; "supervisor" path: instead of computing a semantic-marker fit,
+;;; super-smqval shows the operator a phrase and a frame and asks for a
+;;; 0/1/2 grade. The automatic SMQVAL path (case-frame.lisp) is what the
+;;; parser actually uses; nothing in the runtime calls these.
+;;;
+;;; Two dependencies are not in any delivered Marcus source:
+;;;   cursorpos -- the MacLISP terminal-control primitive. The trio uses
+;;;     only `(cursorpos 'c)' (clear screen), which is cosmetic; ported
+;;;     as a no-op stub. (Its query / positioning forms, used by the
+;;;     deferred tree printers, can be filled in when those land.)
+;;;   fitspg1   -- the fit-possibility generator super-fit1-of feeds to
+;;;     super-smqval. Undelivered; stubbed to signal a clear error so the
+;;;     dormancy is explicit (a NIL stub would instead fail obscurely in
+;;;     super-fit1-of's `(apply #'max ())').
+
+(defvar super-clears t
+  "Supervisor screen-clear control (case.l 446): T clears the screen
+   before each query, NIL leaves it, and `no-super' disables the
+   supervisor entirely (super-smqval just returns a neutral 0).")
+
+(defun cursorpos (&rest args)
+  "No-op stub for MacLISP's terminal cursor primitive (undelivered).
+   The supervisor uses only `(cursorpos 'c)' (clear screen), which is
+   cosmetic. Returns NIL."
+  (declare (ignore args))
+  nil)
+
+(defun fitspg1 (node caseset all)
+  "Undelivered in every Marcus source -- the supervisor's fit-possibility
+   generator (case.l 476). Stubbed to signal so the interactive path's
+   dormancy is explicit rather than failing obscurely downstream."
+  (declare (ignore node caseset all))
+  (error "fitspg1 is not in any delivered Marcus source; the interactive ~
+          supervisor (super-fit-of / super-fit1-of) cannot run until it ~
+          is supplied."))
+
+(defun super-smqval (case node frame)
+  "Ask the operator to grade how well NODE fills CASE in FRAME: show the
+   phrase and frame, read 0 (bad) / 1 (ok) / 2 (good), and map them to
+   the SMQVAL scale -2 / 0 / 1. Mirrors case.l 448. (Marcus's `prog' +
+   `huh?' retry loop becomes a LOOP; `lessp' is `<'.)"
+  (cond ((eq super-clears 'no-super) 0)
+        (t (when super-clears (cursorpos 'c))
+           (terpri)
+           (print '|________________|)
+           (say |How much do you like| $ (phrasify node) |as| $ case |with|)
+           (cfprint frame)
+           (let ((temp (loop
+                         (say |
+            0 - bad
+            1 - ok
+            2 - good
+            --->|)
+                         (let ((in (read)))
+                           (when (and (numberp in) (< -1 in 4))
+                             (return in))))))
+             (terpri)
+             (print '|________________|)
+             (cond ((= temp 0) -2)
+                   ((= temp 1) 0)
+                   ((= temp 2) 1))))))
+
+(defun super-fit1-of (node caseset framenode)
+  "Grade NODE against every fit-possibility CASESET offers (via FITSPG1)
+   and return the best operator score. Mirrors case.l 473. (Marcus's
+   one-shot `do' is a LET.)"
+  (apply #'max
+         (mapcar (lambda (case) (super-smqval case node framenode))
+                 (let ((temp (fitspg1 node caseset t)))
+                   (append (car temp) (cdr temp))))))
+
+(defmacro super-fit-of (node-form caseset-form)
+  "Supervisor counterpart of FIT-OF. Mirrors case.l 470, where it is a
+   fexpr that evaluates its NODE and CASESET arguments and *also*
+   evaluates the last element of the CASESET form as the frame node
+   (`(eval (car (last (cadr l))))'). Reproduced as a macro: the frame
+   node is the last element of CASESET-FORM."
+  `(super-fit1-of ,node-form ,caseset-form ,(car (last caseset-form))))

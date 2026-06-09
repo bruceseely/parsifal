@@ -341,16 +341,14 @@
   "Mirrors case.l 440."
   (maxsmqval caseset node))
 
-;;; DEFERRED TO the util.l increment (case.l 448-483)
+;;; PORTED IN util.l (case.l 448-477)
 ;;;   super-smqval / super-fit-of / super-fit1-of -- the interactive
 ;;;   "supervisor" scorers. Instead of computing a fit they prompt the
 ;;;   operator at the terminal ("how much do you like X as Y", read a
-;;;   0/1/2 grade) for hand-scored semantic fit. They depend on display
-;;;   helpers that live in util.l and are not yet ported -- `cfprint',
-;;;   `phrasify', `cursorpos', `say'/`say-it' formatting, and `fitspg1'.
-;;;   Nothing in the ported runtime calls them (the automatic SMQVAL
-;;;   path above is used), so they port alongside util.l where their
-;;;   dependencies land. (cf. macros2.lisp's "DEFERRED TO util.l".)
+;;;   0/1/2 grade) for hand-scored semantic fit. They depend on the
+;;;   phrase-display layer (`cfprint', `phrasify') and so live in
+;;;   util.lisp, which loads after this file. Nothing in the ported
+;;;   runtime calls them (the automatic SMQVAL path above is used).
 
 
 ;;; ===========================================================

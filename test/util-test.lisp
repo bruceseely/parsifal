@@ -85,6 +85,37 @@
               (result nil))
           (associate-cf (newcf 'normal) np)
           (out (lambda () (setq result (cfprint np))))
-          (check "cfprint runs without error and returns T" result t))))
+          (check "cfprint runs without error and returns T" result t))
+
+        ;; --- interactive supervisor (super-smqval / fitspg1 / ...) ---
+        ;; Drive super-smqval with canned operator input; capture and
+        ;; discard its terminal output. super-clears NIL skips cursorpos.
+        (flet ((grade (input)
+                 (let ((super-clears nil) (certain-frame nil)
+                       (openframe nil) (hypo-slots '((nil nil)))
+                       (objs-needed 0) (pred nil) (ctrace nil))
+                   (associate-cf (newcf 'normal) np)
+                   (with-input-from-string (in input)
+                     (let ((*standard-input* in)
+                           (*standard-output* (make-string-output-stream)))
+                       (super-smqval 'agt np np))))))
+          (check "super-smqval maps operator grade 2 -> 1"  (grade "2") 1)
+          (check "super-smqval maps operator grade 1 -> 0"  (grade "1") 0)
+          (check "super-smqval maps operator grade 0 -> -2" (grade "0") -2)
+          (check "super-smqval re-prompts on bad input, then accepts"
+                 (grade "foo 7 2") 1))
+
+        (let ((super-clears 'no-super))
+          (check "super-smqval returns neutral 0 when disabled (no-super)"
+                 (super-smqval 'agt np np) 0))
+
+        (check "fitspg1 (undelivered) signals an error"
+               (handler-case (progn (fitspg1 nil nil t) :no-error)
+                 (error () :errored))
+               :errored)
+
+        (check "super-fit-of threads the caseset form's last element as frame"
+               (macroexpand-1 '(super-fit-of nd (cases up nil fr)))
+               '(super-fit1-of nd (cases up nil fr) fr))))
 
     results))

@@ -574,7 +574,7 @@ bit-2 NR-checked bookkeeping); and debug/timing (`ruletrap`/`breaksw`/
 `starttime`/`endtime`).
 
 
-### `case.l` — *ported (core; interactive oracle + a few aux deferred)*
+### `case.l` — *fully ported (core in case-frame.lisp; oracle in util.lisp)*
 
 Case-frame mechanism (Marcus's Appendix E): assigns a clause's NPs/PPs
 to a verb's thematic slots by semantic-marker scoring; consumes the
@@ -640,10 +640,11 @@ flag is renamed `great-sw`. Several generator locals shadow function
 names in the source (`head`, `cases`, `ppcases`); renamed to
 `hd`/`filled-cases`/`prep-cases`.
 
-**Deferred:** `super-smqval`/`super-fit-of`/`super-fit1-of` (case.l
-448-477) -- these are the *interactive* "smart semantics" oracle (they
-`read` a 0/1/2 rating from the terminal), like the TTY code, and aren't
-needed for marker-based parsing.
+**`super-smqval`/`super-fit-of`/`super-fit1-of`** (case.l 448-477) -- the
+*interactive* "smart semantics" oracle (they `read` a 0/1/2 rating from
+the terminal). Not needed for marker-based parsing; ported later in the
+util.l increment (they need `phrasify`/`cfprint`). See the util.l
+Increment 3 note.
 
 **Increment 4 -- major operations (done).**
 The grammar-facing case-frame operations (case.l 99-252, 514-527):
@@ -658,12 +659,18 @@ keeps the hypotheses with all obligatory cases filled (verified in
 
 Stubs / defers: `pp-cf-check` (referenced by `fillslot` but undefined in
 any delivered file) and `dp1` (util.l case-frame display, only reached
-under `ctrace`) are no-op stubs. Deferred: `pgof` (unused, and stores
-daughters as a raw list incompatible with our gensym holders),
-`real-caseset` (depends on the undefined `poss-pg-cases`), and the
-`super-*` interactive oracle (Increment 3).
+under `ctrace`) are no-op stubs.
 
-With this, **case.l's core is ported.** The remaining work before a full
+**Increment 5 -- final aux + interactive oracle (done).**
+`pgof` (case.l 565, the prep+NP denotation — its daughters go in a
+gensym holder to match our `attach` representation) and `real-caseset`
+(case.l 528, genitive case generation; its `poss-pg-cases` is undelivered
+and stubbed to NIL, so the genitive branch is dormant) landed as
+increments 5a/5b. The `super-*` interactive oracle (5c) was deferred to
+util.l, where its `phrasify`/`cfprint` dependencies live — now ported
+there (see the util.l Increment 3 note).
+
+With this, **case.l is fully ported.** The remaining work before a full
 English sentence parses is independent of case.l: loading the real
 `defs.l` dictionary (a `#`-constituent readtable), teaching glang-cl to
 compile the `{CREATE}` / `{ATTACHMENT CRULE}` rule forms into
@@ -836,14 +843,33 @@ its argument's frame) — reproduced verbatim; and its output spacing
 differs slightly because the port's `say-it` space-separates items where
 Marcus's `print2` concatenated them.
 
+**Increment 3 — interactive supervisor (done).**
+`super-smqval` / `super-fit1-of` / `super-fit-of` (case.l 448-477) — the
+hand-scoring "supervisor" path deferred out of case.l because it needs
+the phrase-display layer above. `super-smqval` shows the operator a
+phrase and frame and reads a 0/1/2 grade, mapping it to the SMQVAL scale
+−2/0/1; the others drive it over a caseset's fit-possibilities. They live
+in util.lisp (not case-frame.lisp) because they call `phrasify`/`cfprint`,
+and util.lisp loads later. Nothing in the parser calls them — the
+automatic SMQVAL path is what runs.
+
+Adaptations: Marcus's `prog` + `huh?` retry loop becomes a `LOOP`;
+`lessp`→`<`, `if*`→`when`, `ifnot`→`unless`. `super-fit-of` is a MacLISP
+fexpr that evaluates its node and caseset arguments and *also* evaluates
+the last element of the caseset *form* as the frame node
+(`(eval (car (last (cadr l))))`) — reproduced as a macro that threads
+`(car (last caseset-form))`. Two undelivered dependencies: `cursorpos`
+(the terminal cursor primitive; the trio uses only `(cursorpos 'c)`,
+ported as a no-op stub) and `fitspg1` (the fit-possibility generator;
+stubbed to *signal* so the dormancy is explicit rather than failing
+obscurely in `super-fit1-of`'s `(apply #'max ())`).
+
 Still deferred to a later util.l increment: `default-arg` (a port-time
 `&optional` translation, ports with its sole caller `ptree`); the tree
-printers (`tree`, `stree`, `ptree`, `short-ctree`); the full
-`say-it1`/`say1` with `$$`-splice and `$$up` cursor control; and case.l's
-interactive supervisor trio (`super-smqval` / `super-fit-of` /
-`super-fit1-of`), which can now build on `phrasify`/`cfprint` but still
-waits on `cursorpos`/`fitspg1`. The REPL/top-level loop and the terminal
-"movie" code will likely port last, if at all.
+printers (`tree`, `stree`, `ptree`, `short-ctree`, which also need
+`cursorpos`'s positioning forms); and the full `say-it1`/`say1` with
+`$$`-splice and `$$up` cursor control. The REPL/top-level loop and the
+terminal "movie" code will likely port last, if at all.
 
 
 ### `pautil.l`, `patches.l`, `xutil.l`, `load.l`, `load1.l`, `newdef.l`, `testdef.l`
