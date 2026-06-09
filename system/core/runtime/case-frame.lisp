@@ -188,6 +188,36 @@
 
 
 ;;; ===========================================================
+;;; Prepositional-group denotation (case.l 565)
+;;; ===========================================================
+;;;
+;;; `pgof' is the denotation the grammar runs for a preposition + its
+;;; object NP (glang.l 520: `(prefix prepositional 10. (denfun 'pgof
+;;; phrase of right and right))'). It fabricates a throw-away `dummypg'
+;;; node whose only content is its daughters -- the prep and the np --
+;;; and hands it back as a one-element daughter list, so the case-frame
+;;; machinery can later read its NP and PREP daughters.
+;;;
+;;; Marcus stores the daughters as a literal disembodied plist
+;;; `(nil np (ncons np) prep (ncons prep))'. We follow the port's
+;;; convention instead (see `attach', buffer-ops.lisp 154): the
+;;; `daughters' register holds a fresh gensym whose real plist carries
+;;; the type->list mappings, so the standard `(daughter 'np node)' /
+;;; `(daughters 'prep node)' accessors retrieve them.
+
+(defun pgof (prep np)
+  "Fabricate a `dummypg' node holding PREP and NP as its prep/np
+   daughters, returned as a one-element daughter list. Mirrors
+   case.l 565."
+  (let ((faknode   (makesym 'dummypg))
+        (daughters (gensym "DAUGHTERS-")))
+    (setf (get daughters 'np)   (list np)
+          (get daughters 'prep) (list prep))
+    (setf (get faknode 'daughters) daughters)
+    (list faknode)))
+
+
+;;; ===========================================================
 ;;; Surface-structure monitoring (case.l 574-598)
 ;;; ===========================================================
 ;;;

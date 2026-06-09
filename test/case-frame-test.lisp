@@ -333,6 +333,21 @@
           (check "passivize-cf adds a variant with the object case obligatory"
                  hypo-slots '(((nil (obj oblig)) nil)))))
 
+      ;; --- pgof ------------------------------------------------------
+
+      (let* ((np   (cons (gensym "NP") 0))
+             (prep 'to)
+             (result (pgof prep np))
+             (node result))
+        (check "pgof returns a one-element daughter list"
+               (length result) 1)
+        (truthy "pgof's element is a symbol (the fake node head)"
+                (symbolp (car node)))
+        (check "pgof's node exposes the NP via the daughter accessor"
+               (daughter 'np node) np)
+        (check "pgof's node exposes the prep via the daughter accessor"
+               (daughter 'prep node) prep))
+
       ;; --- prefer ----------------------------------------------------
 
       (check "prefer: T when value1 leads value2 by at least degree"
