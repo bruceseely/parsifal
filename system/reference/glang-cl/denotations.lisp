@@ -646,6 +646,17 @@
     (cons *left* args)))
 
 
+;; `word 'X''  -->  (wordify 'X)   Marcus's `word' prefix (glang.l 488):
+;; the literal `X' between matching single quotes names a word; e.g.
+;; `Insert the word 'wh-' into the buffer before 1st' (REDUCED-RELATIVE),
+;; `the word 'to'' (INSERT-TO).
+(prefix word 10
+  (progn (check '|'|)
+         (let ((w (eat-token)))
+           (check '|'|)
+           (list 'wordify (list 'quote w)))))
+
+
 ;;; -------------------------------------------------------------------
 ;;; If/then/else/andthen (glang.l lines 422-435)
 ;;;

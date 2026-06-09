@@ -225,6 +225,13 @@
                (action-of "{RULE X IN P [t] --> Parse is finished.}")
                '(progn (setq *parsecomplete* t)))
 
+        ;; `the word 'X'' --> (wordify 'X), composing with Insert (the
+        ;; INSERT-TO / REDUCED-RELATIVE family in gram2.l).
+        (check "the word 'to' --> (wordify 'to)"
+               (action-of
+                "{RULE X IN P [t] --> Insert the word 'to' into the buffer before 2nd.}")
+               '(progn (insert-node (wordify 'to) 1)))
+
 
         ;; --- new denotations: nilfix atoms ---
         ;; Atoms are tested as standalone expressions via PARSE-STRING.
