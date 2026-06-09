@@ -39,6 +39,14 @@
    #:mod-features     #:lowcaseify
    #:*wstring-tree*   #:*wstring-list*      #:*numbers*
    #:*always-expand*  #:*caseorder*
+   ;; --- Morphology (com.l) -------------------------------------------
+   #:morpho           #:origcase            #:try
+   #:ends-in          #:strip-if            #:strip-if-any
+   #:sta              #:modfe
+   #:*vowels*         #:*consos*            #:*liquids*
+   #:*noend*          #:*endpuncs*          #:*puncs*
+   #:*rt*             #:*word*              #:*wrd*
+   #:*modfelist*      #:*nextmorph*
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -101,7 +109,8 @@
                                                          (:file "node-ops")
                                                          (:file "parse-loop")
                                                          (:file "defs")
-                                                         (:file "lexicon")))
+                                                         (:file "lexicon")
+                                                         (:file "morpho")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -119,7 +128,8 @@
                              (:file "buffer-ops-test")
                              (:file "node-ops-test")
                              (:file "parse-loop-test")
-                             (:file "lexicon-test")))))
+                             (:file "lexicon-test")
+                             (:file "morpho-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

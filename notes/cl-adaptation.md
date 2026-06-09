@@ -637,9 +637,31 @@ interns from the lexicon source (the runtime is uppercase-canonical).
 set it, so the rare `cases`-override path orders added cases at the end.
 Tests in `test/lexicon-test.lisp`.
 
-**Increments 3-4 (pending):** `morpho` (+ its char-class globals and the
-case-folding it implies), and a non-interactive string→`*wstring*`
-reader plus the full `parse` driver and the real `defs.l` lexicon load.
+**Increment 3 — morphology (done).**
+`system/core/runtime/morpho.lisp` (loaded after `lexicon`). `morpho`
+plus `sta`/`ends-in`/`strip-if`/`strip-if-any`/`modfe`/`try`/`origcase`
+and the char-class globals (`*vowels*`/`*consos*`/`*liquids*`/`*noend*`/
+`*endpuncs*`/`*puncs*`; `*numbers*` is in `lexicon.lisp`). It strips
+inflections (-s, -ed, -ing, -er, -est, -ly, ordinals, contractions) and
+undoes English spelling changes (consonant doubling, final -e, y/i) to
+reconstruct a root it looks up via `expandsim`.
+
+- **Reversed character lists.** `morpho`'s input is a list of character
+  *codes in reverse order*, exactly as Marcus's `sentin` collects a
+  word; `*rt*`/`*word*` stay reversed and `ends-in`/`sta` match suffixes
+  against the front of the reversed list.
+- **Three faithful reproductions of likely source errata**, flagged
+  inline: `(member (cdddr *rt*) *vowels*)` (a tail never `eq` a vowel →
+  always falls to `adde`), `try`'s `(get 'features x)` (looks transposed
+  from `(get x 'features)`), and `strip-if-any` never testing its last
+  suffix. Preserved as-is; revisit if Increment 4 needs them.
+
+Verified end-to-end in `test/morpho-test.lisp`: `cats`→`cat`+npl,
+`running`→`run`+ing (consonant doubling), `walked`→`walk`+past,
+`faster`→`fast`+comp, `quickly`→`quick`+adv, `don't`→`do`, `5th`→ord.
+
+**Increment 4 (pending):** a non-interactive string→`*wstring*` reader,
+the full `parse` driver, and the real `defs.l` lexicon load.
 
 
 ### `util.l` — *not yet ported*
