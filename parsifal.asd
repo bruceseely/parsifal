@@ -138,7 +138,8 @@
                                                          (:file "lexicon")
                                                          (:file "morpho")
                                                          (:file "input")
-                                                         (:file "case-frame")))
+                                                         (:file "case-frame")
+                                                         (:file "util")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
@@ -158,7 +159,8 @@
                              (:file "parse-loop-test")
                              (:file "lexicon-test")
                              (:file "morpho-test")
-                             (:file "case-frame-test")))))
+                             (:file "case-frame-test")
+                             (:file "util-test")))))
 
 
 ;;; The glang-cl Pratt-style port of Marcus's grammar-language parser

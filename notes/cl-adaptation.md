@@ -789,11 +789,41 @@ case-frame machinery (`case.l`) plus the NP/clause rules in
 gram2.l/gram3.l.
 
 
-### `util.l` — *not yet ported*
+### `util.l` — *port started (foundational utilities)*
 
 Parser-interface / display utilities. Header comment says "none of which
 are necessary to run the parser" — accurate. Tree-printing, REPL plumbing,
-tracing. Will likely port last.
+tracing, and the terminal-control "movie" machinery (tied to MacLISP
+`cursorpos` / split-screen, which have no modern equivalent). Being ported
+in increments, bottom-up, taking the pieces the rest of the port actually
+needs rather than the whole interactive shell.
+
+**Increment 1 — symbol synthesis `concat` / `cat` (done).**
+`system/core/runtime/util.lisp` (loaded last). Marcus defines these in
+`macros2.l` (lines 50, 55), but their consumers live in util.l, so the
+`macros2.lisp` port deferred them here. `concat` builds an interned
+symbol from its arguments' concatenated printnames; `cat` is the macro
+shorthand that rewrites to a `concat` call. Used to synthesize rule /
+denotation names (`:act-of-`, `:nud-`, …) and the date/dump strings.
+
+Note: unlike `implode` (`maclisp-chars.lisp`), which reads an integer
+argument as a character *code*, every `concat` argument contributes its
+`princ` representation — so the number 5 contributes the digit "5", not
+character 5. Interned in `:parsifal`, matching the port's single-obarray
+convention (cf. `implode` / `readlist`). A *string* argument keeps its
+case verbatim while a *symbol*'s printname is upcased by the reader; in
+practice `concat` is called with symbols/numbers. Tests in
+`test/util-test.lisp`.
+
+Still deferred to a later util.l increment: `default-arg` (a port-time
+`&optional` translation, ports with its sole caller `ptree`); the
+phrase-display layer (`phrasify`, `collectw`, `prphrase`, `nodes-to-words`,
+`cfprint`); the tree printers (`tree`, `stree`, `ptree`, `short-ctree`);
+the full `say-it1`/`say1` with `$$`-splice and `$$up` cursor control; and
+case.l's interactive supervisor trio (`super-smqval` / `super-fit-of` /
+`super-fit1-of`), which waits on `cfprint`/`phrasify`/`cursorpos`/`fitspg1`.
+The REPL/top-level loop and the terminal "movie" code will likely port
+last, if at all.
 
 
 ### `pautil.l`, `patches.l`, `xutil.l`, `load.l`, `load1.l`, `newdef.l`, `testdef.l`

@@ -48,18 +48,21 @@
 ;;;   set-difference in particular must NOT be defined as a macro -- it
 ;;;   is the name of a CL standard function.
 ;;;
-;;; DEFERRED TO util.l (its only consumers live there)
+;;; PORTED IN util.l
 ;;;   cat -> concat  -- symbol synthesis by concatenating printnames.
 ;;;                     The three parse.l uses are already obsoleted by
 ;;;                     this port's design: makesym (node-ops.lisp)
 ;;;                     builds node symbols, and act-of-rule
 ;;;                     (parse-loop.lisp) replaces `(cat ':act-of- ..)'
 ;;;                     with a plist lookup. The remaining uses are all
-;;;                     in util.l (date/dump strings), so cat ports
-;;;                     alongside util.l.
+;;;                     in util.l (date/dump strings); cat/concat now
+;;;                     live in util.lisp.
+;;;
+;;; DEFERRED TO util.l (port-time translation, alongside its caller)
 ;;;   default-arg    -- variadic-arg default; becomes an &optional
-;;;                     parameter default at port time. All 12 call
-;;;                     sites are in util.l.
+;;;                     parameter default at port time. Its call sites
+;;;                     are all in util.l's `ptree', so it ports when
+;;;                     ptree does.
 ;;;
 ;;; The MacLISP pragmas `(declare (macros t))' and the `(*lexpr ...)'
 ;;; declaration have no CL equivalent and are dropped.
