@@ -110,6 +110,15 @@
       (setq *bufpntr* (pop *bufpntrstak*))
       (warn "Attempting to pop empty buffer pointer stack.")))
 
+(defun last* ()
+  "The buffer node immediately before the current position, or NIL
+   when *bufpntr* is at the buffer start. Marcus names this `:last'
+   (parse.l 565); a keyword can't head a CL call form, so the grammar
+   word `last' -- which Marcus's glang emits as `(:last)' -- emits
+   `(last*)' here instead (see glang-cl denotations.lisp)."
+  (and (not (zerop *bufpntr*))
+       (aref *buffer* (1- *bufpntr*))))
+
 
 ;;; ===========================================================
 ;;; Packet activation (parse.l 647-656)
@@ -165,6 +174,13 @@
     (setf (get daughters type) (cons dn (get daughters type)))
     (setflags dn (logior 1 (flags dn)))
     (attach-monitor fn dn type)))
+
+(defun alt-attach (dn fn type)
+  "Record an ambiguous (deferred) attachment of DN to FN as TYPE on
+   the current sentence node S, rather than committing it now. Mirrors
+   parse.l line 583. The companion `alt-fillslot' is deferred -- it
+   needs case.l's `putc'."
+  (setr 'ambig-attach (list dn fn type) s))
 
 (defun drop (index)
   "Drop the current node C back into the buffer (at *bufpntr*+INDEX),

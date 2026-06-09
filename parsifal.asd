@@ -44,6 +44,7 @@
    #:newnode          #:newcf
    #:makenode         #:makesym
    #:set*             #:setup*             #:nextword
+   #:last*            #:buffer-gc
    #:word             #:s-type
    #:head             #:root-of
    #:nid              #:node-id

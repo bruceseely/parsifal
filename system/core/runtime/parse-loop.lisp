@@ -225,6 +225,37 @@
 
 
 ;;; ===========================================================
+;;; Buffer garbage collection (parse.l 175-185)
+;;; ===========================================================
+
+(defun buffer-gc ()
+  "Compact the buffer at the start of each NEXTRULE pass: walk forward
+   from *bufpntr* dropping nodes that are already attached to the tree
+   (flag bit 1 set) -- once attached, a node no longer needs a buffer
+   slot. Stop and return immediately on an attached node that is an
+   unchecked NR-type (flag bit 2 clear): it may still trigger a
+   node-raising rule, so it must stay in place. Unattached nodes are
+   left alone. Mirrors parse.l line 175.
+
+   Removing a node shifts the rest down, so we revisit the same index
+   after a removal (the (1- i) cancels the loop's (1+ i))."
+  (do ((i *bufpntr* (1+ i))
+       (node))
+      ((> i *bufmax*) nil)
+    (cond
+      ;; Unattached node (bit 1 clear) -- still pending; leave it.
+      ((zerop (logand 1 (flags (setq node (aref *buffer* i))))))
+      ;; Attached but unchecked NR-type node -- stop; it may fire an
+      ;; NR rule and must keep its slot.
+      ((and (zerop (logand 2 (flags node)))
+            (member (getr 'type node) *nr-types* :test #'eq))
+       (return nil))
+      ;; Attached, nothing left to do with it -- drop it and re-examine
+      ;; this position (now occupied by the node that shifted down).
+      ((remove-index-pos i) (setq i (1- i))))))
+
+
+;;; ===========================================================
 ;;; Main loop (parse.l 103-172)
 ;;; ===========================================================
 ;;;
@@ -264,6 +295,9 @@
            (*parsecomplete*
             (return t)))
    nextrule
+     ;; Compact the buffer (drop nodes already attached to the tree)
+     ;; before picking the next rule. parse.l line 142.
+     (when *buffer-gc* (buffer-gc))
      ;; Pick the next rule via pattern matching.
      (setq *activerule* nil
            |1ST|        nil

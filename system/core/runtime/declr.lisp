@@ -71,7 +71,7 @@
 (defvar *bufpntrstak*    nil)
 (defvar *bufmax*        -1)
 (defvar *buffer*         nil)
-(defvar *buffer-gc*      nil)
+(defvar *buffer-gc*      t)    ; parse.l 23: (setq :buffer-gc t)
 
 ;;; --- Current-sentence / wh-completion --------------------------------
 (defvar s                nil)

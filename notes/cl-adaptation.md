@@ -399,17 +399,24 @@ Notes on the port:
 - `attach-monitor` and `create-monitor` are case-frame hooks defined
   in `case.l`. Until that file is ported they are stubbed as no-ops.
 
+**Recently landed (parse.l small helpers):**
+
+- `buffer-gc` (parse.l 175-185) — ported into `parse-loop.lisp` and
+  wired into the loop's `nextrule` label as `(when *buffer-gc* (buffer-gc))`.
+  `*buffer-gc*` now defaults to `t` (parse.l 23), matching Marcus.
+- `:last` (parse.l 565) — ported as `last*`; a keyword can't head a CL
+  call form, so glang-cl's `last` denotation now emits `(last*)`.
+- `alt-attach` (parse.l 583) — records a deferred attachment on `s`.
+
 **Not yet ported from parse.l:**
 
-- Node cleanup: `node-reset`, `nodegc`
-- Feature-indexed `fetchrules` (perf optimisation; not needed for
-  correctness)
-- Buffer scan / advance: `set*`, `setup*`, `buffer-gc`
-- AS / NR rule dispatch from `set*`
+- Node cleanup: `node-reset`, `nodegc` (uninterning + `cat`)
+- AS / NR rule dispatch from `set*` (the bit-2 NR-checked bookkeeping)
 - Phrase-structure helpers: `head`, `word`, `root-of`
-- Tree printing: `nid`, `node-id`
-- Misc: `nextword`, `:last`, `endtime`, `starttime`, `ruletrap`,
-  `breaksw`, `alt-attach`, `alt-fillslot`
+- Tree printing: `nid`, `node-id` (need `phrasify` from util.l)
+- `alt-fillslot` (needs `putc` from case.l)
+- The full `parse` driver (needs `sentin` from com.l)
+- Debug / timing: `endtime`, `starttime`, `ruletrap`, `breaksw`
 
 **Package alignment between glang-cl and parsifal — resolved.**
 

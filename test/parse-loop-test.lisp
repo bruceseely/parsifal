@@ -157,6 +157,81 @@
         (check "parse-loop returns NIL on deadlock"
                (handler-bind ((warning #'muffle-warning))
                  (parse-loop))
-               nil)))
+               nil))
+
+
+      ;; --- buffer-gc (parse.l 175-185) -------------------------------
+
+      ;; All-attached run from *bufpntr* is removed entirely.
+      (let* ((*buffer*  (make-array 10 :initial-element nil))
+             (*bufpntr* 0)
+             (*bufmax*  2)
+             (*nr-types* nil))
+        (setf (aref *buffer* 0) (cons (gensym) 1)  ; flags bit1 = attached
+              (aref *buffer* 1) (cons (gensym) 1)
+              (aref *buffer* 2) (cons (gensym) 1))
+        (buffer-gc)
+        (check "buffer-gc removes a run of attached nodes"
+               *bufmax*
+               -1))
+
+      ;; An unattached node is left in place.
+      (let* ((node      (cons (gensym) 0))      ; flags bit1 clear
+             (*buffer*  (make-array 10 :initial-element nil))
+             (*bufpntr* 0)
+             (*bufmax*  0)
+             (*nr-types* nil))
+        (setf (aref *buffer* 0) node)
+        (buffer-gc)
+        (check "buffer-gc leaves an unattached node"
+               (list *bufmax* (aref *buffer* 0))
+               (list 0 node)))
+
+      ;; Stops on an attached, unchecked NR-type node (keeps its slot);
+      ;; the attached non-NR node ahead of it is still collected.
+      (let* ((nr-head   (gensym "NR"))
+             (nr-node   (cons nr-head 1))       ; attached, bit2 clear
+             (plain     (cons (gensym) 1))      ; attached, non-NR
+             (*buffer*  (make-array 10 :initial-element nil))
+             (*bufpntr* 0)
+             (*bufmax*  1)
+             (*nr-types* (list 'foo-nr)))
+        (setf (get nr-head 'type) 'foo-nr)
+        (setf (aref *buffer* 0) plain
+              (aref *buffer* 1) nr-node)
+        (buffer-gc)
+        (check "buffer-gc stops at an attached unchecked NR-type node"
+               (list *bufmax* (aref *buffer* 0))
+               (list 0 nr-node)))
+
+
+      ;; --- last* (parse.l 565) ---------------------------------------
+
+      (let ((*buffer*  (make-array 5 :initial-element nil))
+            (*bufpntr* 0))
+        (check "last* is NIL at the buffer start"
+               (last*)
+               nil))
+
+      (let* ((prev      (cons (gensym) 0))
+             (*buffer*  (make-array 5 :initial-element nil))
+             (*bufpntr* 1))
+        (setf (aref *buffer* 0) prev)
+        (check "last* returns the node before *bufpntr*"
+               (last*)
+               prev))
+
+
+      ;; --- alt-attach (parse.l 583) ----------------------------------
+
+      (let* ((s-head (gensym "S"))
+             (s      (cons s-head 0))
+             (dn     (cons (gensym) 0))
+             (fn     (cons (gensym) 0)))
+        (setf (symbol-plist s-head) nil)
+        (alt-attach dn fn 'np)
+        (check "alt-attach records (dn fn type) on s under ambig-attach"
+               (getr 'ambig-attach s)
+               (list dn fn 'np))))
 
     results))

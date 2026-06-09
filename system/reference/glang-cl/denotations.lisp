@@ -252,7 +252,7 @@
 ;;; Nilfix atoms (glang.l lines 450, 536, 545, 546)
 ;;; -------------------------------------------------------------------
 
-(nilfix last (list :last))                 ; (:last) function call form
+(nilfix last (list 'last*))                ; (last*) call form -- parsifal::last*
 (nilfix it '*it*)                          ; the *it* special var
 (nilfix wh-comp (list 'wh-comp))           ; (wh-comp) call form
 
