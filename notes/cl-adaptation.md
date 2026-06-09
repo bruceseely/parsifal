@@ -583,13 +583,13 @@ case-frame is a gensym with properties `CASE-FRAME` (NORMAL or MOD),
 property-list machinery handles all of this directly.
 
 
-### `com.l` — *in progress (compat layer landed)*
+### `com.l` — *ported (non-interactive core; TTY/define deferred)*
 
 REPL, sentence input (`sentin`), morphology (`morpho`), word-tree, and
-the lexicon definers (`df`/`df+`/`jlike`/...). Being ported in four
-increments (see the porting scope); the interactive TTY reader,
-`define?`, node-uninterning cleanup, and the case-frame *modification*
-path (`modcasef`/`:caseorder`) are deferred.
+the lexicon definers (`df`/`df+`/`jlike`/...). Ported in four increments
+(below). The interactive TTY reader, `define?`, node-uninterning
+cleanup, and the case-frame *modification* path (`modcasef`/`:caseorder`)
+are deferred.
 
 **Increment 1 — MacLISP char/symbol compat layer (done).**
 `system/core/runtime/maclisp-chars.lisp`. com.l and `morpho` take words
@@ -660,8 +660,45 @@ Verified end-to-end in `test/morpho-test.lisp`: `cats`→`cat`+npl,
 `running`→`run`+ing (consonant doubling), `walked`→`walk`+past,
 `faster`→`fast`+comp, `quickly`→`quick`+adv, `don't`→`do`, `5th`→ord.
 
-**Increment 4 (pending):** a non-interactive string→`*wstring*` reader,
-the full `parse` driver, and the real `defs.l` lexicon load.
+**Increment 4 — sentence input + parse driver (done).**
+`system/core/runtime/input.lisp` (loaded after `morpho`):
+
+- `nodify`/`nodify*`/`wordify` (com.l 281-310) -- canonical word →
+  buffer node, collapsing multi-token phrases via the word-tree.
+- `tokenize` + `read-sentence` -- the non-interactive replacement for
+  com.l's TTY `sentin`: split a string (peeling trailing punctuation
+  into its own tokens), `morpho` each token, then `nodify*`. Sets
+  `*wstring*`.
+- `reset-parser-state` + `parse-sentence` -- the startup half of
+  Marcus's `parse` (parse.l 103) with `(sentin)` replaced by
+  `read-sentence`, then `parse-loop`.
+
+Deviations / notes:
+
+- **No TTY.** The character-level line editor (rubout, `$c`/`$s`,
+  cursor control) and the `*nextmorph*` re-feed are replaced by a
+  whole-string tokenizer that pre-splits punctuation.
+- **Naming collisions with glang-cl.** glang-cl `:use`s `:parsifal` and
+  defines its own `tokenize` and `parse-string`; exporting those names
+  let glang-cl's definitions clobber the runtime's (a 1-arg
+  `parse-string` shadowing the driver). So `tokenize` stays internal
+  and the driver is exported as **`parse-sentence`**.
+- `nodify` faithfully initialises a fresh node's `daughters` register
+  to the symbol `word` (`(list 'daughters 'word ...)`); inert for leaf
+  word-nodes, flagged in case it matters.
+
+End-to-end pipeline verified in `test/integration/parse-string-test.lisp`:
+the string `"it ."` flows reader → `parse-sentence` → `parse-loop` →
+glang-cl-compiled `INITIAL-RULE`/`NP-UTT`, building an S with the NP and
+final punctuation attached.
+
+**Still deferred (need other files):** the interactive `sentin`,
+`define?`, `say-sent`, node-uninterning cleanup (`remnodes`/`remnode`);
+loading the real `defs.l` dictionary (lines 85-876) needs a readtable
+that treats MacLISP `#` markers as constituents (CL's reader rejects a
+bare `#`); and full gram1.l declarative-sentence parsing needs the
+case-frame machinery (`case.l`) plus the NP/clause rules in
+gram2.l/gram3.l.
 
 
 ### `util.l` — *not yet ported*

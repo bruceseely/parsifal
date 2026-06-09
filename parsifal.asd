@@ -47,6 +47,13 @@
    #:*noend*          #:*endpuncs*          #:*puncs*
    #:*rt*             #:*word*              #:*wrd*
    #:*modfelist*      #:*nextmorph*
+   ;; --- Sentence input + parse driver (com.l / parse.l) --------------
+   ;; (`tokenize' is intentionally NOT exported -- glang-cl defines its
+   ;; own; and the driver is `parse-sentence', not `parse-string', for
+   ;; the same reason.)
+   #:nodify           #:nodify*             #:wordify
+   #:read-sentence    #:reset-parser-state  #:parse-sentence
+   #:*ordercounter*
    #:plus             #:times
    #:redund           #:*redund-table*      #:*specregs* #:refillables
    #:rule-index       #:rem-index           #:testrules
@@ -110,7 +117,8 @@
                                                          (:file "parse-loop")
                                                          (:file "defs")
                                                          (:file "lexicon")
-                                                         (:file "morpho")))
+                                                         (:file "morpho")
+                                                         (:file "input")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")
