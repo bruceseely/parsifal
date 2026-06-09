@@ -196,6 +196,39 @@
 
 
 ;;; -------------------------------------------------------------------
+;;; The CRULE denotations -- surface-structure monitors
+;;;
+;;; `{CREATION CRULE name node-type  body}' fires BODY whenever a node of
+;;; NODE-TYPE is created; `{ATTACHMENT CRULE name upper OVER lower body}'
+;;; fires BODY whenever a LOWER node is attached under an UPPER node.
+;;; (glang.l lines 601-610, the `crule' macro.) CREATION / ATTACHMENT
+;;; lead the brace, so each is a prefix that hands its kind to BUILD-CRULE.
+;;;
+;;; BUILD-CRULE returns the intermediate
+;;;     (crule NAME TYPE NODES BODY)
+;;; with TYPE creation|attachment and NODES (node-type) or (upper lower);
+;;; COMPILE-CRULE-FORM (compiler.lisp) turns it into Marcus's emitted
+;;; (crule-index ...) + defun. Like BUILD-RULE, the BODY is one Pratt
+;;; parse, the action statements chained by the `.' infix up to `}'.
+;;; -------------------------------------------------------------------
+
+(prefix creation   1 (build-crule 'creation))
+(prefix attachment 1 (build-crule 'attachment))
+
+(defun build-crule (type)
+  (check 'crule)
+  (let* ((*rulename* (eat-token))
+         (nodes
+           (ecase type
+             (creation (list (eat-token)))           ; (node-type)
+             (attachment                              ; (upper lower)
+              (let ((upper (eat-token)))
+                (check 'over)
+                (list upper (eat-token)))))))
+    (list 'crule *rulename* type nodes (pratt-parse 0))))
+
+
+;;; -------------------------------------------------------------------
 ;;; The action-sequence `.' infix
 ;;;
 ;;; `A. B. C.' parses to (PROGN A B C). Stops at `}' or end of input.

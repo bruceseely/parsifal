@@ -97,6 +97,44 @@
                '(featindexify nil)))
 
 
+      ;; --- surface-structure crules (CREATION / ATTACHMENT) ---
+
+      ;; A creation crule: node-spec is the lone node-type.
+      (let ((emitted (compile-rule
+                      "{CREATION CRULE S-CREATE S Activate cpool.}")))
+        (check "crule(creation): (progn 'compile ...)"
+               (list (first emitted) (second emitted))
+               '(progn 'compile))
+        (check "crule(creation): crule-index call shape"
+               (third emitted)
+               '(crule-index 'creation
+                 '(s |::CRULE-OF-S-CREATE| s-create)))
+        (check "crule(creation): defun ::crule-of-NAME with body"
+               (fourth emitted)
+               '(defun |::CRULE-OF-S-CREATE| () (progn (activate '(cpool))))))
+
+      ;; An attachment crule: node-spec is the dotted (UPPER . LOWER).
+      (let ((emitted (compile-rule
+                      "{ATTACHMENT CRULE VP-VERB VP OVER VERB Activate cpool.}")))
+        (check "crule(attachment): crule-index files (upper . lower)"
+               (third emitted)
+               '(crule-index 'attachment
+                 '((vp . verb) |::CRULE-OF-VP-VERB| vp-verb)))
+        (check "crule(attachment): defun ::crule-of-NAME with body"
+               (fourth emitted)
+               '(defun |::CRULE-OF-VP-VERB| () (progn (activate '(cpool))))))
+
+      ;; The intermediate before compilation: (crule NAME TYPE NODES BODY).
+      (check "crule intermediate: creation shape"
+             (let ((i (parse-rule "{CREATION CRULE NP-START NP Activate npool.}")))
+               (list (first i) (second i) (third i) (fourth i)))
+             '(crule np-start creation (np)))
+      (check "crule intermediate: attachment nodes are (upper lower)"
+             (fourth (parse-rule
+                      "{ATTACHMENT CRULE NP-PP NP OVER PP Activate npool.}"))
+             '(np pp))
+
+
       ;; --- new denotations: action verbs ---
 
       (flet ((action-of (text)

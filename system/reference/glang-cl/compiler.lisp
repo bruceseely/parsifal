@@ -12,6 +12,29 @@
 (in-package #:glang-cl)
 
 
+(defun compile-crule-form (intermediate)
+  "Given the BUILD-CRULE intermediate
+       (crule NAME TYPE NODES BODY)
+   return Marcus's emitted-Lisp form (glang.l 601-610's `crule' macro):
+       (progn 'compile
+              (crule-index 'TYPE '(NODE-SPEC ::crule-of-NAME NAME))
+              (defun ::crule-of-NAME () BODY))
+   where NODE-SPEC is the lone node-type for a creation crule, or
+   (UPPER . LOWER) for an attachment crule -- exactly the shape the
+   runtime CRULE-INDEX files (case-frame.lisp)."
+  (destructuring-bind (crule-tag name type nodes body) intermediate
+    (declare (ignore crule-tag))
+    (let ((fn-name   (intern (format nil "::CRULE-OF-~A" name) :glang-cl))
+          (node-spec (if (cdr nodes)
+                         (cons (car nodes) (cadr nodes))
+                         (car nodes))))
+      (list 'progn
+            ''compile
+            (list 'crule-index
+                  (list 'quote type)
+                  (list 'quote (list node-spec fn-name name)))
+            (list 'defun fn-name '() body)))))
+
 (defun compile-rule-form (intermediate)
   "Given the BUILD-RULE intermediate
        (rule NAME (TYPE PRIORITY PACKETS (INDEXF . PFEATS)) PAT ACTION)
@@ -21,7 +44,10 @@
                           '(PRIORITY ::pat-of-NAME NAME ::act-of-NAME))
               (defun ::pat-of-NAME () PAT)
               (defun ::act-of-NAME () ACTION)
-              (featindexify ...))."
+              (featindexify ...)).
+   Dispatches to COMPILE-CRULE-FORM for a `(crule ...)' intermediate."
+  (when (eq (car intermediate) 'crule)
+    (return-from compile-rule-form (compile-crule-form intermediate)))
   (destructuring-bind (rule-tag name index-info pat-body act-body)
       intermediate
     (declare (ignore rule-tag))

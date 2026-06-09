@@ -232,6 +232,17 @@ is a placeholder.
   `infixm`, `delim`)
 - Rule machinery: `rule` (prefix + infix), `[`, `]`, `,`, `-->`, `--->`,
   plus `parse-rule`, `parse-rule-header`, and `compile-rule-form`
+- Surface-structure crules: the `creation` / `attachment` prefixes feed
+  `build-crule`, and `compile-crule-form` emits Marcus's `crule' macro
+  output (glang.l 601-610) — `(progn 'compile (crule-index 'TYPE
+  '(NODE-SPEC ::crule-of-NAME NAME)) (defun ::crule-of-NAME () BODY))`,
+  with NODE-SPEC the lone node-type (creation) or `(upper . lower)`
+  (attachment). This is exactly the shape the runtime `crule-index`
+  files (case-frame.lisp), wiring `{CREATION CRULE}` / `{ATTACHMENT
+  CRULE}` grammar rules to the create/attach monitors. The frame
+  compiles end-to-end; the crule *bodies* in the real grammar use
+  action verbs not yet ported (see below), so they're exercised here
+  with a ported body verb (`Activate`).
 - Action sequence: `.` (infix), `;` (infixm — `and` inside patterns,
   `progn` elsewhere)
 - Pattern feature match: `=` with `build-=` and `pick-index`
@@ -254,8 +265,10 @@ intermediate AST → emit Marcus's compiled-Lisp triple.
 `make`, `there`); the quoting operator `'`; test-pattern
 denotations (`fills`, `fits`, `greater`, `less`, `equal`, `lowest`,
 `greatest`, `number`, `semantics`, `filling`, `prepositional`); the
-`indirect` tree-access prefix; and the case-rule denotations (`crule`,
-`upper`, `lower`).
+`indirect` tree-access prefix; and the crule *body* denotations the real
+grammar's case rules need (`upper`, `lower`, `associate`, `fills`, the
+`:wh-comp` register verbs). The crule *frame* (CREATION / ATTACHMENT)
+now compiles — see *Scope completed*.
 
 **Per-decision references:**
 - Symbol case → uppercase (see *Deliberate deviations* above)
