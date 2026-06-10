@@ -1,21 +1,79 @@
 ;;; -*- mode: lisp; base: 10; syntax: common-lisp -*-
 ;;; system/core/runtime/defs-dictionary.dict
 ;;;
-;;; The lexicon half of Marcus's defs.l (lines 85-876): hundreds of
-;;; verb / noun / adjective definitions via the (df ...) / (df1 ...) /
-;;; (df+ ...) / (jlike ...) / (abbrev ...) family. This is DATA, not a
-;;; compiled component: it is read and evaluated by `load-dictionary'
-;;; (dictionary.lisp) with `*dictionary-readtable*' installed so that
-;;; MacLISP's `#' marker-separator token reads as the symbol |#| and a
-;;; bare `:' reads as |:|.  Hence the .dict extension -- do NOT add it
-;;; as a compilable :file.
+;;; The data half of Marcus's defs.l (lines 31-876): the case-marker
+;;; definitions and the verb / noun / adjective lexicon, via the
+;;; (df ...) / (df1 ...) / (df+ ...) / (jlike ...) / (abbrev ...) family.
+;;; This is DATA, not a compiled component: it is read and evaluated by
+;;; `load-dictionary' (dictionary.lisp) with `*dictionary-readtable*'
+;;; installed so that MacLISP's `#' marker-separator token reads as the
+;;; symbol |#| and a bare `:' reads as |:|.  Hence the .dict extension --
+;;; do NOT add it as a compilable :file.
 ;;;
-;;; Verbatim from defs.l 85-876 except for six terminal-noise forms
+;;; Lines 1-30 of defs.l (the feature ontology: setq of *nr-types* /
+;;; *parts-of-speech* / ... and the `redund' declarations) are ported
+;;; separately as defs.lisp. Everything from the first `df' (the case
+;;; markersets at defs.l line 31) onward is data and lives here.
+;;;
+;;; Verbatim from defs.l 31-876 except for six terminal-noise forms
 ;;; dropped from the tail (lines 830, 832-836 of the source): captured
-;;; `(PARSE)' parser-prompt echo and backspace/0x1E-corrupted tokens
-;;; (`meetio<BS>ong', `|MMM...(PARSE)_|', `\<0x1E>'), which are session
-;;; detritus, not lexicon entries.
+;;; `(PARSE)' parser-prompt echo and backspace/0x1E-corrupted tokens,
+;;; which are session detritus, not lexicon entries.
 
+(df agt markerset (# hanim # anim)) 
+(df dat markerset (# hanim # anim)) 
+;;Location should go to Allative, Trajectory, Ablative, Locative, Gen-locative
+(df loc markerset (# place # inanim)) 
+(df neut markerset (all))
+(df pfrom markerset (# place # event socev inanim))
+(df pto markerset (# place # event socev inanim))
+(df pat markerset (# time # place)) ;;added by candy
+(df puntil markerset (# time # place)) ;;added by candy
+(df pdur markerset (# measure #))
+
+(df time markerset (# time event #))
+
+;;The whole distinction between Agent and Instrument is probably wrong.
+(df ins markerset (# inanim #)) 
+(df com markerset (# hanim # anim)) 
+(df manner)
+(df exch markerset (# money # physob anim inanim hanim))
+(df benef markerset (# hanim # anim inanim physob))
+(df source markerset (# hanim anim inanim physob #))
+(df goal markerset (# hanim anim inanim physob #))
+(df ess markerset (# hanim anim inanim physob #))
+(df genloc markerset (# place # inanim))
+
+;;NEWSTUFF
+(df a\.m\. feats (postmod))
+(jlike p\.m\. a\.m\.)
+(jlike o\'clock a\.m\.)
+(df oclock feats (postmod *o\'clock))
+
+
+(df mr\. feats (noun ns title))
+(jlike mrs\. mr\.)
+(jlike miss mr\.)
+(jlike ms\. mr\.)
+(jlike prof\. mr\.)
+(jlike dr\. mr\.)
+
+
+
+(df schedule feats (verb pres tnsless  inf-obj v-3s ed=en)
+     cf (neut (time) (loc) agt)
+     neut (# socev inf-comp # event)
+     markers (event time)
+     preps ( for (time)))
+
+(jlike re-schedule schedule)  ;;added by candy
+(jlike re-locate schedule)  ;;added by candy
+;;For the moment, unfortunately, meeting will be a noun while meet is a verb.
+;;Lexical disambiguation will have to handle this when added.
+(df meeting feats (noun ns) cf (com agt) markers (socev event mentob)) ;;changed by candy
+(df+ |pa group meeting| jlike meeting)
+(df+ |pa group meetings| jlike meetings)
+(df+ |pa meeting| jlike meeting)
 (df+ |pa meetings| jlike meetings)
 (df time feats (noun ns n3p) markers (abstr-ob)) ;;added by candy
 (jlike place time)   ;;added by candy
