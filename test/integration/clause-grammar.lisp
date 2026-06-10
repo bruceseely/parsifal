@@ -294,6 +294,40 @@
    finalize. Compose with *inf-complement-rules* + *vp-np-full-rule*.")
 
 
+(defparameter *that-complement-rules*
+  '("{RULE THAT-S-START PRIORITY: 5 IN CPOOL
+      [=comp, *that] [=np] [=verb] -->
+      Label a new s node sec, comp-s, that-s.
+      Attach 1st to c as comp. Attach 2nd to c as np.
+      Activate cpool, parse-aux.}"
+    "{RULE THAT-S-START-1 PRIORITY: 5 IN THAT-COMP
+      [=np] [=verb] -->
+      Label a new s node sec, comp-s, that-s.
+      Attach 1st to c as np. Activate cpool, parse-aux.}"
+    "{RULE THAT-DIAG-1 IN CPOOL
+      [=*that; * is none of comp, det, pronoun] [=np] -->
+      If there is not a det of 2nd
+              and there is not a qp of 2nd
+              and the nbar of 2nd is none of npl, massn
+              and 2nd is not not-modifiable
+       then   attach 1st to 2nd as det;
+              label 1st det, ns
+       else   if c is a nbar then label 1st pronoun, relpron
+       else   label 1st comp.}"
+    "{RULE THAT-DIAG-2 PRIORITY: 13 IN CPOOL
+      [=*that; * is not pronoun] -->
+      Label 1st pronoun.}")
+  "gram2 that-clause complement layer for that-obj verbs (\"the boy believes
+   that the lecture meets .\"). `that' is det\\comp-ambig in the lexicon, so
+   THAT-DIAG-1 diagnoses it (det if it could start the following NP, relpron
+   under an NP, else comp); THAT-S-START then builds the embedded
+   sec/comp-s/that-s with `that' as comp and the following NP as subject;
+   THAT-S-START-1 covers the dropped-comp case (that-comp packet). The
+   committed comp-attachment layer (COMP-TO-NP marks the comp-np that-comp via
+   NP-S, OBJECTS attaches it) needs no addition. THAT-DIAG-2 is the
+   that-as-pronoun fallback. Compose with *inf-complement-rules*.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
