@@ -55,7 +55,7 @@
       (expandsim '|WH-|)
       (register-grammar *np-rules* *np-utterance-rule* *pronoun-rule*
                         *clause-rules* *vp-np-rule* *inf-complement-rules*
-                        *wh-question-rules* *object-wh-rules*
+                        *wh-question-rules* *inversion-rules* *object-wh-rules*
                         *relative-clause-rules*)
 
       (let ((ok (parse-sentence "the boy you met ."

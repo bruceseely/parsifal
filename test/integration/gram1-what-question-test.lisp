@@ -52,7 +52,7 @@
       (reset-rule-table)
       (register-grammar *np-rules* *clause-rules* *vp-np-rule*
                         *pronoun-rule* *qp1-done-rule* *wh-question-rules*
-                        *object-wh-rules* *wh-determiner-rules*)
+                        *inversion-rules* *object-wh-rules* *wh-determiner-rules*)
 
       ;; Sanity: `what' really is the det\relpron-ambig word in the dictionary.
       (truthy "dict `what' carries det\\relpron-ambig"

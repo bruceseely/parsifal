@@ -363,12 +363,20 @@
    included here.")
 
 
-(defparameter *object-wh-rules*
+(defparameter *inversion-rules*
   '("{RULE AUX-INVERSION IN PARSE-SUBJ
       [=auxverb] [=np] -->
       Attach 2nd to c as np.
       Deactivate parse-subj. Activate parse-aux.}"
-    "{RULE SUBJ-QUEST? PRIORITY: 5 IN PARSE-SUBJ
+    "{RULE DO-SUPPORT IN BUILD-AUX
+      [=*do] [=tnsless] --> Attach 1st to c as do.}")
+  "gram1 subject-aux inversion + do-support, shared by object wh-questions and
+   yes-no questions. AUX-INVERSION (parse-subj) attaches the post-aux NP as the
+   subject of an inverted clause; DO-SUPPORT (build-aux) consumes an inverted
+   `do'/`did' into the aux. Compose with *object-wh-rules* or *yes-no-rules*.")
+
+(defparameter *object-wh-rules*
+  '("{RULE SUBJ-QUEST? PRIORITY: 5 IN PARSE-SUBJ
       [=verb]  [** c; * is np-quest] [=np] [t] -->
       If 1st is not auxverb or 3rd is not verb
          then create a new np node labelled trace, not-modifiable;
@@ -376,8 +384,6 @@
               drop c;
               label wh-comp utilized
          else run aux-inversion next.}"
-    "{RULE DO-SUPPORT IN BUILD-AUX
-      [=*do] [=tnsless] --> Attach 1st to c as do.}"
     "{RULE WH-WITH-END-NEXT PRIORITY: 15 IN wh-vp
       t -->
       If the greatest possible number of objects of c is equal to 0
@@ -393,15 +399,28 @@
               then activate ss-vp
               else activate embedded-s-vp.}")
   "gram1/gram2 object wh-question layer (\"who did the boy see ?\"). Builds on
-   *wh-question-rules*: SUBJ-QUEST? diagnoses, after WH-QUEST, whether the
-   verb-initial buffer is a subject question (verb directly follows -> create
-   the subject trace here) or subject-aux inversion (AUX-INVERSION attaches the
-   post-aux NP as subject); DO-SUPPORT consumes inverted `do'/`did'. With the
-   subject overt, the wh-comp's gap is in OBJECT position: MAIN-VERB activates
-   wh-vp, WH-WITH-END-NEXT (the buffer is exhausted at the gap) runs
-   CREATE-WH-TRACE to drop an object trace bound to the wh-comp, and WH-RESOLVED
-   hands control back to ss-vp so OBJECTS attaches it. Compose with
-   *wh-question-rules* + *pronoun-rule*.")
+   *wh-question-rules* + *inversion-rules*: SUBJ-QUEST? diagnoses, after
+   WH-QUEST, whether the verb-initial buffer is a subject question (verb
+   directly follows -> create the subject trace here) or subject-aux inversion
+   (it runs AUX-INVERSION, from *inversion-rules*, to attach the post-aux NP as
+   subject; DO-SUPPORT consumes the inverted `do'/`did'). With the subject
+   overt, the wh-comp's gap is in OBJECT position: MAIN-VERB activates wh-vp,
+   WH-WITH-END-NEXT (the buffer is exhausted at the gap) runs CREATE-WH-TRACE to
+   drop an object trace bound to the wh-comp, and WH-RESOLVED hands control back
+   to ss-vp so OBJECTS attaches it. Compose with *wh-question-rules* +
+   *inversion-rules* + *pronoun-rule*.")
+
+(defparameter *yes-no-rules*
+  "{RULE YES-NO-Q IN SS-START
+    [=auxverb] [=np] -->
+    Label c quest, ynquest, major.
+    Deactivate ss-start. Activate parse-subj.}"
+  "gram1 yes-no question opener (\"did the boy meet you ?\"). A clause-initial
+   auxiliary followed by an NP labels the clause quest/ynquest/major and hands
+   off to parse-subj, where AUX-INVERSION (from *inversion-rules*) attaches the
+   post-aux NP as the subject and DO-SUPPORT folds the inverted `did' into the
+   aux. No wh-comp -- a yes-no question has no fronted wh-element. Compose with
+   *inversion-rules*.")
 
 
 (defparameter *wh-pp-rules*

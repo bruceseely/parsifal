@@ -49,7 +49,7 @@
       (df john feats (name ns n3p) markers (hanim))
       (expandsim 'john)
       (register-grammar *np-rules* *clause-rules* *vp-np-rule*
-                        *pronoun-rule* *wh-question-rules* *object-wh-rules*
+                        *pronoun-rule* *wh-question-rules* *inversion-rules* *object-wh-rules*
                         *proper-noun-rules*)
 
       (let ((ok (parse-sentence "who did john see ?"

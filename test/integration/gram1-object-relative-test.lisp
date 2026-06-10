@@ -18,7 +18,7 @@
 ;;; trace chain  trace -> who -> the boy), and `you' is the relative subject.
 ;;;
 ;;; Pure composition -- no new rules over the subject-relative test (it adds
-;;; *object-wh-rules*, whose WH-WITH-END-NEXT / WH-RESOLVED handle the object
+;;; *inversion-rules* *object-wh-rules*, whose WH-WITH-END-NEXT / WH-RESOLVED handle the object
 ;;; gap inside the relative clause).
 ;;;
 ;;; Invocation:
@@ -55,7 +55,7 @@
       (reset-rule-table)
       (register-grammar *np-rules* *np-utterance-rule* *pronoun-rule*
                         *clause-rules* *vp-np-rule* *inf-complement-rules*
-                        *wh-question-rules* *object-wh-rules*
+                        *wh-question-rules* *inversion-rules* *object-wh-rules*
                         *relative-clause-rules*)
 
       (let ((ok (parse-sentence "the boy who you met ."

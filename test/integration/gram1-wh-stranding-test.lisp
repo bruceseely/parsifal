@@ -61,7 +61,7 @@
                markers (act) preps (to (neut)))
       (expandsim 'talk)
       (register-grammar *np-rules* *clause-rules* *vp-np-rule*
-                        *pronoun-rule* *wh-question-rules* *object-wh-rules*
+                        *pronoun-rule* *wh-question-rules* *inversion-rules* *object-wh-rules*
                         *pp-rules* *wh-pp-rules*)
 
       (let ((ok (parse-sentence "who did the boy talk to ?"

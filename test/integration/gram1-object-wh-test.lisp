@@ -56,7 +56,7 @@
       ;; Fully dictionary-driven: who/did(do)/the/boy/see/? all from defs.l.
       (reset-rule-table)
       (register-grammar *np-rules* *clause-rules* *vp-np-rule*
-                        *pronoun-rule* *wh-question-rules* *object-wh-rules*)
+                        *pronoun-rule* *wh-question-rules* *inversion-rules* *object-wh-rules*)
 
       (let ((ok (parse-sentence "who did the boy see ?"
                                 :initial-rule (intern "INITIAL-RULE" :parsifal))))
