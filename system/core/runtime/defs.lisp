@@ -71,7 +71,14 @@
 
 (setf refillables       '(time)
       *nr-types*        '(np nbar s)
-      *as-types*        '(noun pronoun verb adj num quant det ord prep poss-np)
+      ;; `name' added to Marcus's defs.l:5 list so a proper-name word triggers
+      ;; the PROPNAME attention-shift on its own. Marcus's list omits it; his
+      ;; runtime morphology evidently tagged names with an existing as-type,
+      ;; which our lexicon port does not, so we enable the AS trigger directly.
+      ;; (`name' is already a *parts-of-speech*; PROPNAME's `* is not np' guard
+      ;; keeps the name NP it builds from re-triggering.)
+      *as-types*        '(noun pronoun verb adj num quant det ord prep poss-np
+                          name)
       *parts-of-speech* '(noun verb adj det quant num ord name punc prep pronoun)
       *sentence-types*  '(decl ynquest imper whquest inf-s))
 

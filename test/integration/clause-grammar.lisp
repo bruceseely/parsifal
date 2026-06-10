@@ -426,6 +426,31 @@
    included here.)")
 
 
+(defparameter *proper-noun-rules*
+  '("{AS RULE PROPNAME PRIORITY: 5 IN CPOOL
+      [=name; * is not np] -->
+      Create a np node labelled name, ns ,n3p, not-modifiable.
+      Activate build-name.}"
+    "{RULE NAME IN BUILD-NAME
+      [=name] -->
+      Attach 1st to c as noun.
+      Set the names register of c to !(cons 1st {the names register of c}).}"
+    "{RULE END-OF-NAME PRIORITY: 15 IN BUILD-NAME
+      [t] -->
+      If 1st is poss then attach 1st to c as poss; label c poss-np.
+      If !(> (length {the names register of c}) 1) or there is a title of c
+          then set the last-name register of c to !(car {the names register of c});
+             set the names register of c to !(cdr {the names register of c}).
+      Set the names register of c to !(nreverse {the names register of c}).
+      Run np-done next.}")
+  "gram5 proper-name layer (\"John\", \"Bob\", \"Sue\"). A [=name] word triggers
+   the PROPNAME attention-shift (which needs `name' in *as-types* -- added to
+   defs.lisp, since Marcus's list omits it), creating a not-modifiable name np;
+   NAME attaches the name word(s) and accumulates the `names' register;
+   END-OF-NAME finalises and drops the np (Run np-done next). PROPNAME's `* is
+   not np' guard keeps the name np it builds from re-triggering the shift.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
