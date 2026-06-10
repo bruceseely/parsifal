@@ -358,6 +358,47 @@
    included here.")
 
 
+(defparameter *object-wh-rules*
+  '("{RULE AUX-INVERSION IN PARSE-SUBJ
+      [=auxverb] [=np] -->
+      Attach 2nd to c as np.
+      Deactivate parse-subj. Activate parse-aux.}"
+    "{RULE SUBJ-QUEST? PRIORITY: 5 IN PARSE-SUBJ
+      [=verb]  [** c; * is np-quest] [=np] [t] -->
+      If 1st is not auxverb or 3rd is not verb
+         then create a new np node labelled trace, not-modifiable;
+              set the binding of c to wh-comp;
+              drop c;
+              label wh-comp utilized
+         else run aux-inversion next.}"
+    "{RULE DO-SUPPORT IN BUILD-AUX
+      [=*do] [=tnsless] --> Attach 1st to c as do.}"
+    "{RULE WH-WITH-END-NEXT PRIORITY: 15 IN wh-vp
+      t -->
+      If the greatest possible number of objects of c is equal to 0
+              or
+          it isn't true that the wh-comp fits an obj slot of the cf of the current s
+          and the verb of c is not comp-obj
+              then run too-many-nps next
+              else run create-wh-trace next.}"
+    "{RULE WH-RESOLVED PRIORITY: 5 IN wh-vp
+      [** c; the wh-comp is utilized ] -->
+      Deactivate wh-vp.
+      If the current s is major
+              then activate ss-vp
+              else activate embedded-s-vp.}")
+  "gram1/gram2 object wh-question layer (\"who did the boy see ?\"). Builds on
+   *wh-question-rules*: SUBJ-QUEST? diagnoses, after WH-QUEST, whether the
+   verb-initial buffer is a subject question (verb directly follows -> create
+   the subject trace here) or subject-aux inversion (AUX-INVERSION attaches the
+   post-aux NP as subject); DO-SUPPORT consumes inverted `do'/`did'. With the
+   subject overt, the wh-comp's gap is in OBJECT position: MAIN-VERB activates
+   wh-vp, WH-WITH-END-NEXT (the buffer is exhausted at the gap) runs
+   CREATE-WH-TRACE to drop an object trace bound to the wh-comp, and WH-RESOLVED
+   hands control back to ss-vp so OBJECTS attaches it. Compose with
+   *wh-question-rules* + *pronoun-rule*.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
