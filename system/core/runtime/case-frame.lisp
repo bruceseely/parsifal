@@ -427,7 +427,11 @@
   (do ((open-cases (car slotfr) (cdr open-cases))
        (csave nil (cons (car open-cases) csave))
        (result)
-       (prep-cases (or (get (get pred 'preps) prep)   ; Marcus's `ppcases' local
+       ;; PRED's `preps' is a MacLISP disembodied plist `(nil prep cases
+       ;; ...)' (expanddef conses the leading NIL); look PREP up in its
+       ;; cdr. (CL GET only works on symbols; Marcus's GET walked the
+       ;; list as a plist.) Fall back to the prep's own cases-marked-by.
+       (prep-cases (or (getf (cdr (get pred 'preps)) prep)   ; Marcus's `ppcases' local
                        (get prep 'cases-marked-by))))
       ((null open-cases) result)
     (when (member (caar open-cases) prep-cases)

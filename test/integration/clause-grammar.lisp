@@ -154,6 +154,41 @@
   "gram1 VP-NP crule: fill the verb's object case slot with an attached NP.")
 
 
+(defparameter *pronoun-rule*
+  "{RULE PRONOUN IN npool
+    [=pronoun] --> Attach 1st to c as pronoun.
+    Label c pron-np, not-modifiable.
+    Transfer ns, npl, n1p, n2p, n3p, wh from 1st to c.
+    If 1st is relpron then label c relpron-np.
+    If 1st is poss-pronoun then label c poss-np.
+    Run np-done next.}"
+  "gram5 PRONOUN: a pronoun becomes a pron-np (e.g. the imperative `you').")
+
+(defparameter *imperative-rule*
+  "{RULE IMPERATIVE IN SS-START
+    [=tnsless] --> Label c imper, major.
+    Insert the word 'you' into the buffer.
+    Deactivate ss-start. Activate parse-subj.}"
+  "gram1 IMPERATIVE: a clause-initial tnsless verb -> insert `you' subject.")
+
+(defparameter *qp1-done-rule*
+  "{RULE QUANT-DONE PRIORITY: 15 IN PARSE-QP-1
+    [t] --> Deactivate parse-qp-1. Activate parse-adj.}"
+  "gram3 QUANT-DONE: the no-determiner NP path (parse-qp-1 -> parse-adj).")
+
+(defparameter *pp-rules*
+  '("{RULE PP IN CPOOL
+      [=prep] [=np] [** c; there is not a wh-comp or the wh-comp is utilized] -->
+      Attach 1st to a new pp node as prep. Attach 2nd to c as np. Drop c.}"
+    "{RULE PP-UNDER-VP-1 IN SS-VP
+      [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
+        else run vp-done next.}"
+    "{RULE PP-UNDER-S-1 IN SS-FINAL
+      [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
+        else attach 1st to c as pp.}")
+  "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S).")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
