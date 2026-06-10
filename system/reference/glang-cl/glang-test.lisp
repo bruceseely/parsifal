@@ -584,6 +584,37 @@
                           (fillslot *it* 'subj fnode))))))
 
 
+        ;; --- linking a compiled rule to the :parsifal runtime ---
+
+        (check "link: a glang-cl data symbol moves to :parsifal"
+               (symbol-package (link (intern "OBJ" :glang-cl)))
+               (find-package :parsifal))
+        (check "link: a CL symbol re-resolves to itself"
+               (link 'progn) 'progn)
+        (check "link: keywords and NIL are left untouched"
+               (link '(:k nil)) '(:k nil))
+
+        ;; End-to-end: a compiled+linked crule actually RUNS against the
+        ;; runtime with correct symbol identity. The crule sets a register
+        ;; whose key (DOW) is a glang-cl data symbol; after linking, the
+        ;; key reaches the :parsifal plist, so the runtime accessor finds
+        ;; it (the unlinked form would store under the wrong package).
+        (let* ((emitted (compile-rule
+                         "{ATTACHMENT CRULE LINK-TST VP OVER NP
+                          Set the dow register of the upper node to the lower node.}"))
+               (linked  (link emitted))
+               (f (cons (gensym "F") 0))
+               (s (cons (gensym "S") 0)))
+          (setf (symbol-plist (car f)) nil)
+          (let ((parsifal::*attach-rules* (make-hash-table :test #'eq))
+                (parsifal::*create-rules* nil))
+            (eval linked)
+            (let ((parsifal:fnode f) (parsifal:snode s))
+              (funcall (intern "::CRULE-OF-LINK-TST" :parsifal))))
+          (check "linked crule runs: register reaches the :parsifal plist"
+                 (parsifal:getr (intern "DOW" :parsifal) f) s))
+
+
         ;; --- two-clause pattern across positions ---
         ;; Stripped-down version of gram4.l's NINETY-NINE; we don't have
         ;; `new num node' as a denotation yet, so we use a simple `Drop c'

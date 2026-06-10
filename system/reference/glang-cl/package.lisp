@@ -19,6 +19,8 @@
    #:tokenize
    #:make-token-stream
    #:parse-string
+   #:compile-rule
+   #:link
 
    ;; --- Pratt parser machinery ---
    #:advance

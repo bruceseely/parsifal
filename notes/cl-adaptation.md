@@ -341,13 +341,31 @@ apparent oddity checked out: `Drop c` -> `(drop 0)` is correct -- Marcus's
 `drop` takes a buffer *index*, operating on the current node C
 implicitly (glang.l 458).
 
-**Scope not yet done:** the runtime symbol-bridging needed to actually
-*run* the emitted forms against the parsifal runtime -- glang-cl interns
-rule-local *data* symbols (slot names like `obj`, marker keys like
-`caseframe`) in its own package, so they are not yet `eq` to the
-parsifal symbols the runtime compares against. (Runtime *functions* and
-specials already bridge: they are exported from `:parsifal` and inherited
-via `:use`.) The
+**Runtime symbol-bridging (done).** `compile-rule` produces a portable
+data form, but its rule-local *data* symbols (slot names like `obj`,
+register keys like `caseframe`, features, packet names) are interned in
+`:glang-cl` -- the tokenizer's home for anything not exported from
+`:parsifal`. The runtime compares those by `eq` against `:parsifal`
+symbols (`(member gfunc '(subj obj))` in FILLSLOT, `(getr 'caseframe
+node)`, …), so a `:glang-cl` `obj`/`caseframe` silently misses.
+
+`link` (compiler.lisp) re-homes the whole form into `:parsifal` by
+symbol name: runtime functions/specials and CL symbols re-resolve to
+themselves (`:parsifal` `:use`s `:cl`), the data symbols become their
+`:parsifal` counterparts, keywords/NIL are left alone. After `link` the
+form is `eval`-able against the runtime. This is deliberately a separate
+*link* step rather than changing the tokenizer: it keeps glang-cl's
+data-only namespace intact (so the frame cross-validation and the
+existing tests are untouched) and makes binding-to-a-runtime an explicit
+boundary.
+
+Verified end-to-end: a compiled+linked attachment crule fires against
+the runtime and sets a register that the `:parsifal` `getr` then reads
+back (the *unlinked* form stores under the `:glang-cl` key and misses).
+And all 145 active gram1-5 rules `link`+`eval` cleanly -- registering via
+`rule-index`/`crule-index`, defining their pattern/action/crule
+functions, running `featindexify`. (`link` is exported from `:glang-cl`;
+tests `link: …` and `linked crule runs: …` in glang-test.) The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

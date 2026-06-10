@@ -74,3 +74,34 @@
    into Marcus's emitted-Lisp form. Returns the form as data; does not
    evaluate it."
   (compile-rule-form (parse-rule string)))
+
+
+;;; -------------------------------------------------------------------
+;;; Linking a compiled rule to the :parsifal runtime
+;;;
+;;; COMPILE-RULE produces a portable data form, but its rule-local *data*
+;;; symbols -- slot names (OBJ, SUBJ), register keys (CASEFRAME, DOW),
+;;; features, packet names -- are interned in :glang-cl, where the
+;;; tokenizer puts everything that isn't an exported :parsifal symbol.
+;;; The runtime compares those by EQ against :parsifal symbols (e.g.
+;;; `(member gfunc '(subj obj))' in FILLSLOT, `(getr 'caseframe node)'),
+;;; so a :glang-cl `obj' or `caseframe' silently misses.
+;;;
+;;; LINK re-homes every symbol into :parsifal by name. Runtime functions
+;;; and specials are already exported from :parsifal, so they re-resolve
+;;; to themselves; CL symbols re-resolve to CL (`:parsifal' `:use's
+;;; `:cl'); the data symbols become their :parsifal counterparts. After
+;;; LINK the form is EVAL-able against the runtime.
+;;; -------------------------------------------------------------------
+
+(defun link (form)
+  "Re-intern every symbol in FORM into :parsifal by name, returning a
+   copy ready to run against the parsifal runtime. Keywords and NIL are
+   left untouched."
+  (labels ((tr (x)
+             (cond ((null x) nil)
+                   ((keywordp x) x)
+                   ((symbolp x) (intern (symbol-name x) :parsifal))
+                   ((consp x) (cons (tr (car x)) (tr (cdr x))))
+                   (t x))))
+    (tr form)))
