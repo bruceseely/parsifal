@@ -40,6 +40,33 @@
   (or (whitespace-char-p char) (single-char-symbol-p char)))
 
 
+;;; A nested `{...}' inside an `!' Lisp-escape escapes back to grammar
+;;; (Marcus's lispsyn readtable). PARSE-STRING lives in denotations.lisp,
+;;; loaded after this file; it is only called at read time, so the
+;;; forward reference is harmless -- declare it to keep the compiler quiet.
+(declaim (ftype (function (string) t) parse-string))
+
+(defun %read-grammar-escape (stream char)
+  "Reader macro for `{' within an `!' Lisp-escape: read the balanced
+   `{...}' and parse its contents as a grammar expression. E.g. inside
+   `!(setq s {the current s})', `{the current s}' -> (current-s)."
+  (declare (ignore char))
+  (let ((out (make-string-output-stream)) (depth 1))
+    (loop for ch = (read-char stream t nil t) do
+      (cond ((char= ch #\{) (incf depth) (write-char ch out))
+            ((char= ch #\}) (when (zerop (decf depth)) (return))
+             (write-char ch out))
+            (t (write-char ch out))))
+    (parse-string (get-output-stream-string out))))
+
+(defparameter *lisp-escape-readtable*
+  (let ((rt (copy-readtable nil)))
+    (set-macro-character #\{ #'%read-grammar-escape nil rt)
+    rt)
+  "Standard CL readtable plus `{...}' escaping back to a grammar
+   expression; used while reading an `!' Lisp-escape.")
+
+
 (defun tokenize (string)
   "Return a list of tokens parsed from STRING. Each token is either a
    symbol (interned in #:glang-cl) or an integer."
@@ -108,11 +135,15 @@
              ;; token. `!'(inf-comp)' -> the datum (QUOTE (INF-COMP)),
              ;; which then flows through the parser as a self-evaluating
              ;; operand. Read in :glang-cl so its symbols share the
-             ;; tokenizer's data namespace.
+             ;; tokenizer's data namespace. A nested `{...}' escapes back
+             ;; to grammar (via *lisp-escape-readtable*): in lispsyn `{'
+             ;; recursively parses a grammar expression, so
+             ;; `!(setq s {the current s})' -> (setq s (current-s)).
              (incf pos)                            ; consume `!'
              (multiple-value-bind (form end)
                  (let ((*package* (find-package :glang-cl))
-                       (*read-eval* nil))
+                       (*read-eval* nil)
+                       (*readtable* *lisp-escape-readtable*))
                    (read-from-string string t nil :start pos))
                (setf pos end)
                (push form tokens)))

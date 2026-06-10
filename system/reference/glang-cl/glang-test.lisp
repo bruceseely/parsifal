@@ -198,6 +198,11 @@
       (check "tokenizer: !(foo) reads a bare list datum"
              (tokenize "!(foo)")
              '((foo)))
+      ;; A nested `{...}' inside an `!' escape parses back to grammar
+      ;; (gram1 INITIAL-RULE, gram5 name-register rules).
+      (check "tokenizer: !(... {grammar} ...) escapes back to grammar"
+             (tokenize "!(setq s {the current s})")
+             '((setq s (current-s))))
 
       ;; Backslash escapes a character into the current token (Marcus's
       ;; reader): `*o\'clock', `*\,', `*a\.m\.' (gram4 date/time rules).
