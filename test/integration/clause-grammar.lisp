@@ -242,6 +242,58 @@
    Compose with *inf-complement-rules* for subject-raising complements.")
 
 
+(defparameter *vp-np-full-rule*
+  "{ATTACHMENT CRULE VP-NP VP OVER NP
+    The lower node fills an obj slot of the upper.
+    If the verb of the upper node is no-subj
+        and the s above the upper node is not np-preposed
+        then the np of the s above the upper node fills the subj slot of upper.
+    If there is an s of lower and the np of it is delta then
+        if the verb of the upper node is obj-binds-delta then
+            set the binding of the np of the s of lower to the indirect object of upper
+        else
+       if the verb of the upper node is subj-binds-delta
+           or
+           the verb of the upper node is subj-less-inf-obj
+           and it isn't true that
+               there is a binding of the np of the s of the lower node
+           then set the binding of the np of the s of lower
+               to the np of the current s.
+    If there is an s of lower and the np of it is delta then
+        the np of the s of lower fills the subj slot of the s of lower;
+        finalize the cf of the s of lower.}"
+  "gram1 VP-NP, the COMPLETE Marcus crule (gram1:243-269): fills the verb's
+   object slot, and -- for embedded clauses -- handles no-subj subject
+   raising and DELTA-subject control binding (binds the embedded delta
+   subject to the matrix subject for subj-less-inf-obj verbs like `want',
+   then finalizes the embedded case frame). Use instead of the simpler
+   *vp-np-rule* when delta/raising complements are in play; backward
+   compatible (the extra clauses are guarded off for plain objects).")
+
+(defparameter *delta-complement-rules*
+  '("{RULE CREATE-DELTA-SUBJ-1 IN SUBJ-LESS-INF-COMP
+      [=*to, auxverb] [=tnsless] -->
+      Create an np node labelled trace, not-modifiable. Drop c into the buffer.}"
+    "{RULE SUBJECT-IS-DELTA-DIAG PRIORITY: 15 IN EMBEDDED-S-FINAL
+      [** c; the np of c is trace; the np of c is not delta;
+            there is not a binding of the np of c] -->
+      If there is a wh-comp and it is not utilized
+          then set the binding of the np of c to wh-comp;
+          the np of c fills the subj slot of the cf of c;
+          label the wh-comp utilized
+          else label the np of c delta.}"
+    "{RULE DELTA-SUBJ-S-DONE PRIORITY: 15 IN EMBEDDED-S-FINAL
+      [** C; THE NP OF C IS DELTA] -->
+      Drop c into the buffer.}")
+  "gram2 delta-subject (control) layer for subj-less-inf-obj verbs without an
+   explicit embedded subject (\"the boy wants to go .\"): CREATE-DELTA-SUBJ-1
+   drops a trace into the buffer to serve as the embedded subject;
+   SUBJECT-IS-DELTA-DIAG labels that trace `delta' (when not wh-bound);
+   DELTA-SUBJ-S-DONE drops the embedded S without finalizing its frame, so
+   the *vp-np-full-rule* can later bind the delta to the matrix subject and
+   finalize. Compose with *inf-complement-rules* + *vp-np-full-rule*.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
