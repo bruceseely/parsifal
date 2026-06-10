@@ -399,6 +399,28 @@
    *wh-question-rules* + *pronoun-rule*.")
 
 
+(defparameter *wh-pp-rules*
+  '("{RULE WH-PP-BUILD IN CPOOL
+      [=prep] [* is not np]
+      [** c; there is a wh-comp and it is not utilized] -->
+      Attach 1st to a new pp node as prep.
+      Attach a new np node labelled trace to c as np.
+      Set the binding of c to the wh-comp.
+      Label the wh-comp utilized.
+      Drop c %i.e. the trace%.
+      Drop c %i.e. the pp%.}")
+  "gram2 wh + preposition-stranding placement (\"who did the boy talk to ?\").
+   This is the iconic harder wh-vp case: a stranded preposition at the end of
+   the clause whose object is the fronted wh-element. WH-PP-BUILD fires in cpool
+   on [prep][non-np] while a wh-comp is pending -- it builds the pp, drops a
+   trace as the prep's object, binds the trace to the wh-comp, and marks the
+   wh-comp utilized; PP-UNDER-VP-1 then attaches the pp under the VP. Compose
+   with *wh-question-rules* + *object-wh-rules* (for aux-inversion) + *pp-rules*.
+   (The richer non-stranding placement rules -- WH-WITH-NP-NEXT / -PP-NEXT /
+   -NP-PP-NEXT, with their ditransitive semantic-preference logic -- are not
+   included here.)")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
