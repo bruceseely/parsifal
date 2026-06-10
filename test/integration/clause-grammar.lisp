@@ -471,6 +471,36 @@
    composed.)")
 
 
+(defparameter *relative-clause-rules*
+  '("{RULE WH-RELATIVE-CLAUSE IN NP-COMPLETE
+      [=relpron-np] [t] -->
+      Label c modified.
+      Attach a new s node labelled sec, relative to c as s.
+      Activate cpool, parse-subj, wh-pool.
+      Attach 1st to c as whcomp.
+      Set the binding of 1st to the np above c.
+      If 2nd is a verb then
+          create a new np node labelled trace, not-modifiable;
+          Set the binding of c to wh-comp;
+          Label the binding of c utilized;
+          Drop c into the buffer.}"
+    "{RULE REDUCED-RELATIVE IN NP-COMPLETE
+      [=np; * is not relpron-np][=verb] -->
+      Insert the word 'wh-' into the buffer before 1st.}")
+  "gram2 relative-clause layer (\"the boy who runs ...\"). When a completed NP
+   is followed by a relative pronoun (a relpron-np), WH-RELATIVE-CLAUSE (in the
+   NP-COMPLETE packet) labels the NP `modified', attaches a sec/relative S to
+   it, makes the relpron the relative clause's whcomp BOUND to the head NP,
+   and -- when a verb follows (a subject relative) -- drops a trace subject
+   bound to the wh-comp. The relative S then parses as an ordinary embedded
+   clause (reuses *clause-rules* + *inf-complement-rules*) and the NP-S crule
+   (in *inf-complement-rules*) fills the head NP's mod slot. REDUCED-RELATIVE
+   handles the no-relative-pronoun case (\"the boy you met\") by inserting a
+   `wh-'. Needs *pronoun-rule* (who -> relpron-np) + *wh-question-rules*
+   (S-WHCOMP / wh-pool). Relative clauses ARE wh-movement, so they reuse the
+   whole wh-comp apparatus.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
