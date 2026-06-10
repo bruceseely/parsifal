@@ -313,10 +313,23 @@ expression is `qlistfy`'d, mirroring Marcus's `(qlistfy right)`
   the 60 active gram2/gram3 rules compile** (the lone hold-out is an
   embedded `find-wh-comp` `{...}` body, not a rule).
 
-**Scope not yet done:** remaining action verbs (`lift`, `make`); the
-standalone matching-quote operator `'`; the rest of the test-pattern
-denotations. gram1/gram4/gram5 have further rules awaiting their own
-denotations (e.g. the date/time semantic rules), tracked separately. The
+- The standalone matching-quote `'X'` --> `(quote X)` (glang.l 394-395):
+  a quoted value, as in the gram4 date/time rules' `Set the time
+  register of c to 'month'`. `'` is both prefix (open) and delimiter
+  (close); distinct from `word`'s quotes, which `word` consumes itself.
+- Backslash escapes in the tokenizer (tokens.lisp): `\<char>` folds the
+  next character into the current token (`*o\'clock`, `*\,`, `*a\.m\.`),
+  matching Marcus's reader. With these two, **all gram1-5 active rules
+  now compile** -- the 7 date/time stragglers (TWO-OCLOCK,
+  HOUR-COMPLETE, MONTH-COMPLETE, NUMBER-TO-YEAR, MONDAY,
+  MONDAY-THE-FIRST, JUNE-FIRST-1976) included.
+
+**Scope not yet done:** the *full* action-verb / test-pattern vocabulary
+is now broad enough to compile every rule in gram1-5; what remains is
+correctness review against Marcus's emitted output (the cross-validation
+covers rule *frames*, not action bodies) and the runtime symbol-bridging
+needed to actually *run* the emitted forms (glang-cl interns rule-local
+data symbols -- slot names, marker keys -- in its own package). The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

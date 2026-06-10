@@ -120,15 +120,28 @@
              (incf pos)
              (push (intern (string c) :glang-cl) tokens))
             (t
-             (let ((start pos))
-               (loop while (and (< pos n)
-                                (not (token-terminator-p (char string pos))))
-                     do (incf pos))
-               (let ((text (subseq string start pos)))
+             ;; Accumulate a symbol/number token. A backslash escapes
+             ;; the next character into the token literally (Marcus's
+             ;; reader: `*o\'clock', `*a\.m\.', `*\,'), so it neither
+             ;; terminates the token nor is dropped.
+             (let ((out (make-string-output-stream))
+                   (escaped nil))
+               (loop while (< pos n) do
+                 (let ((ch (char string pos)))
+                   (cond
+                     ((char= ch #\\)
+                      (incf pos)
+                      (when (< pos n)
+                        (write-char (char string pos) out)
+                        (setq escaped t)
+                        (incf pos)))
+                     ((token-terminator-p ch) (return))
+                     (t (write-char ch out) (incf pos)))))
+               (let ((text (get-output-stream-string out)))
                  (multiple-value-bind (num idx)
                      (parse-integer text :junk-allowed t)
                    (cond
-                     ((and num (= idx (length text)))
+                     ((and (not escaped) num (= idx (length text)))
                       (push num tokens))
                      (t
                       ;; Upcase to match CL's default reader (so source

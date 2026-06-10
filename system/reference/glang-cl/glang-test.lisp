@@ -199,6 +199,15 @@
              (tokenize "!(foo)")
              '((foo)))
 
+      ;; Backslash escapes a character into the current token (Marcus's
+      ;; reader): `*o\'clock', `*\,', `*a\.m\.' (gram4 date/time rules).
+      (check "tokenizer: backslash-escaped apostrophe stays in the symbol"
+             (tokenize "*o\\'clock")
+             (list (intern "*O'CLOCK" :glang-cl)))
+      (check "tokenizer: backslash-escaped comma stays in the symbol"
+             (tokenize "*\\,")
+             (list (intern "*," :glang-cl)))
+
 
       ;; --- gate 3: number / comparison / semantic-preference verbs ---
       ;; The vocabulary the gram2/gram3 wh / diagnostic rules need.
@@ -272,6 +281,13 @@
                (action-of
                 "{RULE X IN P [t] --> Insert the word 'to' into the buffer before 2nd.}")
                '(progn (insert-node (wordify 'to) 1)))
+
+        ;; A bare matching-quote value `'X'' --> (quote X) (distinct from
+        ;; `word's quotes). The gram4 date/time rules: `... to 'month'.'
+        (check "set ... to 'month'  -->  (setr 'time 'month c)"
+               (action-of
+                "{RULE X IN P [t] --> Set the time register of c to 'month'.}")
+               '(progn (setr 'time 'month c)))
 
 
         ;; --- new denotations: nilfix atoms ---

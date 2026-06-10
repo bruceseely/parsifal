@@ -760,6 +760,22 @@
     (cons *left* args)))
 
 
+;;; -------------------------------------------------------------------
+;;; Matching single-quote `'X''  -->  (quote X)   (glang.l 394-395)
+;;;
+;;; A value between matching single quotes: `Set the time register of c
+;;; to 'month'' -> (setr 'time 'month c) (the gram4 date/time rules).
+;;; `'' is both the prefix (open) and a delimiter (close), so the
+;;; operand parse stops at the closing quote. Distinct from `word's
+;;; quotes, which `word' consumes itself.
+;;; -------------------------------------------------------------------
+
+(prefix |'| 0
+  (prog1 (list 'quote (right)) (check '|'|)))
+
+(delim |'|)
+
+
 ;; `word 'X''  -->  (wordify 'X)   Marcus's `word' prefix (glang.l 488):
 ;; the literal `X' between matching single quotes names a word; e.g.
 ;; `Insert the word 'wh-' into the buffer before 1st' (REDUCED-RELATIVE),
