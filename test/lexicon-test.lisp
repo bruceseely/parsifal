@@ -57,16 +57,19 @@
 
       ;; --- expandsim / expanddef on a `feats' word -------------------
 
+      ;; `(redund verb (pres past future tnsless))' means a TENSED word
+      ;; is a verb (each tense implies verb), so a `(mainverb past v-3s)'
+      ;; word closes up to include `verb'.
       (setf (symbol-plist 'tw-sit) nil)
-      (df tw-sit feats (verb tnsless))
+      (df tw-sit feats (mainverb past v-3s))
       (truthy "expandsim succeeds on a feats word" (expandsim 'tw-sit))
       (check "expanddef makes the *WORD canonical the first feature"
              (car (get 'tw-sit 'features))
              (implode (cons '* (explodec 'tw-sit))))
       (truthy "expanddef keeps the declared features"
-              (subsetp '(verb tnsless) (get 'tw-sit 'features)))
-      (truthy "expanddef closes under redund (verb -> pres past ...)"
-              (subsetp '(pres past future tnsless) (get 'tw-sit 'features)))
+              (subsetp '(mainverb past v-3s) (get 'tw-sit 'features)))
+      (truthy "expanddef closes under redund (past -> verb)"
+              (member 'verb (get 'tw-sit 'features)))
       (check "expanddef sets type to the part of speech"
              (get 'tw-sit 'type)
              'verb)
@@ -76,9 +79,10 @@
 
       ;; --- add-redunds directly --------------------------------------
 
-      (truthy "add-redunds pulls in verb's implied features"
-              (subsetp '(verb pres past future tnsless)
-                       (add-redunds '(verb))))
+      (truthy "add-redunds: a tense feature implies verb (past -> verb)"
+              (member 'verb (add-redunds '(past))))
+      (truthy "add-redunds: det implies ngstart"
+              (member 'ngstart (add-redunds '(det))))
 
       ;; --- buildnumber -----------------------------------------------
 

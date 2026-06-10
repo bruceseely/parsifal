@@ -87,16 +87,24 @@
 ;;; ===========================================================
 
 (defvar *redund-table* (make-hash-table :test #'eq)
-  "Map a feature SYMBOL to its declared implications. Marcus writes
-   `(redund verb (pres past future tnsless))' meaning a verb must
-   also carry one of the listed tense features. The expansion logic
-   that consults the table lives in the parser; for now we just
-   record the data so it's ready when those checks land.")
+  "Map a feature SYMBOL to the features it implies: a node carrying the
+   key feature also (redundantly) carries each feature in its value list.
+   `add-redunds' (lexicon.lisp) closes a feature set under this table.
+   E.g. `(redund ngstart (det noun ...))' puts NGSTART on DET's, NOUN's,
+   ... entries, so a determiner is also a noun-group start.")
 
 (defmacro redund (feature implications)
-  "Record FEATURE's implication list. Mirrors defs.l's REDUND macro
-   without any side effect beyond the table update."
-  `(setf (gethash ',feature *redund-table*) ',implications))
+  "Record that each of IMPLICATIONS implies FEATURE -- a node carrying
+   any implication feature also gains FEATURE. Mirrors Marcus's REDUND
+   (com.l 494), which adds FEATURE to each implication's `:redunds'
+   plist; we add it to each implication's *REDUND-TABLE* entry. So
+   `(redund ngstart (det noun quant num ord pronoun))' makes a det /
+   noun / ... node an NGSTART, and `(redund verb (pres past future
+   tnsless))' makes a tensed word a VERB. (The earlier port stored this
+   backwards -- feature -> implications -- so dictionary words never
+   picked up their implied features.)"
+  `(dolist (impl ',implications)
+     (pushnew ',feature (gethash impl *redund-table*))))
 
 
 (redund ngstart        (det noun quant num ord pronoun))
