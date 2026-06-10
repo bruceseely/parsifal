@@ -217,43 +217,75 @@
          (setq *bufpntr* abs-index)
          nil)))
 
+(defun nr-fire (node abs-index)
+  "An NR (node-reactivation) rule matched on attached NODE: re-activate
+   the node, clear the lookahead registers, shift attention to ABS-INDEX
+   (BUFRESTORE pops it back later), and return NIL to tell the loop that
+   SET* was diverted -- *activerule* is already set, run it directly.
+   Mirrors parse.l's NR-RULE-SETUP / AS-RULE-SETUP (289-296). Unlike an
+   AS shift, an NR shift ACTIVATENODEs the (already-attached) node."
+  (activatenode node)
+  (setq |1ST| nil |2ND| nil |3RD| nil)
+  (push *bufpntr* *bufpntrstak*)
+  (setq *bufpntr* abs-index)
+  nil)
+
 (defun set* (index)
   "Make buffer position (*bufpntr* + INDEX) the current focus,
    pulling words from *wstring* if the buffer is empty there and
    removing any already-attached node. Returns T when the buffer is
-   set up (loop should consult TESTRULES), NIL when an AS rule
+   set up (loop should consult TESTRULES), NIL when an AS *or* NR rule
    already fired (loop should run *activerule* directly).
 
-   Mirrors parse.l line 253. We still skip Marcus's NR-rule pre-
-   check at the top of the function -- that branch fires when the
-   *previous* buffer position has an attached NR-type node, and
-   needs the bit-2 'NR-checked' flag bookkeeping we haven't ported
-   yet."
-  (let ((abs-index (+ index *bufpntr*)))
+   Mirrors parse.l line 253, including both NR-rule firing sites:
+     (A) a pre-check that NR-checks the previously set-up node (NTH)
+         once, when looking past the buffer start (parse.l 260-267);
+     (B) the main loop, where an attached unchecked NR-type node is
+         removed and -- if an NR rule applies -- fired (parse.l 279-288).
+   The bit-2 'NR-checked' flag stops a node being re-checked forever;
+   BUFFER-GC leaves attached-but-unchecked NR nodes in place so they
+   reach (B)."
+  (let ((abs-index (+ index *bufpntr*))
+        (node nil))
+    ;; (A) NR pre-check on NTH (the node the previous SET* set up).
+    (when (and (plusp index)
+               nth
+               (zerop (logand 2 (flags nth)))
+               (setflags nth (logior 2 (flags nth)))       ; mark NR-checked
+               (member (getr 'type nth) *nr-types* :test #'eq)
+               (testrules 'nr (1- abs-index)))
+      (return-from set* (nr-fire nth abs-index)))
     (loop
-      (let ((node (aref *buffer* abs-index)))
-        (cond
-          ;; Empty position -- pull the next word.
-          ((null node)
-           (let ((new (nextword)))
-             (cond
-               ((null new)
-                ;; Input exhausted; explicitly clear this position's
-                ;; fvec / register so a previous occupant's bits
-                ;; don't survive into the next pattern test.
-                (clear-buffer-position index)
-                (return t))
-               (t
-                (insert-index-pos abs-index new)
-                (setup* new index)
-                (return (as-check new abs-index))))))
-          ;; Not attached (flag bit 1 = 0) -- set up and check AS.
-          ((zerop (logand 1 (flags node)))
-           (setup* node index)
-           (return (as-check node abs-index)))
-          ;; Attached -- evict it and retry this position.
-          (t
-           (remove-index-pos abs-index)))))))
+      (setq node (aref *buffer* abs-index))
+      (cond
+        ;; Empty position -- pull the next word.
+        ((null node)
+         (let ((new (nextword)))
+           (cond
+             ((null new)
+              ;; Input exhausted; explicitly clear this position's
+              ;; fvec / register so a previous occupant's bits don't
+              ;; survive into the next pattern test.
+              (clear-buffer-position index)
+              (return t))
+             (t
+              (insert-index-pos abs-index new)
+              (setup* new index)
+              (return (as-check new abs-index))))))
+        ;; Not attached (flag bit 1 = 0) -- set up and check AS.
+        ((zerop (logand 1 (flags node)))
+         (setup* node index)
+         (return (as-check node abs-index)))
+        ;; (B) Attached -- always remove it; if it is an unchecked
+        ;; NR-type and an NR rule applies, fire it, otherwise retry
+        ;; this position with whatever shifted down.
+        (t
+         (let ((nr (and (zerop (logand 2 (flags node)))
+                        (member (getr 'type node) *nr-types* :test #'eq)
+                        (setup* node index)
+                        (testrules 'nr abs-index))))
+           (remove-index-pos abs-index)
+           (when nr (return (nr-fire node abs-index)))))))))
 
 
 ;;; ===========================================================
