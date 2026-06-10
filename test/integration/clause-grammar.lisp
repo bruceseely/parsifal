@@ -220,6 +220,28 @@
    inf-comp and associates the embedded case frame.")
 
 
+(defparameter *raising-rules*
+  '("{RULE PASSIVE-AUX IN BUILD-AUX
+      [=*be] [=en] --> Attach 1st to c as passive. Label 2nd passive.}"
+    "{RULE INSERT-TO-BE-1 IN TO-BE-LESS-INF-COMP
+      [* is any of en, adj] -->
+      Insert the word 'be' into the buffer before 1st.
+      Insert the word 'to' into the buffer before 1st.}"
+    "{RULE SEEMS IN NO-SUBJ
+      [=*to] [=tnsless] --> Deactivate no-subj. Run passive next.}"
+    "{RULE PASSIVE PRIORITY: 5 IN PASSIVE
+      t --> Label the current s np-preposed.
+      Create a new np node labelled trace, not-modifiable.
+      Set the binding of c to the np of the current s.
+      Drop c. Deactivate passive.}")
+  "gram1/gram2 raising + passive layer. PASSIVE-AUX builds a passive aux
+   ([be][en]); PASSIVE preposes the surface subject and leaves a bound trace
+   in subject position; SEEMS (a no-subj raising verb) hands off to PASSIVE;
+   INSERT-TO-BE-1 rewrites a bare predicate (`broken' -> `to be broken') so a
+   to-be-less-inf-obj verb's complement parses as an embedded infinitive.
+   Compose with *inf-complement-rules* for subject-raising complements.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
