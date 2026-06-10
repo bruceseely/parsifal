@@ -324,12 +324,30 @@ expression is `qlistfy`'d, mirroring Marcus's `(qlistfy right)`
   HOUR-COMPLETE, MONTH-COMPLETE, NUMBER-TO-YEAR, MONDAY,
   MONDAY-THE-FIRST, JUNE-FIRST-1976) included.
 
-**Scope not yet done:** the *full* action-verb / test-pattern vocabulary
-is now broad enough to compile every rule in gram1-5; what remains is
-correctness review against Marcus's emitted output (the cross-validation
-covers rule *frames*, not action bodies) and the runtime symbol-bridging
-needed to actually *run* the emitted forms (glang-cl interns rule-local
-data symbols -- slot names, marker keys -- in its own package). The
+**Action-body correctness review (done).** The cross-validation harness
+compares only rule *frames* (kind/name/priority/packets) -- there is no
+second parser producing action bodies to diff against. So the bodies
+were reviewed by hand against Marcus's `denfun` templates: every gram1-5
+rule's emitted action body was dumped and the densest ones traced
+construct-by-construct -- VP-VERB (case-frame composition), HOUR-COMPLETE
+(sets + `'X'` quotes + paren-`if`), TWO-HUNDRED (`times(a,b)` comma
+splice + `transfer` + `drop`), NUMBER-DONE, TWO-OCLOCK, WH-WITH-NP-NEXT
+(`greatest`/`less`/`semantics`/`prefer`/`filling` + nested if/else), and
+NP-COMPLETE (`meet` over nested if/else + comma value-lists). All matched
+Marcus's templates. Two were frozen as golden end-to-end tests
+(`golden: TWO-HUNDRED body`, `golden: VP-VERB crule body`) so a
+denotation change that silently alters composition is caught. One
+apparent oddity checked out: `Drop c` -> `(drop 0)` is correct -- Marcus's
+`drop` takes a buffer *index*, operating on the current node C
+implicitly (glang.l 458).
+
+**Scope not yet done:** the runtime symbol-bridging needed to actually
+*run* the emitted forms against the parsifal runtime -- glang-cl interns
+rule-local *data* symbols (slot names like `obj`, marker keys like
+`caseframe`) in its own package, so they are not yet `eq` to the
+parsifal symbols the runtime compares against. (Runtime *functions* and
+specials already bridge: they are exported from `:parsifal` and inherited
+via `:use`.) The
 crule path is complete: the frame (CREATION / ATTACHMENT) and all the
 crule-body constructs the grammar's case rules use now compile (see
 *Scope completed*); what remains are pattern/test denotations used by

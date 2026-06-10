@@ -532,6 +532,58 @@
                '(progn (cond ((null (find-node 'subj c)) (drop 0)))))
 
 
+        ;; --- golden end-to-end action bodies ---
+        ;; Full bodies of two real grammar rules, hand-verified against
+        ;; Marcus's denfun templates (glang.l), frozen here so a denotation
+        ;; change that silently alters composition is caught.
+
+        (flet ((act-body (text)
+                 (let ((form (compile-rule text)))
+                   (dolist (sub form)
+                     (when (and (consp sub) (eq (car sub) 'defun)
+                                (let ((n (string (cadr sub))))
+                                  (or (search "ACT-OF" n) (search "CRULE-OF" n))))
+                       (return (fourth sub)))))))
+
+          ;; gram4 TWO-HUNDRED: comma-splice call + times + transfer + drop.
+          (check "golden: TWO-HUNDRED body"
+                 (act-body
+                  "{RULE TWO-HUNDRED IN BUILD-NUMBER
+                   [* is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+                   Label a new num node hundred+.
+                   Attach 1st to c as num1. Attach 2nd to c as num2.
+                   Set the quant of c to times(the quant register of 1st, the quant register of 2nd).
+                   Transfer ord from 2nd to c. Drop c.}")
+                 '(progn
+                   (addf1 (newnode 'num nil) '(hundred+))
+                   (attach c 1st 'num1)
+                   (attach c 2nd 'num2)
+                   (setr 'quant (times (getr 'quant 1st) (getr 'quant 2nd)) c)
+                   (transfer '(ord) 2nd c)
+                   (drop 0)))
+
+          ;; gram1 VP-VERB crule: case-frame composition (associate / fills /
+          ;; aux-of / s-above / there-is-binding / is-none-of).
+          (check "golden: VP-VERB crule body"
+                 (act-body
+                  "{ATTACHMENT CRULE VP-VERB VP OVER VERB
+                   Associate a new case frame with the upper node.
+                   Associate the case frame of the upper node with the s above upper.
+                   The aux of the s above upper fills the spec slot of upper.
+                   The lower node fills the pred slot of upper.
+                   If the lower node is none of no-subj, passive
+                     and there is a binding of the np of the s above upper
+                     then it fills the subj slot of upper.}")
+                 '(progn
+                   (associate-cf (newcf 'normal) fnode)
+                   (associate-cf (getr 'caseframe fnode) (node-above 's fnode))
+                   (fillslot (find-node 'aux (node-above 's fnode)) 'spec fnode)
+                   (fillslot snode 'pred fnode)
+                   (cond ((and (is-none-of snode '(no-subj passive))
+                               (setq *it* (binding (find-node 'np (node-above 's fnode)))))
+                          (fillslot *it* 'subj fnode))))))
+
+
         ;; --- two-clause pattern across positions ---
         ;; Stripped-down version of gram4.l's NINETY-NINE; we don't have
         ;; `new num node' as a denotation yet, so we use a simple `Drop c'
