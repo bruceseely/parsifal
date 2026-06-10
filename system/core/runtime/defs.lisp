@@ -71,14 +71,21 @@
 
 (setf refillables       '(time)
       *nr-types*        '(np nbar s)
-      ;; `name' added to Marcus's defs.l:5 list so a proper-name word triggers
-      ;; the PROPNAME attention-shift on its own. Marcus's list omits it; his
-      ;; runtime morphology evidently tagged names with an existing as-type,
-      ;; which our lexicon port does not, so we enable the AS trigger directly.
-      ;; (`name' is already a *parts-of-speech*; PROPNAME's `* is not np' guard
-      ;; keeps the name NP it builds from re-triggering.)
+      ;; Two features added to Marcus's defs.l:5 list so the words carrying
+      ;; them trigger an attention-shift on their own (his runtime morphology
+      ;; evidently tagged them with an existing as-type, which our lexicon port
+      ;; does not):
+      ;;   `name'             -- a proper-name word fires the PROPNAME AS rule
+      ;;                         (its `* is not np' guard stops the name NP it
+      ;;                         builds from re-triggering). Already a
+      ;;                         *parts-of-speech*.
+      ;;   det\relpron-ambig  -- the wh-determiner `what' (its only other
+      ;;                         feature is ngstart) fires STARTNP, reaching
+      ;;                         WHAT-DIAG in npool to be diagnosed wh-pronoun.
+      ;;                         (`which' needs no entry: WHICH-DIAGN is a
+      ;;                         normal cpool rule and `which' is *which.)
       *as-types*        '(noun pronoun verb adj num quant det ord prep poss-np
-                          name)
+                          name det\\relpron-ambig)
       *parts-of-speech* '(noun verb adj det quant num ord name punc prep pronoun)
       *sentence-types*  '(decl ynquest imper whquest inf-s))
 

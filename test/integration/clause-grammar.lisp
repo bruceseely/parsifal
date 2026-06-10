@@ -451,6 +451,26 @@
    not np' guard keeps the name np it builds from re-triggering the shift.")
 
 
+(defparameter *wh-determiner-rules*
+  '("{RULE WHAT-DIAG priority: 15 IN npool
+      [=*what] [t] -->
+      If 2nd is ngstart and 2nd is not det
+          then label 1st det, ns, npl, n3p, wh; activate parse-det
+          else label 1st pronoun, relpron, wh.}")
+  "gram2 wh-determiner diagnosis for `what' (\"what did the boy break ?\").
+   `what' is det\\relpron-ambig in the lexicon -- ambiguous between a
+   determiner (\"what man\") and an interrogative pronoun (\"what did ...\").
+   It carries only ngstart + det\\relpron-ambig, so it needs that ambiguity
+   feature in *as-types* (added in defs.lisp) to fire STARTNP and reach this
+   rule in npool; WHAT-DIAG then makes it a wh pronoun (when the next word is
+   not a noun-group start) or a determiner. The result is a wh pron-np that
+   WH-QUEST fronts like `who'. Needs *pronoun-rule*.
+   (`which' is NOT handled here: WHICH-DIAGN fires fine as a normal cpool rule,
+   but a parsed which-question then needs the quantifier-phrase construction --
+   `which' is diagnosed `quant' and wants a following noun -- which is not yet
+   composed.)")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
