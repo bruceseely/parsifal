@@ -80,7 +80,27 @@
             (check "the PP's preposition is \"for\""
                    (and pp (getr 'word (daughter 'prep pp))) 'for)
             (check "the PP's object is \"friday\""
-                   (and pp (word-of (daughter 'np pp))) 'friday)))
+                   (and pp (word-of (daughter 'np pp))) 'friday))
+
+          ;; Case frame: schedule's NEUTRAL = the object (a meeting), and the
+          ;; PP fills schedule's TIME case from `friday' via the preposition
+          ;; `for' (the VP-PP attachment crule -> ppcasegen for->time).
+          (let ((cf (and vp (getr 'caseframe vp))))
+            (truthy "the VP has a case frame" cf)
+            (check "the predicate is schedule" (and cf (get cf 'pred)) 'schedule)
+            (closeframe openframe)
+            (let ((filled (cadr (first (get cf 'hypo-slots)))))
+              (truthy "the frame has filled cases" filled)
+              (let ((neut (assoc 'neut filled))
+                    (time (assoc 'time filled)))
+                (truthy "the object filled the NEUTRAL case" neut)
+                (check "the NEUTRAL case is the object NP (a meeting)"
+                       (and neut (word-of (cadr neut))) 'meeting)
+                (truthy "the PP filled a TIME case" time)
+                (check "the TIME case is the PP's object (friday)"
+                       (and time (word-of (cadr time))) 'friday)
+                (check "the TIME case was filled via the preposition `for'"
+                       (and time (caddr time)) 'for)))))
         (truthy "final punctuation attached to S" (daughter 'finalpunc c))))
 
     (format t "~&gram1-imperative-pp-test: ~:[FAILED <<<~;passed~]~%" results)

@@ -185,8 +185,13 @@
         else run vp-done next.}"
     "{RULE PP-UNDER-S-1 IN SS-FINAL
       [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
-        else attach 1st to c as pp.}")
-  "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S).")
+        else attach 1st to c as pp.}"
+    "{ATTACHMENT CRULE VP-PP VP OVER PP
+      The lower node fills a pp slot of the upper node.}")
+  "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S). The
+   VP-PP attachment crule fires when a pp is attached to a VP and fills the
+   verb's prepositional case from the pp's object (via the prep word ->
+   ppcasegen), so PP arguments and stranded wh objects fill their case slot.")
 
 
 (defparameter *inf-complement-rules*

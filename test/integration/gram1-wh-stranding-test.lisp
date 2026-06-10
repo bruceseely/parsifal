@@ -19,13 +19,11 @@
 ;;; intransitive verb `talk' (with a `to'->neut pp slot) is supplied with a
 ;;; small df, as it is absent from the dictionary.
 ;;;
-;;; NB on case frames: the verb's AGENT is filled (the boy). The stranded
-;;; preposition's object is the wh-gap, captured as a trace BOUND to the
-;;; wh-element -- that binding is what carries the referent. This runtime does
-;;; not fill a thematic case from a pp's object at attach time (the existing
-;;; imperative-pp test likewise only checks pp *attachment*), so talk's neut
-;;; stays an open slot here; the test asserts the stranding structure + the
-;;; binding, not a filled neut.
+;;; Case frame: the verb's AGENT is filled (the boy), and the stranded
+;;; preposition's object -- a trace bound to the wh-element -- fills talk's
+;;; NEUTRAL case via the preposition `to' (the VP-PP attachment crule ->
+;;; ppcasegen to->neut). So the fronted wh-element is recoverable both
+;;; structurally (the trace's binding) and thematically (the filled neut).
 ;;;
 ;;; Invocation:
 ;;;   sbcl --noinform --non-interactive \
@@ -101,16 +99,24 @@
 
             (truthy "final (question) punctuation attached" (daughter 'finalpunc c))
 
-            ;; The verb's AGENT is the (overt) subject.
-            (let ((cf (and vp (getr 'caseframe vp))))
+            ;; Case frame: AGENT = the (overt) subject; the stranded PP's
+            ;; object (the wh-trace) fills the NEUTRAL case via `to'.
+            (let ((cf (and vp (getr 'caseframe vp)))
+                  (ppobj (and pp (daughter 'np pp))))
               (truthy "VP has a case frame" cf)
               (check "predicate is talk" (and cf (get cf 'pred)) 'talk)
               (closeframe openframe)
-              (let* ((hyps (get cf 'hypo-slots))
-                     (agt  (assoc 'agt (cadr (first hyps)))))
+              (let* ((filled (cadr (first (get cf 'hypo-slots))))
+                     (agt    (assoc 'agt filled))
+                     (neut   (assoc 'neut filled)))
                 (truthy "an agent case was filled" agt)
                 (check "the agent is the subject NP (the boy)"
-                       (cadr agt) (daughter 'np c))))))))
+                       (cadr agt) (daughter 'np c))
+                (truthy "the stranded PP object filled the NEUTRAL case" neut)
+                (check "the NEUTRAL case is the wh-trace (the stranded object)"
+                       (cadr neut) ppobj)
+                (check "the NEUTRAL case was filled via the preposition `to'"
+                       (caddr neut) 'to)))))))
 
     (format t "~&gram1-wh-stranding-test: ~:[FAILED <<<~;passed~]~%" results)
     results))
