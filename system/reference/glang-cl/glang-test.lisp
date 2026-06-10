@@ -620,6 +620,23 @@
                  (parsifal:getr (intern "DOW" :parsifal) f) s))
 
 
+        ;; --- `:'-prefixed register names compile to the CL keyword the
+        ;;     runtime reads (register-quote); plain registers stay quoted ---
+        (check "register-quote: :wh-comp -> keyword :wh-comp"
+               (register-quote (intern ":WH-COMP"))
+               :wh-comp)
+        (check "register-quote: plain name stays quoted"
+               (register-quote 'father)
+               '(quote father))
+        (check "`Set the :wh-comp of ...' emits a keyword SETR key"
+               (let ((act (parse-rule
+                           "{ATTACHMENT CRULE WHTEST S OVER WHCOMP
+                             Set the :wh-comp of the upper node to the lower node.}")))
+                 ;; intermediate crule action is (progn (setr KEY snode fnode))
+                 (cadr (cadr (car (last act)))))
+               :wh-comp)
+
+
         ;; --- two-clause pattern across positions ---
         ;; Stripped-down version of gram4.l's NINETY-NINE; we don't have
         ;; `new num node' as a denotation yet, so we use a simple `Drop c'

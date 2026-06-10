@@ -328,6 +328,36 @@
    that-as-pronoun fallback. Compose with *inf-complement-rules*.")
 
 
+(defparameter *wh-question-rules*
+  '("{RULE WH-QUEST PRIORITY: 5 IN SS-START
+      [=wh] [=verb] -->
+      Label c major, quest, wh-quest.
+      Attach 1st to c as whcomp.
+      If 1st is a pp then label c pp-quest else
+      If 1st is a np then label c np-quest.
+      Deactivate ss-start. Activate parse-subj, wh-pool.}"
+    "{ATTACHMENT CRULE S-WHCOMP S OVER WHCOMP
+      Set the :wh-comp of the upper node to the lower node.}"
+    "{RULE CREATE-WH-TRACE PRIORITY: 14 IN WH-POOL
+      T -->
+      Create a new np node labelled trace, not-modifiable.
+      Set the binding of c to the wh-comp.
+      Label the wh-comp utilized.
+      Drop c into the buffer.}"
+    "{RULE WH-RESOLVED-1 PRIORITY: 5 IN WH-POOL
+      [** c; the wh-comp is utilized] -->
+      Deactivate wh-pool.}")
+  "gram1/gram2 wh-question layer (subject wh-questions, \"who broke the jar ?\").
+   WH-QUEST fronts the wh-element into the whcomp and (via the S-WHCOMP crule)
+   the S's :wh-comp register; with the subject position empty, CREATE-WH-TRACE
+   (the wh-pool catch-all) drops a trace bound to the wh-comp into the subject
+   slot and marks the wh-comp utilized; WH-RESOLVED-1 then shuts off wh-pool.
+   The trace's binding (the wh-element) is what fills the verb's subject case.
+   Needs *pronoun-rule* (the wh-word `who' becomes a wh pron-np first). Object
+   wh-questions (aux-inversion, SUBJ-QUEST?, the wh-vp placement rules) are not
+   included here.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."

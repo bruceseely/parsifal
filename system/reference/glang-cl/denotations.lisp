@@ -435,6 +435,18 @@
    Mirrors Marcus's KWOTE-IF-ATOM at glang.l line 160."
   (if (atom x) (list 'quote x) x))
 
+(defun register-quote (token)
+  "Emit the SETR/GETR key for a register-name TOKEN. A `:'-prefixed name
+   (e.g. `:wh-comp') denotes a runtime register keyed by the CL KEYWORD of
+   the same name -- the runtime reads it as such, e.g. setup-current-s does
+   (getr :wh-comp node) -- so emit the keyword (LINK leaves keywords alone).
+   Any other name is quoted as usual, so plain registers are unaffected."
+  (if (and (symbolp token)
+           (plusp (length (symbol-name token)))
+           (char= (char (symbol-name token) 0) #\:))
+      (intern (subseq (symbol-name token) 1) :keyword)
+      (kwote-if-atom token)))
+
 (defun qlistfy (x)
   "If X is an atom, wrap it as a quoted singleton list `'(X)'; otherwise
    return X unchanged (it is already a form). Mirrors glang.l 158."
@@ -579,7 +591,7 @@
     (check 'of)
     (let ((node (pratt-parse 1)))
       (check 'to)
-      (list 'setr (list 'quote prop) (right) node))))
+      (list 'setr (register-quote prop) (right) node))))
 
 
 ;;; -------------------------------------------------------------------
@@ -608,10 +620,10 @@
          (list 'binding (right))))
 
 
-;; `X register of Y'         --> (getr 'X Y)
+;; `X register of Y'         --> (getr 'X Y)   (keyword key for `:'-names)
 (infix register 18
   (progn (check 'of)
-         (list 'getr (kwote-if-atom *left*) (right))))
+         (list 'getr (register-quote *left*) (right))))
 
 
 ;;; -------------------------------------------------------------------
