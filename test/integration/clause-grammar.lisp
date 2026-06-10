@@ -189,6 +189,37 @@
   "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S).")
 
 
+(defparameter *inf-complement-rules*
+  '("{RULE TO-INFINITIVE PRIORITY: 7 IN PARSE-AUX
+      [=*to, auxverb] [=tnsless] -->
+      Label a new aux node inf. Attach 1st to c as to. Activate build-aux, cpool.}"
+    "{RULE INF-S-START1 PRIORITY: 5 IN INF-COMP
+      [=np] [=*to,auxverb] [=tnsless] -->
+      Label a new s node sec, comp-s, inf-s. Attach 1st to c as np.
+      Activate cpool, parse-aux.}"
+    "{RULE OBJ-IN-EMBEDDED-S IN EMBEDDED-S-VP
+      [=np] --> If 1st fits an obj slot of the cf of c then attach 1st to c as np
+        else run embedded-vp-done next.}"
+    "{RULE EMBEDDED-VP-DONE PRIORITY: 15 IN EMBEDDED-S-VP
+      [t] --> Drop c. Activate embedded-s-final.}"
+    "{RULE EMBEDDED-S-DONE PRIORITY: 20 IN EMBEDDED-S-FINAL
+      [t] --> Finalize the cf of c. Drop c.}"
+    "{RULE COMP-TO-NP IN CPOOL
+      [=COMP-S] --> Attach 1st to a new NP node labelled comp-np, not-modifiable as s.
+      Drop c into the buffer.}"
+    "{ATTACHMENT CRULE NP-S NP OVER S
+      If lower is inf-s then set the markers register of upper to !'(inf-comp).
+      If lower is that-s then set the markers of upper to !'(that-comp).
+      If lower is relative then lower fills a mod slot of the upper node
+        else associate the case frame of lower with the upper node.}")
+  "gram1/gram2 embedded infinitive-complement layer: build the embedded inf-S
+   (TO-INFINITIVE, INF-S-START1, OBJ-IN-EMBEDDED-S, EMBEDDED-VP-DONE,
+   EMBEDDED-S-DONE), then attach it to the matrix verb -- COMP-TO-NP wraps the
+   finished comp-s in a comp-np and drops it to the buffer, where the clause
+   layer's OBJECTS treats it as an object; the NP-S crule marks the comp-np
+   inf-comp and associates the embedded case frame.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
