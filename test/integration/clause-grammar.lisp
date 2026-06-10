@@ -410,6 +410,23 @@
    to ss-vp so OBJECTS attaches it. Compose with *wh-question-rules* +
    *inversion-rules* + *pronoun-rule*.")
 
+(defparameter *there-rules*
+  "{RULE THERE priority: 5 IN BUILD-AUX
+    [=*be] [=np]
+    [** c; the noun of the nbar of the binding of the np of the current s is *there] -->
+    Label the current s existential.
+    Attach 2nd to the current s as np.}"
+  "gram1 existential `there' (\"is there a meeting ?\"). After a yes-no opener
+   inverts the auxiliary `is'/`be' over the subject `there' (a pseudopropnoun
+   NP whose noun is *there), THERE fires in build-aux when the next token is an
+   NP: it relabels the clause `existential' and attaches that NP (the logical
+   subject, e.g. `a meeting') as a second np of the S. The copula `be' then also
+   serves as the clause's main verb. Compose with *yes-no-rules* + *inversion-rules*
+   + *qp1-done-rule* (the bare `there' NP has no determiner).
+   NB: the full canonical \"Is there a meeting scheduled for friday?\" further
+   needs a passive-participle reduced relative (\"a meeting scheduled ...\"),
+   which is a separate construction not covered here.")
+
 (defparameter *yes-no-rules*
   "{RULE YES-NO-Q IN SS-START
     [=auxverb] [=np] -->
