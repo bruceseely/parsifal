@@ -517,11 +517,48 @@
    feature in *as-types* (added in defs.lisp) to fire STARTNP and reach this
    rule in npool; WHAT-DIAG then makes it a wh pronoun (when the next word is
    not a noun-group start) or a determiner. The result is a wh pron-np that
-   WH-QUEST fronts like `who'. Needs *pronoun-rule*.
-   (`which' is NOT handled here: WHICH-DIAGN fires fine as a normal cpool rule,
-   but a parsed which-question then needs the quantifier-phrase construction --
-   `which' is diagnosed `quant' and wants a following noun -- which is not yet
-   composed.)")
+   WH-QUEST fronts like `who'. Needs *pronoun-rule'. (`which' is handled by
+   *which-rules* + *quantifier-rules* instead -- it is diagnosed a `quant' and
+   builds a quantifier-phrase wh-NP, not a bare pronoun.)")
+
+
+(defparameter *quantifier-rules*
+  '("{RULE QUANT IN PARSE-QP-1
+      [=quant] -->
+      Attach a new qp node to c as qp.
+      Attach 1st to c as quant.
+      If 1st is num then label c numqp.
+      Transfer ns, npl from 1st to c.
+      Transfer the feature wh from 1st to the np above c.
+      Drop c. Run quant-done next.}"
+    "{RULE DET-QUANT IN PARSE-QP-2
+      [=quant; * is any of detq, num] -->
+      Attach a new qp node to c as qp.
+      Attach 1st to c as quant.
+      If 1st is num then label c numqp.
+      Transfer ns, npl from 1st to c.
+      Drop c. Run det-quant-done next.}")
+  "gram3 quantifier-phrase construction: a quant fills the qp slot of an NP.
+   QUANT (parse-qp-1) handles a determiner-less leading quant (\"many boys\",
+   \"which boy\") and propagates `wh' from the quant onto the NP (so a `which'
+   phrase becomes a wh-NP that WH-QUEST can front); DET-QUANT (parse-qp-2)
+   handles a post-determiner quant (\"the many boys\") for quants featured detq
+   or num. Needs *qp1-done-rule* (QUANT-DONE) for the parse-qp-1 -> parse-adj
+   handoff; DET-QUANT-DONE is in *np-rules*.")
+
+
+(defparameter *which-rules*
+  '("{RULE WHICH-DIAGN IN CPOOL
+      [=*which; * is not any of quant, relpron] -->
+      If there is an np above c and it is not modified
+        then label 1st pronoun, relpron, wh, ngstart
+        else label 1st quant, ngstart, ns, npl, wh.}")
+  "gram2 diagnosis of `which'. `which' carries only the *which feature (its
+   quantity is a register, not a feature), so it is invisible to the AS
+   mechanism until this normal cpool rule fires: under an unmodified NP it is a
+   relative pronoun (\"the boy which ...\"), otherwise an interrogative
+   determiner/quant (\"which boy ...\"). The quant reading -- ngstart + wh --
+   then triggers STARTNP and feeds *quantifier-rules* to build the wh-NP.")
 
 
 (defparameter *relative-clause-rules*
