@@ -427,6 +427,45 @@
    to ss-vp so OBJECTS attaches it. Compose with *wh-question-rules* +
    *inversion-rules* + *pronoun-rule*.")
 
+(defparameter *ditransitive-wh-rules*
+  '("{RULE WH-WITH-NP-NEXT IN WH-VP
+      [=np] -->
+      If the greatest possible number of objects of c is less than 2
+          then if the current s is major then run objects next
+                   else run obj-in-embedded-s next
+          else
+      The number of objects of c will be 2;
+      If semantics prefers 1st filling an obj slot of c somewhat
+          better than wh-comp filling an obj slot of c then
+              run objects next else
+      If semantics prefers the wh-comp filling an obj slot of c much
+          better than 1st filling an obj slot of c then
+          label the current s slightly-bad;
+          run create-wh-trace next else
+      If semantics prefers 1st filling an obj slot of c no
+          better than the wh-comp filling an obj slot of c then
+          label the current s slightly-bad;
+          run objects next else
+          label the current s very-bad;
+          run create-wh-trace next.}"
+    "{RULE TOO-MANY-NPS PRIORITY: 15 IN WP-VP
+      [=np]
+      [** c; the greatest possible number of objects of c is less than 2] -->
+      if there is not a whcomp of the current s
+          then run wh-resolved next
+          else !(warn 1 too-many-nps loses).}")
+  "gram2 ditransitive wh-vp placement (\"What did Bob give Sue?\"). When the
+   wh-gap could land in either of a 2-object verb's slots, WH-WITH-NP-NEXT
+   decides -- given an NP right after the verb -- whether to spend the wh-comp on
+   that slot or attach the NP and keep the wh-comp for a later slot. It uses the
+   `semantics prefers X filling an obj slot ... better than Y' comparisons
+   (smqval over the verb's object markersets): if the overt NP fits an object
+   slot at least as well as the wh-comp, attach the NP (run objects) and let
+   WH-WITH-END-NEXT spend the wh-comp on the remaining slot; otherwise create the
+   wh-trace now. TOO-MANY-NPS is the overflow guard. Needs the 2-object verb's
+   case frame (e.g. give: neut + dat). Compose with *object-wh-rules* (for
+   WH-WITH-END-NEXT / WH-RESOLVED) + *wh-question-rules* + *inversion-rules*.")
+
 (defparameter *there-rules*
   "{RULE THERE priority: 5 IN BUILD-AUX
     [=*be] [=np]

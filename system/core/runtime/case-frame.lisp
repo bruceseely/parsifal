@@ -652,6 +652,15 @@
 ;;; Miscellaneous (case.l 514-528)
 ;;; ===========================================================
 
+;;; Preference-degree thresholds (case.l 442: `(setq much 2 somewhat 1 no
+;;; 0)'). Compiled rule actions reference these by their bare names -- the
+;;; `semantics prefers A <degree> better than C' denotation emits
+;;; (prefer A <degree> C) with <degree> the UNQUOTED symbol much/somewhat/no
+;;; (denotations.lisp 723) -- so they must be special variables bound here.
+(defparameter much 2 "`prefer' degree: VALUE1 must beat VALUE2 by > 2.")
+(defparameter somewhat 1 "`prefer' degree: VALUE1 must beat VALUE2 by > 1.")
+(defparameter no 0 "`prefer' degree: VALUE1 must be no worse than VALUE2.")
+
 (defun prefer (value1 degree value2)
   "Is VALUE1 within DEGREE of VALUE2 (i.e. not worse by more than
    DEGREE)? Mirrors case.l 514."
