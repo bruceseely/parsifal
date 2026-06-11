@@ -186,11 +186,18 @@
     "{RULE PP-UNDER-S-1 IN SS-FINAL
       [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
         else attach 1st to c as pp.}"
+    "{RULE PP-UNDER-VP-2 IN EMBEDDED-S-VP
+      [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
+        else run embedded-vp-done next.}"
+    "{RULE PP-UNDER-S-2 IN EMBEDDED-S-FINAL
+      [=pp] --> If 1st fits a pp slot of the cf of c then attach 1st to c as pp
+        else run embedded-s-done next.}"
     "{ATTACHMENT CRULE VP-PP VP OVER PP
       The lower node fills a pp slot of the upper node.}")
-  "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S). The
-   VP-PP attachment crule fires when a pp is attached to a VP and fills the
-   verb's prepositional case from the pp's object (via the prep word ->
+  "gram5 PP construction + attachment ([prep][np] -> pp; under VP or S, in both
+   matrix and EMBEDDED clauses -- PP-UNDER-VP-2/PP-UNDER-S-2 are the embedded
+   variants). The VP-PP attachment crule fires when a pp is attached to a VP and
+   fills the verb's prepositional case from the pp's object (via the prep word ->
    ppcasegen), so PP arguments and stranded wh objects fill their case slot.")
 
 
@@ -245,6 +252,16 @@
    INSERT-TO-BE-1 rewrites a bare predicate (`broken' -> `to be broken') so a
    to-be-less-inf-obj verb's complement parses as an embedded infinitive.
    Compose with *inf-complement-rules* for subject-raising complements.")
+
+
+(defparameter *perfect-rules*
+  '("{RULE PERFECTIVE IN BUILD-AUX
+      [=*have] [=en] --> Attach 1st to c as perf. Label c perf.}")
+  "gram1 perfect aux layer (gram1:112). PERFECTIVE builds the perfect aux
+   ([have][en], e.g. `have been'/`have scheduled'): it attaches `have' under
+   the aux as perf and labels the aux perf. Stacks under PASSIVE-AUX in
+   BUILD-AUX to make a perfect-passive aux (`have been scheduled'); no
+   priority conflict (PERFECTIVE needs *have, PASSIVE-AUX needs *be).")
 
 
 (defparameter *vp-np-full-rule*
