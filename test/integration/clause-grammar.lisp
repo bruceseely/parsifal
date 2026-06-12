@@ -405,6 +405,37 @@
    included here.")
 
 
+(defun find-wh-comp (node)
+  "Walk up from NODE: stop at the first NP (returning NIL -- an island
+   boundary, Marcus's complex-NP constraint) or the first S (returning that
+   S's :wh-comp register). Hand port of gram2's find-wh-comp -- Marcus wrote it
+   in Lisp (\"this IS really a piece of the interpreter\") inside the grammar
+   file. \"The node above X\" is the FATHER (one step up the active-node stack /
+   tree); FATHER-NODE handles the at-creation, not-yet-attached case."
+  (cond ((or (null node) (member 'np (fe node))) nil)
+        ((member 's (fe node)) (getr :wh-comp node))
+        (t (find-wh-comp (father-node node)))))
+
+(defparameter *long-distance-wh-rules*
+  '("{CREATION CRULE S-CREATE S
+      Set the :wh-comp of c to find-wh-comp (the node above c)}")
+  "gram2 long-distance wh layer -- the wh-comp INHERITANCE mechanism that lets a
+   wh-element questioned in a matrix clause bind a gap inside an embedded clause
+   (\"Who did you say that Bill told?\": `who' is the object of the embedded
+   `told', extracted across `say that'). S-CREATE is a CREATION crule: every
+   time an S node is created it sets that S's :wh-comp to FIND-WH-COMP of the
+   node above it -- i.e. it copies the nearest enclosing S's wh-comp down into
+   the new clause (unless an NP intervenes, the complex-NP island constraint).
+   So when THAT-S-START builds the embedded that-S, S-CREATE seeds it with the
+   matrix wh-comp; the embedded MAIN-VERB then sees a pending wh-comp and
+   activates wh-vp, and WH-WITH-END-NEXT / CREATE-WH-TRACE spend it on the
+   embedded verb's object -- a single shared wh-comp node, so marking it
+   utilized in the embedded clause consumes it for the whole sentence. Needs
+   FIND-WH-COMP (above). Harmless where there is no matrix wh-comp (it just
+   copies NIL); compose with *that-complement-rules* + *inf-complement-rules* +
+   *wh-question-rules* + *inversion-rules* + *object-wh-rules*.")
+
+
 (defparameter *inversion-rules*
   '("{RULE AUX-INVERSION IN PARSE-SUBJ
       [=auxverb] [=np] -->
@@ -715,7 +746,7 @@
         *wh-question-rules* *inversion-rules* *object-wh-rules*
         *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*
         *proper-noun-rules* *wh-determiner-rules* *quantifier-rules*
-        *which-rules* *relative-clause-rules*)
+        *which-rules* *relative-clause-rules* *long-distance-wh-rules*)
   "EVERY validated rule group above, composed into one grammar -- the whole
    grammar the per-construction integration tests have built up, registered
    together instead of curated per test. Uses the COMPLETE *vp-np-full-rule*
