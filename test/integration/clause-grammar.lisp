@@ -803,6 +803,54 @@
    *np-utterance-rule* to parse one as a standalone utterance).")
 
 
+(defparameter *month-date-rules*
+  '("{RULE MONTH PRIORITY: 5 IN NPOOL
+      [=month; * is not complex-np] -->
+      Create a new noun node labelled time, complex-np, propnoun.
+      Attach a new np node labelled time, complex-noun-np to c as np.
+      Attach 1st to c as noun.
+      Activate npool, month-build.}"
+    "{RULE JUNE-1ST IN MONTH-BUILD
+      [=complete-num] -->
+      Attach a new qp node to c as qp. Attach 1st to c as ord.
+      If 1st is not ord then label c ord.
+      Drop c. Run month-complete next.}"
+    "{RULE JUNE-THE-1ST IN MONTH-BUILD
+      [=*the] [=ord] -->
+      Attach a new qp node to c as qp. Attach 1st to c as det. Attach 2nd to c as ord.
+      Drop c. Run month-complete next.}"
+    "{RULE THE-FIRST-OF-JUNE PRIORITY: 5 IN PARSE-QP-2
+      [=ord] [=*of] [=month] -->
+      Create a new noun node labelled time, complex-np, propnoun, ns.
+      Attach a new np node labelled time, complex-noun-np to c as np.
+      Attach a new qp node to c as qp;
+        Attach 1st to c as ord;
+        Drop c.
+      Attach 2nd to c as of. Attach 3rd to c as noun.
+      Run month-complete next.}"
+    "{RULE MONTH-COMPLETE PRIORITY: 15 IN MONTH-BUILD
+      [t] -->
+      Drop c.
+      Set the month register of c to the noun of the np of c.
+      Set the markers register of c to !'(time).
+      If there is not a qp of the np of c
+          then set the time register of c to 'month'; label c month
+          else set the time register of c to 'date'; label c date;
+          set the day register of c to the quant register of the ord of the qp of the np of c.
+      Finalize the cf of c. Drop c.}")
+  "gram4 month + date NP (gram4:142-191). A month name builds a complex-noun
+   TIME NP; with an ordinal it becomes a DATE, otherwise a bare MONTH. MONTH (an
+   npool rule) opens the month-build packet; the day is supplied in four shapes
+   -- JUNE-1ST (\"june 1st\" / \"june first\"), JUNE-THE-1ST (\"june the 1st\"),
+   and THE-FIRST-OF-JUNE (\"the first of june\", a parse-qp-2 rule) -- and
+   MONTH-COMPLETE finalises: with a qp it records time `date', month register =
+   the month word, day register = the ordinal's quant; with no qp, time `month'.
+   The ordinal arrives as a `complete-num' from *number-rules* (which is in
+   *full-grammar*), so `1st' (morpho: 1+st) and `first' both work. Not in
+   *full-grammar* itself (months in other roles, `may' ambiguity); compose on
+   top with *number-rules* present.")
+
+
 (defparameter *which-rules*
   '("{RULE WHICH-DIAGN IN CPOOL
       [=*which; * is not any of quant, relpron] -->
