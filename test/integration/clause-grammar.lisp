@@ -781,6 +781,28 @@
    S-level PP case-fill reconstruction, still deferred.")
 
 
+(defparameter *day-of-week-rules*
+  '("{RULE MONDAY PRIORITY: 5 IN NPOOL
+      [=day-of-week; * is not complex-np] -->
+      Create a new noun node labelled time, complex-np, propnoun.
+      Attach a new np node labelled time, complex-noun-np to c as np.
+      Attach 1st to c as noun.
+      Finalize the cf of c.
+      Drop c.
+      Set the time register of c to 'dow'.
+      Set the dow register of c to 1st.
+      Set the markers register of c to !'(time).
+      Drop c.}")
+  "gram4 day-of-week date NP (gram4:202). A bare day name (`monday' ...
+   `sunday', all `day-of-week') becomes a complex-noun TIME NP: MONDAY (an npool
+   rule) builds a `complex-np' noun dominating a `complex-noun-np' over the day
+   word, and records the semantics on the outer noun -- time register `dow', dow
+   register = the day word, markers `(time)'. The result is a PROP-NP/TIME NP
+   usable wherever a time NP is (a PP object, a bare adjunct, an utterance).
+   Inert unless a day-of-week word appears. Compose with *np-rules* (+
+   *np-utterance-rule* to parse one as a standalone utterance).")
+
+
 (defparameter *which-rules*
   '("{RULE WHICH-DIAGN IN CPOOL
       [=*which; * is not any of quant, relpron] -->
