@@ -686,6 +686,74 @@
    handoff; DET-QUANT-DONE is in *np-rules*.")
 
 
+(defparameter *number-rules*
+  '("{AS RULE NUMBER IN NPOOL
+      [=num ; * is not complete-num] -->
+      Deactivate npool. Activate build-number.}"
+    "{RULE NUMBER-DONE PRIORITY: 12 IN BUILD-NUMBER
+      [t] -->
+      Label 1st complete-num.
+      If 1st is not ord then label 1st quant.
+      If 1st is none of ns,npl then label 1st npl.
+      Deactivate build-number. Activate npool. Restore the buffer.}"
+    "{RULE ORDINAL-DONE PRIORITY: 5 IN BUILD-NUMBER
+      [=ord] [** c; * is not num] --> Run number-done next.}"
+    "{RULE NINETY-NINE IN BUILD-NUMBER
+      [=tens] [=ones] -->
+      Label a new num node 99s. Attach 1st to c as num1. Attach 2nd to c as num2.
+      Set the quant of c to plus(the quant register of 1st, the quant register of 2nd).
+      Transfer ord from 2nd to c. Drop c.}"
+    "{RULE TWO-HUNDRED IN BUILD-NUMBER
+      [ * is any of ones, *ten, *10, 99s; * is not ord] [=*hundred] -->
+      Label a new num node hundred+. Attach 1st to c as num1. Attach 2nd to c as num2.
+      Set the quant of c to times(the quant register of 1st, the quant register of 2nd).
+      Transfer ord from 2nd to c. Drop c.}"
+    "{RULE HUNDRED IN BUILD-NUMBER
+      [=*hundred] -->
+      Label a new num node hundred+. Attach 1st to c as num1.
+      Set the quant register of c to the quant register of 1st.
+      Transfer ord from 1st to c. Drop c.}"
+    "{RULE HUNDREDS-STARTS-BIGNUMG IN BUILD-NUMBER
+      [ * is any of hundred+, bignum+; * is not ord] -->
+      Create a new num node labelled bignumg. Attach 1st to c as num1. Activate build-number.}"
+    "{RULE 99S-ATTACH IN BUILD-NUMBER
+      [t] [** c; = bignumg] -->
+      If there is a conj of c or 1st is any of 99s, tens, ones then
+          Attach 1st to c as num2;
+          Transfer ord from 1st to c;
+          Set the quant of c to plus (the quant register of num1 of c, the quant register of 1st)
+          else set the quant register of c to the quant register of num1 of c.
+      Drop c.}"
+    "{RULE HUNDRED-AND IN BUILD-NUMBER
+      [=*and] [** c; =bignumg] --> Attach 1st to c as conj.}"
+    "{RULE BIGNUM IN BUILD-NUMBER
+      [=num; * is not bignumg, ord] [=bignum; * is not *hundred] -->
+      Create a new num node labelled bignum+. Attach 1st to c as num1. Attach 2nd to c as num2.
+      Set the quant of c to times(the quant register of 1st, the quant register of 2nd).
+      Transfer ord from 1st to c. Drop c.}"
+    "{RULE TEN-TWENTY IN BUILD-NUMBER
+      [* is any of ones, 99s, *ten] [* is any of 99s, tens; * is not ord] -->
+      Create a new num node labelled listnum. Attach 1st to c as num1. Activate build-number.}"
+    "{RULE TEN-TWENTY-FINISH IN BUILD-NUMBER
+      [** c; = listnum] [* is any of 99s, tens; * is not ord] -->
+      Attach 1st to c as num2.
+      Set the quant register of c to plus (times (100, the quant register of num1 of c), the quant register of 1st).
+      Drop c.}")
+  "gram4 number grammar (gram4:4-104) -- builds a (possibly multi-word) number
+   and lets it serve as a quantifier inside an NP (\"three books\", \"ninety
+   nine boys\"). The NUMBER AS rule (keyed on `num', an as-type) fires inside an
+   NP and shifts into the BUILD-NUMBER packet; the multi-word builders combine
+   digit words by arithmetic on their `quant' registers -- NINETY-NINE (plus),
+   TWO-HUNDRED / BIGNUM (times), HUNDREDS-STARTS-BIGNUMG / 99S-ATTACH / HUNDRED-AND
+   (hundreds groups), TEN-TWENTY (listnum) -- and NUMBER-DONE finalises the
+   assembled number, labelling it complete-num + quant + (default) npl and
+   handing back to npool. From there the existing *quantifier-rules* QUANT rule
+   (its `If 1st is num then label c numqp' branch) attaches the number as the
+   NP's numqp. Self-contained: BUILD-NUMBER is a dedicated packet only active
+   mid-number, so the group is inert for number-free sentences. Compose with
+   *np-rules* + *quantifier-rules* + *qp1-done-rule*.")
+
+
 (defparameter *which-rules*
   '("{RULE WHICH-DIAGN IN CPOOL
       [=*which; * is not any of quant, relpron] -->
@@ -746,7 +814,8 @@
         *wh-question-rules* *inversion-rules* *object-wh-rules*
         *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*
         *proper-noun-rules* *wh-determiner-rules* *quantifier-rules*
-        *which-rules* *relative-clause-rules* *long-distance-wh-rules*)
+        *which-rules* *relative-clause-rules* *long-distance-wh-rules*
+        *number-rules*)
   "EVERY validated rule group above, composed into one grammar -- the whole
    grammar the per-construction integration tests have built up, registered
    together instead of curated per test. Uses the COMPLETE *vp-np-full-rule*

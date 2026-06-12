@@ -1,12 +1,10 @@
 ;;; -*- mode: lisp; base: 10; syntax: common-lisp; -*-
 ;;; test/integration/gram1-nested-relative-flagship-test.lisp
 ;;;
-;;; "I gave the boy who you wanted to give the books to a book." parsed end to
-;;; end, FULLY DICT-DRIVEN -- the deepest, most heavily nested sentence in the
-;;; suite. It is the number-free core of Marcus's example "I gave the boy who you
-;;; wanted to give the books to three books." (the theme is `a book' here, not
-;;; `three books': a NUMBER used as a determiner is a separate gram4 construction
-;;; not yet ported; everything else parses cleanly).
+;;; "I gave the boy who you wanted to give the books to three books." parsed end
+;;; to end, FULLY DICT-DRIVEN -- the deepest, most heavily nested sentence in the
+;;; suite, and now the LITERAL Marcus example (its `three books' theme exercises
+;;; the gram4 number grammar, *number-rules* -- see gram1-number-determiner-test).
 ;;;
 ;;; A ditransitive main clause whose RECIPIENT is modified by a relative clause,
 ;;; and that relative clause itself nests want subject-control + a long-distance
@@ -14,10 +12,10 @@
 ;;;
 ;;;   [S I gave [NP the boy_i  [S-rel who_i  you wanted [ delta_j to give the
 ;;;                                                        books [to t_i] ] ] ]
-;;;            [NP a book] ]
+;;;            [NP three books] ]
 ;;;
 ;;;     main:     agt = I, dat = the boy (the recipient, relative-modified),
-;;;               neut = a book
+;;;               neut = three books
 ;;;     relative: who = the boy (the relativiser, bound to the head NP);
 ;;;               agt = you, neut = the want-complement
 ;;;     embedded: agt = you (delta, subj-less control), neut = the books,
@@ -67,7 +65,7 @@
       (load-full-grammar)
 
       (let ((ok (parse-sentence
-                 "i gave the boy who you wanted to give the books to a book ."
+                 "i gave the boy who you wanted to give the books to three books ."
                  :initial-rule (intern "INITIAL-RULE" :parsifal))))
         (check "parse succeeds" ok t)
         (truthy "no BAD (ungrammatical) constituent anywhere"
@@ -81,13 +79,17 @@
                ;; plain one.
                (boy  (find-if (lambda (n) (daughter 's n)) objs))
                (book (find-if (lambda (n) (and (not (daughter 's n))
-                                               (eq (np-word n) 'book))) objs)))
+                                               (eq (np-word n) 'books))) objs)))
           (check "the main verb is `give' (gave)"
                  (and vp (getr 'word (daughter 'verb vp))) 'gave)
           (check "the main clause has two objects" (length objs) 2)
           (check "the relative-modified object is `the boy'" (np-word boy) 'boy)
           (truthy "the boy NP is labelled modified" (and boy (member 'modified (fe boy))))
-          (check "the plain object (theme) is `a book'" (np-word book) 'book)
+          (check "the plain object (theme) is `three books'" (np-word book) 'books)
+          (truthy "the theme `three books' has a numqp (quant register 3)"
+                  (let ((qp (and book (daughter 'qp book))))
+                    (and qp (member 'numqp (fe qp))
+                         (eql (getr 'quant (daughter 'quant qp)) 3))))
 
           ;; --- The relative clause on `the boy' ---
           (let* ((relS  (and boy (daughter 's boy)))
@@ -153,10 +155,10 @@
                   (closeframe openframe)
                   (let ((mf (cadr (first (get mcf 'hypo-slots))))
                         (ef (cadr (first (get ecf 'hypo-slots)))))
-                    ;; main: I gave the boy a book
+                    ;; main: I gave the boy three books
                     (check "main agent is `I'" (cadr (assoc 'agt mf)) (daughter 'np c))
                     (check "main dative (recipient) is `the boy'" (cadr (assoc 'dat mf)) boy)
-                    (check "main neutral (theme) is `a book'" (cadr (assoc 'neut mf)) book)
+                    (check "main neutral (theme) is `three books'" (cadr (assoc 'neut mf)) book)
                     ;; embedded: you(delta) give the books to who(=the boy)
                     (truthy "embedded agent (the giver) filled" (assoc 'agt ef))
                     (check "embedded agent is the delta (= you, by control)"
