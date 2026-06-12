@@ -275,6 +275,24 @@ The most useful entry points:
 
 ## License
 
-To be determined. Marcus has given informal permission for reproduction
-(see *Provenance* above); a formal license will be selected in consultation
-with him before this repository is widely advertised.
+**Not yet licensed — please do not redistribute.** No open-source license has
+been granted, so ordinary copyright applies and all rights are reserved pending
+a formal license. Treat this repository as *source-available for reading*, and
+ask before reusing any of it.
+
+The repository bundles two distinct bodies of work, with different rights:
+
+- **The Common Lisp port** — everything outside `notes/from-marcus/` — is the
+  work of this project's author.
+- **Marcus's original sources** (`notes/from-marcus/`) and the OCR'd grammar
+  appendix remain Mitchell Marcus's work, reproduced here with his permission
+  (see *Provenance*).
+
+Mitchell Marcus has generously said this old work may be reproduced, but that
+informal permission is **not** a public license: it does not grant third parties
+the right to redistribute, modify, or build upon the code, and it cannot speak
+for any rights others may hold (e.g. AT&T/Bell Labs, where some of the source
+originated, or MIT Press, which published the 1980 book the grammar appendix is
+drawn from). A formal license — for the port, and covering the original sources —
+will be chosen in consultation with him and any other rights-holders before this
+repository is shared or advertised publicly.
