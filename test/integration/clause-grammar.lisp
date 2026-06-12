@@ -316,6 +316,27 @@
    finalize. Compose with *inf-complement-rules* + *vp-np-full-rule*.")
 
 
+(defparameter *object-control-rules*
+  '("{RULE CREATE-DELTA-SUBJ IN 2-OBJ-INF-COMP
+      [=*to, auxverb] [=tnsless] -->
+      Create an np node labelled trace, not-modifiable, delta.
+      Drop c into the buffer.
+      Deactivate 2-obj-inf-comp. Activate inf-comp.}")
+  "gram2 object-control layer for 2-obj-inf-obj verbs (\"the boy persuaded the
+   girl to go .\"). `persuade' is obj-binds-delta, which `redund'-implies
+   2-obj-inf-obj -> inf-obj, so MAIN-VERB activates 2-obj-inf-comp. The first
+   object (`the girl') is attached by the clause layer's OBJECTS; then, with
+   [to][tnsless] in the buffer, CREATE-DELTA-SUBJ drops a trace already
+   labelled `delta' for the embedded subject and hands off to inf-comp so
+   INF-S-START1 builds the embedded inf-S. Unlike the subj-less (`want') case
+   the trace is born `delta', so SUBJECT-IS-DELTA-DIAG is a no-op and only
+   DELTA-SUBJ-S-DONE (both in *delta-complement-rules*) is needed. The crux is
+   the binding: *vp-np-full-rule*'s obj-binds-delta arm binds the delta to the
+   matrix verb's INDIRECT object (`the girl'), not the subject -- object
+   control, the contrast with `want'. Compose with *inf-complement-rules* +
+   *delta-complement-rules* + *vp-np-full-rule*.")
+
+
 (defparameter *that-complement-rules*
   '("{RULE THAT-S-START PRIORITY: 5 IN CPOOL
       [=comp, *that] [=np] [=verb] -->
