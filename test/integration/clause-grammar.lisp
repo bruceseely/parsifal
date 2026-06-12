@@ -484,6 +484,19 @@
       If the greatest possible number of objects of c is greater than 1
           then run wh-with-np-next next else
       Run too-many-nps next.}"
+    "{RULE WH-WITH-PP-NEXT PRIORITY: 5 IN WH-VP
+      [=prep] [=np] -->
+      If a prepositional phrase of 1st and 2nd fits a pp slot of c
+          then run pp next else
+      If it isn't true that
+          a prepositional phrase of 1st and the wh-comp fits a pp slot of c
+          then if the greatest possible number of objects of c is greater than 0
+              then run create-wh-trace next
+              else run too-many-nps next
+          else
+      If the lowest possible number of objects of c is greater than 0
+          then run create-wh-trace next else
+          run wh-pp-build next}"
     "{RULE TOO-MANY-NPS PRIORITY: 15 IN WP-VP
       [=np]
       [** c; the greatest possible number of objects of c is less than 2] -->
@@ -506,10 +519,21 @@
    wh-comp go to the PP. Otherwise the PP is a separate adjunct: with two object
    slots it delegates to WH-WITH-NP-NEXT (so the NP competes for an object slot
    and the adjunct PP attaches on its own via *pp-rules*), else it overflows to
-   TOO-MANY-NPS. TOO-MANY-NPS is the overflow guard. Needs the 2-object verb's
-   case frame (e.g. give: neut + dat). Compose with *object-wh-rules* (for
-   WH-WITH-END-NEXT / WH-RESOLVED) + *wh-question-rules* + *inversion-rules*;
-   the PP variant also needs *pp-rules* (PP attach + VP-PP case fill).")
+   TOO-MANY-NPS. WH-WITH-PP-NEXT (priority 5, the most specific) is the variant
+   for when a PREP comes first -- an in-situ PP after the verb, e.g. \"What did
+   Bob change to friday?\", where after the verb the buffer is [to][friday]. If
+   that PP is a plain pp that fits one of the verb's pp slots ([1st-prep + 2nd-NP]
+   fits) it just builds it (run pp), leaving the wh-comp to fall to a verb object
+   later; if instead the wh-comp itself is the prep's object (stranded-with-trace
+   case) it routes to WH-PP-BUILD; the middle branches spend the wh-comp on a
+   verb object (CREATE-WH-TRACE) or overflow. TOO-MANY-NPS is the overflow guard.
+   Needs the verb's pp slots (e.g. change: time/loc via `to'; give: neut + dat).
+   Compose with *object-wh-rules* (for WH-WITH-END-NEXT / WH-RESOLVED) +
+   *wh-question-rules* + *inversion-rules*; the PP variants also need *pp-rules*
+   (PP attach + VP-PP case fill) and *wh-pp-rules* (WH-PP-BUILD).
+   (PP *fronting* -- pied-piped \"To whom did Bob give it?\" -- is a separate,
+   not-yet-built construction: nothing assembles a clause-initial wh-PP for
+   WH-QUEST's pp-quest branch to front.)")
 
 (defparameter *there-rules*
   "{RULE THERE priority: 5 IN BUILD-AUX
@@ -558,9 +582,9 @@
    trace as the prep's object, binds the trace to the wh-comp, and marks the
    wh-comp utilized; PP-UNDER-VP-1 then attaches the pp under the VP. Compose
    with *wh-question-rules* + *object-wh-rules* (for aux-inversion) + *pp-rules*.
-   (The richer non-stranding placement rules -- WH-WITH-NP-NEXT / -PP-NEXT /
-   -NP-PP-NEXT, with their ditransitive semantic-preference logic -- are not
-   included here.)")
+   (The richer placement rules WH-WITH-NP-NEXT / -NP-PP-NEXT / -PP-NEXT, with
+   their semantic-preference logic, live in *ditransitive-wh-rules*;
+   WH-WITH-PP-NEXT calls WH-PP-BUILD here for its stranded-with-trace branch.)")
 
 
 (defparameter *proper-noun-rules*
