@@ -232,6 +232,9 @@ at this stage.
 
 The most useful entry points:
 
+- `GLOSSARY.md` — plain-English guide to the terminology (predicate, case roles,
+  trace/binding, control, packets, wait-and-see…) plus an API/REPL cheatsheet,
+  grounded in one worked parse. Start here if the vocabulary is new.
 - `test/integration/` — the working coverage map: one heavily-commented
   end-to-end test per construction, each tracing the rules that fire and why.
   `clause-grammar.lisp` holds the shared, composable rule groups they draw on.
