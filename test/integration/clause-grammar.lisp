@@ -473,6 +473,17 @@
           run objects next else
           label the current s very-bad;
           run create-wh-trace next.}"
+    "{RULE WH-WITH-NP-PP-NEXT PRIORITY: 7 IN WH-VP
+      [=np] [=prep] -->
+      If the greatest possible number of objects of c is greater than 1
+          and a prepositional phrase of 2nd and the wh-comp fits a pp slot of c
+          or
+          the greatest possible number of objects of c is equal to 1
+          and a prepositional phrase of 2nd and the wh-comp fits a pp slot of the current s
+          then run objects next else
+      If the greatest possible number of objects of c is greater than 1
+          then run wh-with-np-next next else
+      Run too-many-nps next.}"
     "{RULE TOO-MANY-NPS PRIORITY: 15 IN WP-VP
       [=np]
       [** c; the greatest possible number of objects of c is less than 2] -->
@@ -487,9 +498,18 @@
    (smqval over the verb's object markersets): if the overt NP fits an object
    slot at least as well as the wh-comp, attach the NP (run objects) and let
    WH-WITH-END-NEXT spend the wh-comp on the remaining slot; otherwise create the
-   wh-trace now. TOO-MANY-NPS is the overflow guard. Needs the 2-object verb's
+   wh-trace now. WH-WITH-NP-PP-NEXT (priority 7, more specific) is the variant
+   for when an NP is followed by a PREP -- e.g. \"What did Bob send Sue on
+   friday?\", where after the verb the buffer is [Sue][on ...]. It first asks
+   whether the wh-comp belongs IN that PP (does [2nd-prep + wh-comp] fit a pp
+   slot? -- pgof + `fits a pp slot'); if so it attaches the NP and lets the
+   wh-comp go to the PP. Otherwise the PP is a separate adjunct: with two object
+   slots it delegates to WH-WITH-NP-NEXT (so the NP competes for an object slot
+   and the adjunct PP attaches on its own via *pp-rules*), else it overflows to
+   TOO-MANY-NPS. TOO-MANY-NPS is the overflow guard. Needs the 2-object verb's
    case frame (e.g. give: neut + dat). Compose with *object-wh-rules* (for
-   WH-WITH-END-NEXT / WH-RESOLVED) + *wh-question-rules* + *inversion-rules*.")
+   WH-WITH-END-NEXT / WH-RESOLVED) + *wh-question-rules* + *inversion-rules*;
+   the PP variant also needs *pp-rules* (PP attach + VP-PP case fill).")
 
 (defparameter *there-rules*
   "{RULE THERE priority: 5 IN BUILD-AUX
