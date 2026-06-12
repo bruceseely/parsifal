@@ -661,3 +661,32 @@
   (dolist (g groups)
     (dolist (src (if (listp g) g (list g)))
       (eval (glang-cl::link (glang-cl::compile-rule src))))))
+
+
+(defparameter *full-grammar*
+  (list *np-rules* *np-utterance-rule* *clause-rules* *vp-np-full-rule*
+        *pronoun-rule* *imperative-rule* *qp1-done-rule* *pp-rules*
+        *inf-complement-rules* *raising-rules* *perfect-rules*
+        *delta-complement-rules* *two-object-inf-rules* *that-complement-rules*
+        *wh-question-rules* *inversion-rules* *object-wh-rules*
+        *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*
+        *proper-noun-rules* *wh-determiner-rules* *quantifier-rules*
+        *which-rules* *relative-clause-rules*)
+  "EVERY validated rule group above, composed into one grammar -- the whole
+   grammar the per-construction integration tests have built up, registered
+   together instead of curated per test. Uses the COMPLETE *vp-np-full-rule*
+   (with delta/raising binding); *vp-np-rule* is deliberately omitted because
+   it would collide with it on the rule name VP-NP -- they are the only two
+   groups that cannot coexist. The union composes with no parse-time conflicts:
+   gram1's INITIAL-RULE dispatches each sentence type to the right packets and
+   the diagnostic rules (THAT-DIAG, WHICH-DIAGN, SUBJ-QUEST?, REDUCED-RELATIVE,
+   ...) stay disjoint. See `gram1-full-grammar-test'.")
+
+(defun load-full-grammar ()
+  "Reset the rule table and register *FULL-GRAMMAR* as a single composed
+   grammar. After this one call, PARSE-SENTENCE parses ANY supported
+   construction with no per-test rule-group selection -- the whole-grammar
+   load path. (PARSE-SENTENCE resets per-parse state, so the same loaded
+   grammar can parse many sentences in one image.)"
+  (reset-rule-table)
+  (apply #'register-grammar *full-grammar*))

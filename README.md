@@ -42,8 +42,9 @@ alongside the split-out individual files for traceability. See
 In progress, and further along than it sounds: the grammar-language compiler,
 the wait-and-see runtime, and a broad slice of the English grammar all run
 today. English sentences parse end to end into case-frame-annotated trees. The
-remaining work is grammar *breadth* (more constructions) and *consolidation*
-(loading the whole grammar at once), not new core machinery.
+main remaining work is grammar *breadth* — more constructions — not new core
+machinery. (The whole grammar now loads as one composed unit via
+`load-full-grammar`; consolidation is done.)
 
 | Component | Status | Location |
 | --- | --- | --- |
@@ -51,16 +52,17 @@ remaining work is grammar *breadth* (more constructions) and *consolidation*
 | 1977 grammar (book appendix) | Hand-cleaned OCR; 144 rules parse end-to-end | `notes/pidgin-grammar-rules-1977.text` |
 | Rule-frame parser (cl-yacc) | Working; parses both corpora cleanly | `system/core/rule-processing/` |
 | Grammar-language Pratt port (`glang-cl`) | Working; 21 action denotations ported; compiles the rule groups the integration suite uses | `system/reference/glang-cl/` |
-| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop); drives 30 end-to-end integration parses | `system/core/runtime/` |
-| Grammar coverage | Broad but curated: 27 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering complements, control/raising, passive, wh-questions, relative clauses, existentials, quantifiers, and numbers. No single whole-grammar load path yet. | `test/integration/clause-grammar.lisp` |
+| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop); drives 32 end-to-end integration parses | `system/core/runtime/` |
+| Grammar coverage | Broad: 26 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering complements, control/raising, passive, wh-questions, relative clauses, existentials, quantifiers, and numbers. They also compose into one grammar: `load-full-grammar` registers them all, and one loaded grammar parses every construction family in a single image. | `test/integration/clause-grammar.lisp` |
 | CL adaptation summary | Not started | `notes/cl-adaptation.md` (planned) |
 
 Each construction is pinned by an end-to-end integration test under
-`test/integration/` (30 of them, all passing): a real sentence is tokenized,
+`test/integration/` (32 of them, all passing): a real sentence is tokenized,
 parsed deterministically, and checked down to its case roles — e.g. that
 *"The boy persuaded the girl to go."* binds the embedded subject to the
 object (object control), while *"the boy wants to go ."* binds it to the
-subject.
+subject. `gram1-full-grammar-test` goes further: it loads the entire grammar
+at once and parses one sentence from every family against that single grammar.
 
 ## Repository layout
 
@@ -146,6 +148,23 @@ Expected: every assertion for *"the boy persuaded the girl to go ."* passes,
 ending with `gram1-object-control-test: passed`. The other files under
 `test/integration/` cover the remaining constructions (relative clauses,
 wh-questions, raising, existentials, quantifiers, numbers, …).
+
+To parse against the **whole grammar at once** rather than a curated slice,
+load `clause-grammar.lisp` and call `load-full-grammar`, then parse any
+supported sentence — the same loaded grammar handles every construction, and
+many sentences in one image:
+
+```lisp
+(load "test/integration/clause-grammar.lisp")   ; pulls in :parsifal + glang-cl
+(in-package :parsifal)
+(load-full-grammar)                              ; register the entire grammar once
+(parse-sentence "the boy persuaded the girl to go ."
+                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
+(parse-sentence "is there a meeting ?"
+                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
+```
+
+`gram1-full-grammar-test.lisp` exercises this across one sentence per family.
 
 ### Compile a rule end-to-end
 

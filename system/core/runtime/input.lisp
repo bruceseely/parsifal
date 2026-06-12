@@ -153,7 +153,23 @@
         *1stfeat* nil *2ndfeat* nil *3rdfeat* nil)
   (unless (arrayp *buffer*)
     (setq *buffer* (make-array 10 :initial-element nil)))
-  (dotimes (i (length *buffer*)) (setf (aref *buffer* i) nil)))
+  (dotimes (i (length *buffer*)) (setf (aref *buffer* i) nil))
+  ;; Zero the three buffer-position feature vectors. SETUP** clears a
+  ;; position's old bits using the cached *NthFEAT* index list, so niling
+  ;; *NthFEAT* above without also clearing the bit array would break the
+  ;; matcher's invariant: stale feature bits from a previous parse (e.g. a
+  ;; `verb' left in 2nd position) would survive and spuriously satisfy a
+  ;; later `[=verb]' pattern. Re-zeroing keeps *NthFEAT*=nil consistent with
+  ;; an all-zero *NthFVEC*, so a fresh PARSE-SENTENCE in a reused image
+  ;; behaves like the first one. (No effect on the first parse -- the arrays
+  ;; are allocated zeroed.)
+  (dolist (fvec (list *1stfvec* *2ndfvec* *3rdfvec*))
+    (when (typep fvec '(array bit)) (fill fvec 0)))
+  ;; Close any frame left open by a previous parse and clear the cached
+  ;; case-frame specials (hypo-slots / pred / objs-needed), so thematic-role
+  ;; filling starts clean too. (OPENFRAME / CLEARCF live in case-frame.lisp,
+  ;; loaded after this file; the call resolves at run time.)
+  (openframe nil))
 
 (defun parse-sentence (string &key (initial-rule 'initial-rule))
   "Parse a sentence STRING end to end: reset state, read it into
