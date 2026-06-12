@@ -27,7 +27,7 @@
 ;;; embedded delta to the matrix verb's INDIRECT object -- `the girl' -- then
 ;;; fills the embedded subj slot and finalizes the embedded frame.
 ;;;
-;;; The single new rule vs. the `want' case is *object-control-rules*
+;;; The single new rule vs. the `want' case is *two-object-inf-rules*
 ;;; (CREATE-DELTA-SUBJ). Everything else composes: *inf-complement-rules*,
 ;;; *delta-complement-rules* (for DELTA-SUBJ-S-DONE), and *vp-np-full-rule*
 ;;; (whose obj-binds-delta arm already existed, exercised here for the first
@@ -67,7 +67,7 @@
       ;; defs.l.
       (reset-rule-table)
       (register-grammar *np-rules* *clause-rules* *inf-complement-rules*
-                        *delta-complement-rules* *object-control-rules*
+                        *delta-complement-rules* *two-object-inf-rules*
                         *vp-np-full-rule*)
 
       ;; Sanity: in the dictionary `persuade' is `jlike tell', so it inherits
