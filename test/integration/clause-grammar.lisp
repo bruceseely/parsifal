@@ -851,6 +851,44 @@
    top with *number-rules* present.")
 
 
+(defparameter *clock-time-rules*
+  '("{RULE TWO-OCLOCK PRIORITY: 5 IN NPOOL
+      [=num] [ * is any of *o\\'clock, *a\\.m\\., *p\\.m\\. ] -->
+      Create a new noun node labelled time, hour, complex-noun, propnoun.
+      Attach a new np node labelled time, complex-noun-np to c as np.
+      Attach 1st to c as hour.
+      Activate build-hour.}"
+    "{RULE TWO-THIRTY PRIORITY: 5 IN NPOOL
+      [=num] [=*:] [=num] -->
+      Create a new noun node labelled time, hour, complex-noun, propnoun.
+      Attach a new np node labelled time, complex-noun-np to c as np.
+      Attach 1st to c as hour.
+      Attach 2nd to c as colon.
+      Attach 3rd to c as minute.
+      Activate build-hour.}"
+    "{RULE HOUR-COMPLETE IN BUILD-HOUR
+      [t] -->
+      If 1st is any of *o\\'clock, *a\\.m\\., *p\\.m\\. then attach 1st to c as oclock.
+      Drop c.
+      Set the time register of c to 'hour'. Label c hour.
+      Set the hours register of c to the quant register of the hour of the np of c.
+      Set the minutes register of c to
+          (if there is a minute of the np of c then quant register of it else 0).
+      If there is an oclock of the np of c
+          then set the time-of-day register of c to it
+          else set the time-of-day register of c to the word 'o\\'clock'.
+      Set the markers register of c to !'(time).
+      Finalize the cf of c. Drop c.}")
+  "gram4 clock-time NP (gram4:106-140). Builds an hour-of-day TIME NP: TWO-OCLOCK
+   handles \"2 o'clock\" / \"2 a.m.\" / \"2 p.m.\" (a num followed by a postmod),
+   TWO-THIRTY handles \"2:30\" (num colon num -- the tokenizer splits `2:30'),
+   both opening build-hour; HOUR-COMPLETE finalises with time `hour' and the
+   semantic registers -- hours (the hour num's quant), minutes (the minute num's
+   quant, or 0), time-of-day (the o'clock/am/pm postmod, or the word `o'clock').
+   The hour/minute numbers are plain dictionary nums. Not in *full-grammar*
+   (the [=num] openers are npool-greedy); compose on top.")
+
+
 (defparameter *which-rules*
   '("{RULE WHICH-DIAGN IN CPOOL
       [=*which; * is not any of quant, relpron] -->
