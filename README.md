@@ -52,17 +52,22 @@ machinery. (The whole grammar now loads as one composed unit via
 | 1977 grammar (book appendix) | Hand-cleaned OCR; 144 rules parse end-to-end | `notes/pidgin-grammar-rules-1977.text` |
 | Rule-frame parser (cl-yacc) | Working; parses both corpora cleanly | `system/core/rule-processing/` |
 | Grammar-language Pratt port (`glang-cl`) | Working; 21 action denotations ported; compiles the rule groups the integration suite uses | `system/reference/glang-cl/` |
-| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop); drives 32 end-to-end integration parses | `system/core/runtime/` |
-| Grammar coverage | Broad: 26 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering complements, control/raising, passive, wh-questions, relative clauses, existentials, quantifiers, and numbers. They also compose into one grammar: `load-full-grammar` registers them all, and one loaded grammar parses every construction family in a single image. | `test/integration/clause-grammar.lisp` |
+| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop); drives 47 end-to-end integration parses | `system/core/runtime/` |
+| Grammar coverage | Broad: 34 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering declaratives, the full complement system (infinitive/that-clause, raising, passive, subject- and object-control), wh-questions (subject/object gaps, aux-inversion, preposition stranding, wh-vp PP placement), **long-distance** wh-dependencies, relative clauses (incl. deeply nested), existentials, quantifiers, numbers, and date/time NPs. Most parse as pure composition of these groups; many compose into one grammar via `load-full-grammar`, which parses every construction family in a single image. | `test/integration/clause-grammar.lisp` |
 | CL adaptation summary | Not started | `notes/cl-adaptation.md` (planned) |
 
 Each construction is pinned by an end-to-end integration test under
-`test/integration/` (32 of them, all passing): a real sentence is tokenized,
+`test/integration/` (47 of them, all passing): a real sentence is tokenized,
 parsed deterministically, and checked down to its case roles — e.g. that
 *"The boy persuaded the girl to go."* binds the embedded subject to the
 object (object control), while *"the boy wants to go ."* binds it to the
-subject. `gram1-full-grammar-test` goes further: it loads the entire grammar
-at once and parses one sentence from every family against that single grammar.
+subject. The suite works through Marcus's own example sentences, up to deeply
+nested cases like *"I gave the boy who you wanted to give the books to three
+books."* — where a single NP, *the boy*, is bound across three clauses (the
+main-clause dative, a relative pronoun, and, via a stranded preposition deep in
+a want-complement, the embedded verb's recipient). `gram1-full-grammar-test`
+goes further still: it loads the entire grammar at once and parses one sentence
+from every family against that single grammar.
 
 ## Repository layout
 
