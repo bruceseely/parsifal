@@ -39,16 +39,28 @@ alongside the split-out individual files for traceability. See
 
 ## Status
 
-In progress. Two parsers are working today; the runtime is not yet ported.
+In progress, and further along than it sounds: the grammar-language compiler,
+the wait-and-see runtime, and a broad slice of the English grammar all run
+today. English sentences parse end to end into case-frame-annotated trees. The
+remaining work is grammar *breadth* (more constructions) and *consolidation*
+(loading the whole grammar at once), not new core machinery.
 
 | Component | Status | Location |
 | --- | --- | --- |
 | Marcus's original source | Preserved verbatim | `notes/from-marcus/` |
 | 1977 grammar (book appendix) | Hand-cleaned OCR; 144 rules parse end-to-end | `notes/pidgin-grammar-rules-1977.text` |
 | Rule-frame parser (cl-yacc) | Working; parses both corpora cleanly | `system/core/rule-processing/` |
-| Grammar-language Pratt port (`glang-cl`) | Pratt machinery complete; ~5 of ~30 action denotations ported; compiles a canonical test rule end-to-end | `system/reference/glang-cl/` |
-| Runtime port (`parse.l` + `case.l` + `com.l`) | Not started | — |
+| Grammar-language Pratt port (`glang-cl`) | Working; 21 action denotations ported; compiles the rule groups the integration suite uses | `system/reference/glang-cl/` |
+| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop); drives 30 end-to-end integration parses | `system/core/runtime/` |
+| Grammar coverage | Broad but curated: 27 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering complements, control/raising, passive, wh-questions, relative clauses, existentials, quantifiers, and numbers. No single whole-grammar load path yet. | `test/integration/clause-grammar.lisp` |
 | CL adaptation summary | Not started | `notes/cl-adaptation.md` (planned) |
+
+Each construction is pinned by an end-to-end integration test under
+`test/integration/` (30 of them, all passing): a real sentence is tokenized,
+parsed deterministically, and checked down to its case roles — e.g. that
+*"The boy persuaded the girl to go."* binds the embedded subject to the
+object (object control), while *"the boy wants to go ."* binds it to the
+subject.
 
 ## Repository layout
 
@@ -73,9 +85,12 @@ parsifal/
 │   ├── ocr-cleanup-inventory.md            Documented history of the 1977 OCR cleanup
 │   └── ocr-scan-report.md                  Final heuristic scan against the cleaned corpus
 ├── system/
+│   ├── core/runtime/                       wait-and-see runtime (parse.l/case.l/com.l port)
 │   ├── core/rule-processing/               cl-yacc rule-frame parser
-│   └── reference/glang-cl/                 Port-in-progress of Marcus's glang.l
-└── test/                                   Unit tests for the rule-frame parser
+│   └── reference/glang-cl/                 Pratt port of Marcus's glang.l rule compiler
+└── test/
+    ├── *-test.lisp                         unit tests for the runtime + rule parsers
+    └── integration/                        end-to-end sentence parses (one per construction)
 ```
 
 ## Quickstart
@@ -92,14 +107,16 @@ ln -s /path/to/parsifal ~/quicklisp/local-projects/parsifal
 
 or push it onto `asdf:*central-registry*` at the REPL.
 
-### Load and test the rule-frame parser
+### Load and test the runtime
 
 ```lisp
 (ql:quickload :parsifal)
 (pa::test-all t)
 ```
 
-Expected: all `rule-lexer-test` and `rule-parser-test` cases pass.
+Expected: all 14 unit suites pass (rule lexer/parser, the runtime's buffer,
+node, case-frame and parse-loop primitives, the lexicon, morphology, and the
+dictionary).
 
 ### Load the `glang-cl` Pratt parser and run its tests
 
@@ -113,6 +130,22 @@ in order:
 (glang-cl::pratt-test)
 (glang-cl::glang-test)
 ```
+
+### Parse an English sentence end to end
+
+Each integration test is a self-contained end-to-end parse: it loads the
+runtime and `glang-cl`, registers the rule groups it needs, and parses a real
+sentence down to its case roles. Run one directly with SBCL:
+
+```bash
+sbcl --noinform --non-interactive \
+     --load test/integration/gram1-object-control-test.lisp
+```
+
+Expected: every assertion for *"the boy persuaded the girl to go ."* passes,
+ending with `gram1-object-control-test: passed`. The other files under
+`test/integration/` cover the remaining constructions (relative clauses,
+wh-questions, raising, existentials, quantifiers, numbers, …).
 
 ### Compile a rule end-to-end
 
@@ -155,12 +188,13 @@ PARSIFAL contains **two distinct parsers** at different levels of abstraction:
    `notes/from-marcus/CGOL-Pratt.pdf`. The CL port lives at
    `system/reference/glang-cl/`.
 
-2. **The English parser** (`parse.l`) takes the *output* of step 1 and runs
-   it against English sentences, producing a syntactic tree with case-frame
-   structure. This is the wait-and-see parser proper. Not yet ported; the
-   architecture is documented at `system/reference/glang-cl/` (see the
-   project memories) and the runtime API surface is enumerated from
-   `parse.l` / `case.l` / `com.l`.
+2. **The English parser** (`parse.l` + `case.l` + `com.l`) takes the *output*
+   of step 1 and runs it against English sentences, producing a syntactic tree
+   with case-frame structure. This is the wait-and-see parser proper, and it is
+   ported and working at `system/core/runtime/` — the buffer, the
+   attention-shifting node machinery, the case mechanism, and the
+   rule-application loop. The integration suite drives it end to end: a
+   sentence in, a checked parse tree out.
 
 This repository also ships a **complementary tool** — a cl-yacc-based
 rule-frame parser at `system/core/rule-processing/` — that recognizes just
@@ -174,6 +208,9 @@ at this stage.
 
 The most useful entry points:
 
+- `test/integration/` — the working coverage map: one heavily-commented
+  end-to-end test per construction, each tracing the rules that fire and why.
+  `clause-grammar.lisp` holds the shared, composable rule groups they draw on.
 - `notes/from-marcus/INVENTORY.md` — what each of Marcus's files is and does,
   plus what's still missing
 - `notes/from-marcus/MANIFEST.md`, `PFILES_MANIFEST.md` — how each file got
