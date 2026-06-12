@@ -754,6 +754,33 @@
    *np-rules* + *quantifier-rules* + *qp1-done-rule*.")
 
 
+(defparameter *temporal-adjunct-rules*
+  '("{RULE TIME-NP-TO-PP PRIORITY: 5 IN CPOOL
+      [=np, time] -->
+      Insert the word 'during' into the buffer before 1st.}")
+  "gram4 bare-temporal-adjunct rule (gram4:277). A bare time NP (\"yesterday\",
+   \"monday\") can't fill a verb's TIME case positionally -- TIME is not an
+   object case -- so TIME-NP-TO-PP rewrites it into a `during'-PP (`yesterday'
+   -> `during yesterday'), which then attaches and fills TIME via `during'
+   (cases-marked-by time). Used for \"you scheduled the meeting yesterday .\";
+   the verb must carry a TIME case (e.g. schedule: cf (neut (time) (loc) agt)),
+   and the time word must be a pseudopropnoun so the bare det-less NP is not
+   flagged BAD by the NP-completion rule.
+
+   DELIBERATELY NOT in *full-grammar*: Marcus flagged this rule \"needs to be
+   controlled, but right zeroeth approx\", and it lives up to it -- [=np,time]
+   fires on ANY clause-level time NP, including the object of an existing time
+   PP, so it degrades sentences like \"schedule a meeting for friday .\" (it
+   introduces a BAD node there). Compose it only for bare-time-adjunct sentences,
+   with *np-rules* + *clause-rules* + *pp-rules* + *qp1-done-rule*.
+
+   KNOWN LIMITATION: works for verbs with a native TIME slot (schedule), where
+   the `during'-PP attaches under the VP and VP-PP fills TIME. For verbs WITHOUT
+   one (give -- Marcus's literal \"give Sue yesterday\" examples) the PP attaches
+   at the S level and TIME is not filled; that needs a universal-time-slot +
+   S-level PP case-fill reconstruction, still deferred.")
+
+
 (defparameter *which-rules*
   '("{RULE WHICH-DIAGN IN CPOOL
       [=*which; * is not any of quant, relpron] -->
