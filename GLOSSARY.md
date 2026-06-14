@@ -210,6 +210,27 @@ which fills a verb's object case when an NP attaches to its VP).
         (cadr (first (get cf 'hypo-slots)))))       ; => ((NEUT …) (DAT …) (AGT …))
 ```
 
+### How `(ql:quickload :parsifal)` finds the system
+
+Quicklisp itself has no `parsifal` in its dists — it falls through to **ASDF**,
+which resolves a system *name* to an `.asd` *file* via its **source registry**.
+That registry is configured outside this repo, in
+`~/.config/common-lisp/source-registry.conf.d/cgraph.conf`:
+
+```lisp
+(:tree "~/repo/")
+```
+
+The `(:tree …)` directive tells ASDF to recursively scan everything under
+`~/repo/` for `.asd` files, so it discovers `~/repo/parsifal/parsifal.asd`
+automatically — `~/quicklisp/local-projects/` is not involved. Confirm the
+resolution with `(asdf:system-source-file :parsifal)`. Drop a new `.asd`
+anywhere under `~/repo/` and it becomes quickloadable too; if ASDF doesn't see
+it yet, force a rescan with `(asdf:clear-source-registry)`.
+
+(Separately, the `parsifal` function in `~/.sbclrc` is a different launch path:
+it loads `~/lisp/boot-parsifal.lisp` and calls `run-parsifal`.)
+
 ### Gotchas
 1. **`fe` is a macro, not a function** — `(mapcar #'fe …)` errors; use
    `(mapcar (lambda (n) (fe n)) …)`.
