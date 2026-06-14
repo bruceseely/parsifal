@@ -171,6 +171,11 @@ many sentences in one image:
 
 `gram1-full-grammar-test.lisp` exercises this across one sentence per family.
 
+For a walk-through of the setup, how to read the resulting tree and case
+frames, and how `(ql:quickload :parsifal)` locates the system, see
+[A worked example](GLOSSARY.md#a-worked-example) and the
+[API cheatsheet](GLOSSARY.md#api-cheatsheet) in `GLOSSARY.md`.
+
 ### Compile a rule end-to-end
 
 ```lisp
