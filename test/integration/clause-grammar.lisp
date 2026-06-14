@@ -264,6 +264,27 @@
    priority conflict (PERFECTIVE needs *have, PASSIVE-AUX needs *be).")
 
 
+(defparameter *modal-rules*
+  '("{RULE MODAL IN BUILD-AUX
+      [=modal] [=tnsless] --> Attach 1st to c as modal. Label c modal.}"
+    "{RULE FUTURE IN BUILD-AUX
+      [=*will] [=tnsless] --> Attach 1st to c as will. Label c future.}")
+  "gram1 modal + future aux layer (gram1:121-125). In a declarative the
+   leading verb-group word (`should', `will', ...) is tensed, so STARTAUX makes
+   an aux node and copies its tense onto it, but leaves the word in the buffer.
+   Without these rules MAIN-VERB then wrongly grabs that modal/future word as
+   the main verb (e.g. `will' in `I will schedule a meeting'), stranding the
+   real verb and failing the parse. MODAL ([modal][tnsless]) attaches a modal
+   (`should'/`would'/`could'/`must'/`can') under the aux and labels it modal;
+   FUTURE ([*will][tnsless]) does the same for `will'. Both fire in BUILD-AUX at
+   the default priority 10 -- ahead of AUX-COMPLETE (15), which then drops the
+   completed aux so MAIN-VERB sees the genuine main verb. They are disjoint from
+   each other and from PERFECTIVE/PASSIVE-AUX/DO-SUPPORT (each keyed on its own
+   lexical anchor: modal, *will, *have, *be, *do), so they stack -- `should have
+   scheduled' is MODAL then PERFECTIVE. (`may' is NOT a modal in Marcus's
+   lexicon -- it is jlike `june'; see the dict's `may is ambiguous' comment.)")
+
+
 (defparameter *vp-np-full-rule*
   "{ATTACHMENT CRULE VP-NP VP OVER NP
     The lower node fills an obj slot of the upper.
@@ -944,7 +965,7 @@
 (defparameter *full-grammar*
   (list *np-rules* *np-utterance-rule* *clause-rules* *vp-np-full-rule*
         *pronoun-rule* *imperative-rule* *qp1-done-rule* *pp-rules*
-        *inf-complement-rules* *raising-rules* *perfect-rules*
+        *inf-complement-rules* *raising-rules* *perfect-rules* *modal-rules*
         *delta-complement-rules* *two-object-inf-rules* *that-complement-rules*
         *wh-question-rules* *inversion-rules* *object-wh-rules*
         *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*

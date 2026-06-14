@@ -64,7 +64,7 @@
       ;; (Every group's signature rule is registered together.)
       (dolist (rule '("INITIAL-RULE" "MAJOR-DECL-S" "MAIN-VERB" "YES-NO-Q"
                       "THERE" "WH-QUEST" "AUX-INVERSION" "CREATE-DELTA-SUBJ"
-                      "WHICH-DIAGN" "WH-RELATIVE-CLAUSE" "PROPNAME"))
+                      "WHICH-DIAGN" "WH-RELATIVE-CLAUSE" "PROPNAME" "MODAL" "FUTURE"))
         (truthy (format nil "rule ~a is registered" rule)
                 (act-of-rule (intern rule :parsifal))))
 
@@ -80,6 +80,8 @@
                 ("the boy promised the girl to go ."                (decl major s))
                 ("the boy believes that the lecture meets ."        (decl major s))
                 ("a meeting seems to have been scheduled for friday ." (decl major s))
+                ("i will schedule a meeting ."                      (decl major s))
+                ("john should have scheduled the meeting ."         (decl major s))
                 ("who did the boy see ?"                            (wh-quest major quest s))
                 ("what did the boy break ?"                         (wh-quest major quest s))
                 ("did the boy meet you ?"                           (ynquest major quest s))
