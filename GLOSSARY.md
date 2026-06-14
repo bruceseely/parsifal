@@ -18,7 +18,10 @@ index in `notes/pidgin-grammar-features.text`, and the heavily-commented
 
 ## A worked example
 
-Everything below is grounded in one sentence. Parsing
+Everything below is grounded in one sentence. First load a grammar — a freshly
+started image has an empty rule table, so `parse-sentence` errors with `no action
+registered for rule INITIAL-RULE` until you run `(load-full-grammar)` (see the
+[API cheatsheet](#api-cheatsheet)). Then parsing
 
 ```lisp
 (parse-sentence "the boy persuaded the girl to go ."
