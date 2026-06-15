@@ -124,6 +124,135 @@
 
 
 ;;; ===========================================================
+;;; Tree printers (util.l 390-524)
+;;; ===========================================================
+;;;
+;;; Marcus's util.l tree printers (`tree'/`stree' and the case tree
+;;; `short-ctree') drew their indentation from the MacLISP terminal
+;;; primitives cursorpos/chrct/linel -- which this port stubbed to
+;;; no-ops (see the supervisor note below), so the originals were
+;;; deferred. These two are faithful in STRUCTURE -- the same recursion
+;;; over a node's daughter groups (STREE) and over its case frame
+;;; (CTREE), the same trace-binding display and cycle guard -- but
+;;; compute indentation from the recursion depth (a plain space prefix)
+;;; instead of the cursor, so they need no terminal control. They are
+;;; debugging aids for following a parse; nothing in the parser calls
+;;; them. Both print to a stream and return no values.
+
+(defun tree-indent (level stream)
+  "Indent two spaces per tree LEVEL."
+  (dotimes (i (* 2 level)) (write-char #\Space stream)))
+
+(defun leaf-word-node-p (node)
+  "A leaf word-node: NODIFY gives it a `word' register and leaves its
+   `daughters' register as the symbol WORD (input.lisp)."
+  (or (getr 'word node) (eq (getr 'daughters node) 'word)))
+
+(defun node-label (node)
+  "Head symbol + feature list, e.g.  S  (DECL MAJOR S)."
+  (format nil "~a  ~a" (car node) (fe node)))
+
+(defun node-words (node)
+  "NODE's surface words in input order, like PHRASIFY but falling back to
+   the word symbol when `origword' is unset (PHRASIFY uses ORIGCASE
+   bare, which is NIL unless read-sentence recorded the original case)."
+  (mapcar (lambda (x) (or (origcase (cdr x)) (cdr x)))
+          (sort (collectw node) #'< :key #'car)))
+
+(defun node-min-pos (node)
+  "Leftmost input position of any leaf NODE dominates -- used to print
+   daughter groups in surface (left-to-right) order regardless of the
+   order ATTACH left them on the daughters plist."
+  (let ((ws (collectw node)))
+    (if ws (reduce #'min ws :key #'car) most-positive-fixnum)))
+
+(defun daughter-groups (node)
+  "List of (FUNCTION . DAUGHTER) pairs for NODE -- each child paired with
+   the grammatical function (daughter type: np/aux/vp/verb/...) it fills,
+   sorted into surface order. The port's `daughters' register is a gensym
+   whose plist is (type1 (kids1) type2 (kids2) ...); ATTACH prepends, so
+   each kid list is reversed back to attachment order before sorting."
+  (let ((groups '()))
+    (do ((pl (symbol-plist (getr 'daughters node)) (cddr pl)))
+        ((null pl))
+      (when (listp (cadr pl))
+        (dolist (kid (reverse (cadr pl)))
+          (push (cons (car pl) kid) groups))))
+    (sort groups #'< :key (lambda (g) (node-min-pos (cdr g))))))
+
+(defun stree (node &optional (stream *standard-output*))
+  "Print NODE's SURFACE-STRUCTURE (constituent) tree: every node as its
+   head + feature list, indented by depth, recursing through its
+   daughter groups -- each child prefixed by the grammatical function it
+   fills (np/aux/vp/verb/...). Leaf word-nodes print their original-case
+   word; a trace/* node prints `trace -> <phrase>' for what it is bound
+   to. Port of util.l's `tree' with nsw+fsw+funcsw all on."
+  (stree1 node nil 0 stream)
+  (values))
+
+(defun stree1 (node func level stream)
+  (tree-indent level stream)
+  (when func (format stream "~(~a~): " func))
+  (cond
+    ((null node) (format stream "<nil>~%"))
+    ((is-any-of node '(trace *))
+     (format stream "~a  -> ~(~{~a~^ ~}~)~%"
+             (node-label node) (node-words (binding node))))
+    ((leaf-word-node-p node)
+     (format stream "~(~a~)~%"
+             (or (origcase (getr 'word node)) (getr 'word node))))
+    (t
+     (format stream "~a~%" (node-label node))
+     (dolist (g (daughter-groups node))
+       (stree1 (cdr g) (car g) (1+ level) stream)))))
+
+(defun ctree (node &optional (stream *standard-output*))
+  "Print NODE's CASE tree (the semantics): the predicate, its specifier
+   (the aux -- tense/modal/...), then each filled case labelled with the
+   grammatical function that filled it (AGT via SUBJ, NEUT via OBJ, ...),
+   recursing into fillers that carry their own frame -- so a clausal
+   complement unfolds into its embedded predicate. A trace/* filler
+   prints the phrase it binds; a filler already on the recursion path (a
+   structural cycle) is printed as a back-pointer instead of recursed.
+   Port of util.l's `short-ctree'. Flushes the open frame first so a
+   still-open matrix PRED is visible (cf. CFPRINT)."
+  (closeframe openframe)
+  (ctree1 node 0 (list node) stream)
+  (values))
+
+(defun ctree1 (node level seen stream)
+  (tree-indent level stream)
+  (cond
+    ((null node) (format stream "<nil>~%"))
+    ((is-any-of node '(trace *))
+     (format stream "trace -> ~(~{~a~^ ~}~)~%" (node-words (binding node))))
+    ((getc 'pred node)
+     (format stream "PRED: ~a~%" (getc 'pred node))
+     (let ((spec (cadr (getc 'spec node))))
+       (when (and spec (consp spec))
+         (tree-indent (1+ level) stream)
+         (format stream "SPEC: ~a~@[ ~(~{~a~^ ~}~)~]~%"
+                 (fe spec) (node-words spec))))
+     (dolist (case (reverse (getc 'cases node)))
+       (destructuring-bind (cname filler gfunc) case
+         (tree-indent (1+ level) stream)
+         (format stream "~a via ~a:~%" cname gfunc)
+         (cond ((member filler seen :test #'equal)
+                (tree-indent (+ 2 level) stream)
+                (format stream "<^ ~a ~(~{~a~^ ~}~)>~%"
+                        (car filler) (node-words filler)))
+               (t (ctree1 filler (+ 2 level) (cons node seen) stream)))))
+     (dolist (mod (getc 'mods node))
+       (tree-indent (1+ level) stream)
+       (format stream "MOD:~%")
+       (ctree1 mod (+ 2 level) (cons node seen) stream)))
+    ((leaf-word-node-p node)
+     (format stream "~(~a~)~%"
+             (or (origcase (getr 'word node)) (getr 'word node))))
+    (t (format stream "~(~{~a~^ ~}~)~%" (node-words node)))))
+
+
+;;; ===========================================================
 ;;; Interactive supervisor (case.l 448-477)
 ;;; ===========================================================
 ;;;

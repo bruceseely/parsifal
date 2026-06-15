@@ -192,7 +192,11 @@ which fills a verb's object case when an NP attaches to its VP).
                 :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T (ok) / NIL (fail)
 ;; the tree is left in the global  c  (the root S node)
 
-;; --- inspect the tree ---
+;; --- see the whole parse at a glance (the easiest way to follow it) ---
+(stree c)                ; SURFACE tree: constituents, functions, bound traces
+(ctree (daughter 'vp c)) ; CASE tree: the predicate-argument structure (meaning)
+
+;; --- inspect the tree by hand ---
 (fe c)                                              ; node features  => (DECL MAJOR S)
 (getr 'word (daughter 'verb (daughter 'vp c)))      ; a word (leaf)  => PERSUADED
 (daughters 'np (daughter 'vp c))                    ; the VP's objects (a list)
@@ -209,6 +213,44 @@ which fills a verb's object case when an NP attaches to its VP).
   (list (get cf 'pred)                              ; => PERSUADE
         (cadr (first (get cf 'hypo-slots)))))       ; => ((NEUT …) (DAT …) (AGT …))
 ```
+
+### Following a parse: `stree` and `ctree`
+
+The two tree printers are the quickest way to see what the parser built.
+**`stree`** prints the surface-structure (constituent) tree — every node as its
+head + features, each child labelled with the grammatical function it fills, leaf
+words at the bottom, and a `trace` shown with the phrase it is bound to.
+**`ctree`** prints the *case* tree — the predicate-argument structure (the
+meaning), recursing into clausal arguments so a complement unfolds into its own
+predicate. For *"the boy persuaded the girl to go ."*:
+
+```
+PA> (stree c)                         PA> (ctree (daughter 'vp c))
+S1  (DECL MAJOR S)                    PRED: PERSUADE
+  np: NP1  (NS N3P DEF DET NP)          SPEC: (PAST V-3S AUX)
+    det: the                            AGT via SUBJ:
+    nbar: NBAR1  (NS N3P NBAR)            PRED: BOY
+      noun: boy                         DAT via OBJ:
+  vp: VP1  (VP)                           PRED: GIRL
+    verb: persuaded                     NEUT via OBJ:
+    np: NP2  ( … NP)                      PRED: GO
+      …  noun: girl                        SPEC: (INF AUX) to
+    np: NP4  (NP COMP-NP …)               AGT via SUBJ:
+      s: S2  (SEC COMP-S INF-S S)           trace -> the girl
+        aux: AUX2  (INF AUX)
+          to: to
+        vp: VP2  (VP)
+          verb: go
+        np: NP3  (NP TRACE … DELTA)  -> the girl
+  finalpunc: .
+  aux: AUX1  (PAST V-3S AUX)
+```
+
+Read the `ctree`: *the boy persuaded the girl to go, and it is the girl who does
+the going* — `GO`'s agent is a trace bound to `the girl`. Both take an optional
+stream argument (default `*standard-output*`); `ctree` flushes the open frame for
+you (so you don't need the gotcha-3 `closeframe`). Tense/modal shows up on the
+`SPEC` line — e.g. a modal clause prints `SPEC: (PERF MODAL …) should have`.
 
 ### How `(ql:quickload :parsifal)` finds the system
 
