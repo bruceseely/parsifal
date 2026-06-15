@@ -141,7 +141,8 @@
                                                          (:file "case-frame")
                                                          (:file "util")
                                                          (:file "dictionary")
-                                                         (:static-file "defs-dictionary.dict")))
+                                                         (:static-file "defs-dictionary.dict")
+                                                         (:static-file "supplement.dict")))
                                            (:module "rule-processing"
                                             :serial t
                                             :components ((:file "rule-lexer")

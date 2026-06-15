@@ -287,6 +287,15 @@ it loads `~/lisp/boot-parsifal.lisp` and calls `run-parsifal`.)
 4. **One parse per process is safest** — parsing mutates some shared lexical
    state, so a long run of parses in one image can occasionally interfere. The
    integration tests do one parse per `--load` for exactly this reason.
+5. **A parse that returns `NIL` is often just a missing word, not a grammar
+   gap** — morpho silently drops tokens it can't resolve, so an unknown word
+   makes the whole sentence fail. Marcus's dictionary
+   (`defs-dictionary.dict`) is his verbatim source and omits many everyday
+   words; add the ones you need to `system/core/runtime/supplement.dict`
+   (loaded automatically after his dict) rather than editing his file — usually
+   one line, e.g. `(jlike hair block)` to make a word behave like an existing
+   one. Ad hoc, `(jlike newword oldword)` then `(expandsim 'newword)` at the
+   REPL works too.
 
 ### Best way to learn it
 Read a few `test/integration/*.lisp` files, easy → hard — each parses one

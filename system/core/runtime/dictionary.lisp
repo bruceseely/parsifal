@@ -61,7 +61,22 @@
     (load file))
   file)
 
+(defparameter *supplement-file*
+  (asdf:system-relative-pathname :parsifal
+                                 "system/core/runtime/supplement.dict")
+  "Path to the SUPPLEMENTARY lexicon -- common words absent from Marcus's
+   verbatim defs-dictionary.dict (which stays pristine). Loaded right after
+   it, so the supplement's `jlike' targets already exist.")
 
-;;; Populate the lexicon when the system loads.
+(defun load-supplement (&optional (file *supplement-file*))
+  "Load the supplementary lexicon (see *supplement-file*) with the same
+   readtable/package as the canonical dictionary. Add words Marcus omitted
+   here rather than editing his source. Returns FILE."
+  (load-dictionary file))
+
+
+;;; Populate the lexicon when the system loads: Marcus's dictionary first,
+;;; then our supplement (whose jlike targets it provides).
 (eval-when (:load-toplevel :execute)
-  (load-dictionary))
+  (load-dictionary)
+  (load-supplement))

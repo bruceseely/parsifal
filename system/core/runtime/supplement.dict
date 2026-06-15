@@ -1,0 +1,30 @@
+;;; -*- mode: lisp; base: 10; syntax: common-lisp; -*-
+;;; system/core/runtime/supplement.dict
+;;;
+;;; SUPPLEMENTARY lexicon -- common words that are NOT in Marcus's verbatim
+;;; dictionary (defs-dictionary.dict) but come up when parsing everyday
+;;; example sentences. This file is OURS, not Marcus's: his
+;;; defs-dictionary.dict stays pristine, and vocabulary he simply never
+;;; entered is added here instead. Each form only ADDS a word; nothing
+;;; here overrides a Marcus definition.
+;;;
+;;; Loaded by `load-supplement' (dictionary.lisp) immediately AFTER the
+;;; canonical dictionary, so the `jlike' targets below (block, boy, ...)
+;;; already exist. It is read with the same MacLISP-flavored readtable as
+;;; defs-dictionary.dict and the same definers from lexicon.lisp; the
+;;; loader binds *package* to :parsifal, so (like the canonical file) this
+;;; is data only -- no in-package form.
+;;;
+;;;   `jlike NEW OLD'  makes NEW share OLD's features, markers and case
+;;;                    frame -- the cheapest faithful way to add a word.
+;;;   Useful targets in Marcus's dict:
+;;;     block  -- (noun ns n3p) markers (inanim physob)   [count thing]
+;;;     boy    -- (noun ns n3p) markers (hanim physob)     [human]
+;;;
+;;; When you hit a missing word, prefer adding one line here over editing
+;;; Marcus's source.
+
+;; --- common nouns Marcus didn't enter ---
+(jlike hair block)      ; inanimate physobj count noun  (cf. "...with the red hair")
+(jlike tree block)      ; inanimate physobj count noun
+(jlike friend boy)      ; human animate noun
