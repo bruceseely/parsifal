@@ -384,7 +384,12 @@
        else   label 1st comp.}"
     "{RULE THAT-DIAG-2 PRIORITY: 13 IN CPOOL
       [=*that; * is not pronoun] -->
-      Label 1st pronoun.}")
+      Label 1st pronoun.}"
+    "{RULE THAT-DIAG-3 PRIORITY: 5 IN NBAR-COMPLETE
+      [=*that; * is none of pronoun, comp] [=np]
+      [** c; the verb of the vp of the current s is that-obj;
+       the lowest possible number of objects of the current s is equal to 2]
+      --> Label 1st comp.}")
   "gram2 that-clause complement layer for that-obj verbs (\"the boy believes
    that the lecture meets .\"). `that' is det\\comp-ambig in the lexicon, so
    THAT-DIAG-1 diagnoses it (det if it could start the following NP, relpron
@@ -393,7 +398,14 @@
    THAT-S-START-1 covers the dropped-comp case (that-comp packet). The
    committed comp-attachment layer (COMP-TO-NP marks the comp-np that-comp via
    NP-S, OBJECTS attaches it) needs no addition. THAT-DIAG-2 is the
-   that-as-pronoun fallback. Compose with *inf-complement-rules*.")
+   that-as-pronoun fallback. THAT-DIAG-3 (gram2:240) is the DITRANSITIVE case
+   -- a 2-object that-obj verb (tell/persuade) whose recipient is a full NP:
+   while that NP's nbar is completing (NBAR-COMPLETE), a following `that' + NP,
+   when the verb needs two objects, is the complementizer, not a determiner of
+   the recipient (\"I told the boy that ...\"). Without it the full-NP-recipient
+   ditransitive that-clause fails -- a pronoun recipient (no nbar, so no
+   NBAR-COMPLETE) sidesteps the ambiguity and already worked.
+   Compose with *inf-complement-rules*.")
 
 
 (defparameter *wh-question-rules*
