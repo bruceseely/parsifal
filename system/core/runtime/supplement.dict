@@ -21,10 +21,16 @@
 ;;;     block  -- (noun ns n3p) markers (inanim physob)   [count thing]
 ;;;     boy    -- (noun ns n3p) markers (hanim physob)     [human]
 ;;;
+;;; For a MASS noun, give it `massn' (plus `ns n3p') so a determiner-less NP
+;;; like "red hair" is accepted -- NP-DONE labels a `massn, ns' nbar `massnp'
+;;; (a valid NP), whereas a bare singular COUNT noun is labelled `bad'.
+;;; Marcus's own dictionary happens to mark no nouns `massn', so there is no
+;;; jlike target for a mass noun; define one with `df'.
+;;;
 ;;; When you hit a missing word, prefer adding one line here over editing
 ;;; Marcus's source.
 
 ;; --- common nouns Marcus didn't enter ---
-(jlike hair block)      ; inanimate physobj count noun  (cf. "...with the red hair")
+(df hair feats (noun massn ns n3p) markers (inanim physob)) ; MASS noun: "red hair"
 (jlike tree block)      ; inanimate physobj count noun
 (jlike friend boy)      ; human animate noun

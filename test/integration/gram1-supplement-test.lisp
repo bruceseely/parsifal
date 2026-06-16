@@ -9,15 +9,19 @@
 ;;; The trigger was "I saw the man with the red hair ." returning NIL: the
 ;;; parser and grammar were fine (adjectives in an NP and clause-level PPs
 ;;; both already work), but `hair' was simply absent from the lexicon, so
-;;; morpho dropped it and the parse died. With `hair' supplied here (jlike
-;;; `block', an inanimate count noun) the sentence parses.
+;;; morpho dropped it and the parse died. `hair' is supplied here as a MASS
+;;; noun (feature `massn'), so a determiner-less NP like "red hair" -- were
+;;; it startable -- would be a valid `massnp', and bare "hair" parses.
 ;;;
-;;; This test checks (1) the supplement words are registered -- jlike is
-;;; stored as a lazy pointer, so `(get 'hair 'jlike)' => BLOCK proves
-;;; supplement.dict loaded -- and (2) the once-failing sentence now parses,
-;;; with `red'/`hair' sitting in the PP's NP. (Note Marcus's grammar
-;;; attaches "with the red hair" at the CLAUSE level, a sister of the VP,
-;;; not as a modifier inside the `man' NP -- high PP attachment.)
+;;; This test checks (1) the supplement words are registered -- `hair' is a
+;;; df'd mass noun (feats include `massn'), while `tree'/`friend' are jlike
+;;; pointers (stored lazily, so `(get 'tree 'jlike)' => BLOCK) -- and (2)
+;;; the once-failing sentence now parses, with `red'/`hair' sitting in the
+;;; PP's NP. (Note Marcus's grammar attaches "with the red hair" at the
+;;; CLAUSE level, a sister of the VP, not as a modifier inside the `man' NP
+;;; -- high PP attachment. And a bare det-less "red hair" -- adjective-
+;;; initial -- is NOT startable: adj is not `ngstart' in Marcus's grammar,
+;;; so STARTNP never begins a noun group on the leading `red'.)
 ;;;
 ;;; Invocation:
 ;;;   sbcl --noinform --non-interactive \
@@ -47,8 +51,12 @@
                  (unless pass (format t "    expected non-NIL, got NIL~%")))
                (setf results (and pass results)))))
 
-      ;; (1) supplement.dict loaded: jlike pointers are recorded lazily.
-      (check "supplement: hair  is jlike block" (get 'hair 'jlike)   'block)
+      ;; (1) supplement.dict loaded: `hair' is a df'd mass noun; tree/friend
+      ;; are jlike pointers (recorded lazily).
+      (check "supplement: hair is a mass noun (massn)"
+             (and (member 'massn (get 'hair 'feats)) t) t)
+      (check "supplement: hair is a noun"
+             (and (member 'noun (get 'hair 'feats)) t) t)
       (check "supplement: tree  is jlike block" (get 'tree 'jlike)   'block)
       (check "supplement: friend is jlike boy"  (get 'friend 'jlike) 'boy)
 
