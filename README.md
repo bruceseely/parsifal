@@ -52,12 +52,12 @@ machinery. (The whole grammar now loads as one composed unit via
 | 1977 grammar (book appendix) | Hand-cleaned OCR; 144 rules parse end-to-end | `notes/pidgin-grammar-rules-1977.text` |
 | Rule-frame parser (cl-yacc) | Working; parses both corpora cleanly | `system/core/rule-processing/` |
 | Grammar-language Pratt port (`glang-cl`) | Working; 21 action denotations ported; compiles the rule groups the integration suite uses | `system/reference/glang-cl/` |
-| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop, the `stree`/`ctree` tree printers); drives 53 end-to-end integration parses | `system/core/runtime/` |
+| Runtime port (`parse.l` + `case.l` + `com.l`) | Working; ~180 functions (buffer, nodes, case frames, the parse loop, the `stree`/`ctree` tree printers); drives 54 end-to-end integration parses | `system/core/runtime/` |
 | Grammar coverage | Broad: 35 composable rule groups — slices of the 136-rule `gram1`–`gram5` — covering declaratives (incl. modal/future auxiliaries), the full complement system (infinitive/that-clause, raising, passive, subject- and object-control), wh-questions (subject/object gaps, aux-inversion, preposition stranding, wh-vp PP placement), **long-distance** wh-dependencies, relative clauses (incl. deeply nested), existentials, quantifiers, numbers, and date/time NPs. Most parse as pure composition of these groups; the bulk compose into one grammar via `load-full-grammar`, which parses one sentence from each of the families it covers in a single image. (A few groups with greedy openers — date/time NPs, the bare-temporal-adjunct rule — are kept out of that union and composed only where needed.) | `test/integration/clause-grammar.lisp` |
 | CL adaptation summary | Rationale in `NOTES-FOR-MARCUS.md` + inline runtime comments; detailed per-file porting notes still planned | `notes/cl-adaptation.md` |
 
 Each construction is pinned by an end-to-end integration test under
-`test/integration/` (53 of them, all passing): a real sentence is tokenized,
+`test/integration/` (54 of them, all passing): a real sentence is tokenized,
 parsed deterministically, and checked down to its case roles — e.g. that
 *"The boy persuaded the girl to go."* binds the embedded subject to the
 object (object control), while *"the boy wants to go ."* binds it to the
