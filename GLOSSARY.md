@@ -289,13 +289,19 @@ it loads `~/lisp/boot-parsifal.lisp` and calls `run-parsifal`.)
    integration tests do one parse per `--load` for exactly this reason.
 5. **A parse that returns `NIL` is often just a missing word, not a grammar
    gap** — morpho silently drops tokens it can't resolve, so an unknown word
-   makes the whole sentence fail. Marcus's dictionary
+   makes the whole sentence fail. To tell which it is, call
+   `(unknown-words "…")` — it returns the tokens the lexicon doesn't have
+   (`NIL` if all are known). `parse-sentence` also *warns* automatically when
+   it drops a word (an `unknown-words-warning`, a dedicated condition so it
+   isn't swallowed by a `*muffled-warnings*` init setting; bind
+   `*warn-unknown-words*` to `NIL` to silence). Marcus's dictionary
    (`defs-dictionary.dict`) is his verbatim source and omits many everyday
    words; add the ones you need to `system/core/runtime/supplement.dict`
    (loaded automatically after his dict) rather than editing his file — usually
    one line, e.g. `(jlike hair block)` to make a word behave like an existing
-   one. Ad hoc, `(jlike newword oldword)` then `(expandsim 'newword)` at the
-   REPL works too.
+   one (or `df` it, e.g. a mass noun `(df hair feats (noun massn ns n3p) …)`).
+   Ad hoc, `(jlike newword oldword)` then `(expandsim 'newword)` at the REPL
+   works too.
 
 ### Best way to learn it
 Read a few `test/integration/*.lisp` files, easy → hard — each parses one

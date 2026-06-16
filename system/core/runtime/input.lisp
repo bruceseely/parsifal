@@ -112,16 +112,52 @@
       (flush))
     (nreverse tokens)))
 
+(defvar *warn-unknown-words* t
+  "When non-nil, READ-SENTENCE warns whenever it drops a token MORPHO
+   cannot resolve (a word missing from the lexicon). Bind to NIL to
+   silence -- e.g. when a test deliberately parses an out-of-vocabulary
+   sentence.")
+
+(define-condition unknown-words-warning (warning)
+  ((words :initarg :words :reader unknown-words-of))
+  (:report (lambda (c stream)
+             (format stream
+                     "read-sentence dropped unknown word(s) not in the ~
+                      lexicon: ~{~a~^ ~}. Add them to ~
+                      system/core/runtime/supplement.dict."
+                     (unknown-words-of c))))
+  (:documentation
+   "Signalled by READ-SENTENCE when it drops out-of-vocabulary tokens.
+    A dedicated WARNING subclass (not a SIMPLE-WARNING) so it survives a
+    `(setf sb-ext:*muffled-warnings* 'simple-warning)' in the user's
+    init file -- a dropped word is the usual reason a grammatical
+    sentence won't parse, so this should be seen."))
+
+(defun unknown-words (string)
+  "The tokens in STRING that MORPHO cannot resolve -- i.e. words the
+   lexicon doesn't have, which READ-SENTENCE silently drops (so the parse
+   usually fails for lack of them). NIL means every token is known. Use
+   this to tell a real grammar gap from a missing-word failure; add any
+   words it reports to system/core/runtime/supplement.dict."
+  (loop for tok in (tokenize string)
+        unless (morpho (reverse (map 'list #'char-code tok)))
+          collect tok))
+
 (defun read-sentence (string)
   "Non-interactive `sentin' (com.l 12): tokenize STRING, run MORPHO on
    each token to get its canonical word, then build *wstring* via
-   NODIFY*. Tokens MORPHO can't resolve are dropped. Returns (and sets)
-   *wstring*. Sets *sent* to the canonical word list."
-  (let ((sent nil))
+   NODIFY*. Tokens MORPHO can't resolve are dropped (and, unless
+   *WARN-UNKNOWN-WORDS* is NIL, warned about -- a dropped word is the
+   usual reason an otherwise-grammatical sentence fails to parse).
+   Returns (and sets) *wstring*. Sets *sent* to the canonical word list."
+  (let ((sent nil) (dropped nil))
     (dolist (tok (tokenize string))
       (let ((chars (reverse (map 'list #'char-code tok))))
-        (when (morpho chars)
-          (push *wrd* sent))))
+        (if (morpho chars)
+            (push *wrd* sent)
+            (push tok dropped))))
+    (when (and *warn-unknown-words* dropped)
+      (warn 'unknown-words-warning :words (nreverse dropped)))
     (setq *sent* (nreverse sent))
     (setq *ordercounter* 0)
     (setq *wstring* (nodify* *sent*))))

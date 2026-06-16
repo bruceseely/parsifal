@@ -33,4 +33,5 @@
 ;; --- common nouns Marcus didn't enter ---
 (df hair feats (noun massn ns n3p) markers (inanim physob)) ; MASS noun: "red hair"
 (jlike tree block)      ; inanimate physobj count noun
+(jlike telescope block) ; inanimate physobj count noun  (cf. "...with the telescope")
 (jlike friend boy)      ; human animate noun
