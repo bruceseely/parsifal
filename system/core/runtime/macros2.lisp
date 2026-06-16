@@ -26,10 +26,15 @@
 ;;; DISSOLVED INTO CL NATIVES (handled at each call site when the
 ;;; consuming file -- parse.l, case.l -- is ported)
 ;;;   warn         -- Marcus's `(warn LEVEL items...)' becomes CL's
-;;;                   native CL:WARN with a string message; the numeric
-;;;                   severity level is dropped. Already done this way
-;;;                   in buffer-ops.lisp. Defining a `warn' macro here
-;;;                   would shadow CL:WARN, so we deliberately do not.
+;;;                   native CL:WARN with a string message at each
+;;;                   hand-ported call site; the numeric severity level
+;;;                   is dropped. Already done this way in buffer-ops.lisp.
+;;;                   Defining a `warn' macro here would shadow CL:WARN, so
+;;;                   we deliberately do not. (Grammar rules can also embed
+;;;                   a warn via the `!'-escape, which glang-cl emits
+;;;                   verbatim; those are written `(warner ...)' -- the
+;;;                   rewrite Marcus's own `warn' macro performs -- and the
+;;;                   `warner' macro ported below handles them. See it.)
 ;;;   meet  -> intersectq    } eq-based set ops from Marcus's external
 ;;;   meet1 -> intersectq2   } util/set library. On lists of feature
 ;;;   union1-> unionq2       } symbols, CL:INTERSECTION / CL:UNION /
@@ -106,3 +111,37 @@
         do (princ item)
         when more do (write-char #\Space))
   (values))
+
+
+;;; ===========================================================
+;;; warner -- diagnostic warning (macros2.l 37-49)
+;;; ===========================================================
+;;;
+;;; Marcus's `warn' is a macro that rewrites `(warn LEVEL items...)' to a
+;;; `warner' *lexpr call, quoting each item except one following `$' (the
+;;; same splice transform as SAY). The runtime's own hand-ported
+;;; diagnostics just call CL:WARN with a string (the numeric severity
+;;; LEVEL is dropped) -- but a grammar rule can also embed a warn via the
+;;; `!'-escape (glang.l), and glang-cl emits that verbatim. CL:WARN cannot
+;;; take Marcus's numeric level as its datum, so those grammar warns are
+;;; written `(warner ...)' -- exactly the rewrite Marcus's `warn' macro
+;;; performs -- and routed through this macro, which does the quoting and
+;;; calls CL:WARN with a real format-string datum. (We define `warner',
+;;; not `warn', so CL:WARN is never shadowed.)
+
+(defmacro warner (level &rest items)
+  "Marcus's `warner' (the target his `warn' macro rewrites to): print a
+   diagnostic warning. LEVEL is a severity number; ITEMS are message
+   tokens, quoted like SAY except a token following `$' is evaluated.
+   Routes to CL:WARN with a real string datum. Returns NIL."
+  `(progn
+     (warn "[parsifal warn ~a] ~{~a~^ ~}"
+           ,level
+           (list ,@(loop with rest = items
+                         while rest
+                         for item = (pop rest)
+                         if (eq item '$)
+                           collect (pop rest)        ; `$ x' -> evaluate x
+                         else
+                           collect `(quote ,item)))) ; bare token -> quoted
+     nil))

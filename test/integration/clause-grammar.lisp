@@ -554,7 +554,7 @@
       [** c; the greatest possible number of objects of c is less than 2] -->
       if there is not a whcomp of the current s
           then run wh-resolved next
-          else !(warn 1 too-many-nps loses).}")
+          else !(progn (warner 1 too-many-nps loses) (parse-loses)).}")
   "gram2 ditransitive wh-vp placement (\"What did Bob give Sue?\"). When the
    wh-gap could land in either of a 2-object verb's slots, WH-WITH-NP-NEXT
    decides -- given an NP right after the verb -- whether to spend the wh-comp on

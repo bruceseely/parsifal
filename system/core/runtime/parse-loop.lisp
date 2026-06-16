@@ -334,6 +334,15 @@
   (or (get rule-name :act-fn)
       (error "no action registered for rule ~a" rule-name)))
 
+(defun parse-loses ()
+  "Abort the current parse as a failure -- a wait-and-see dead end with no
+   backtracking. Throws to the CATCH in PARSE-LOOP, which then returns NIL.
+   Used by grammar guard rules whose `loses' branch signals that this
+   analysis cannot succeed (e.g. TOO-MANY-NPS): in Marcus's source those
+   just `warn ... loses', but here the branch must actually terminate the
+   parse, or the guard -- consuming nothing -- would re-fire forever."
+  (throw 'parse-dead-end nil))
+
 (defun parse-loop ()
   "Run the wait-and-see loop until either *parsecomplete* becomes T
    (success, return T) or no rule fires (deadlock, return NIL).
@@ -344,8 +353,11 @@
       the nodes the patterns will match against, and
     * *deriv* (typically NIL).
 
-   Mirrors parse.l line 103's PROG / GO structure."
-  (prog ()
+   Mirrors parse.l line 103's PROG / GO structure. The PROG is wrapped in
+   a CATCH so a grammar guard's `loses' branch (PARSE-LOSES) can abort to
+   a NIL result from arbitrarily deep in a rule action."
+  (catch 'parse-dead-end
+   (prog ()
    runrule
      ;; Fire the current rule.
      (push (car *activerule*) *deriv*)
@@ -374,4 +386,4 @@
      (unless (set* 0) (go runrule))
      (cond ((testrules 'normal *bufpntr*) (go runrule))
            (t (warn "No rule applies.")
-              (return nil)))))
+              (return nil))))))
