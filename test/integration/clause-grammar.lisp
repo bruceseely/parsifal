@@ -676,6 +676,33 @@
    not np' guard keeps the name np it builds from re-triggering the shift.")
 
 
+(defparameter *genitive-rules*
+  '("{RULE POSS-NP IN NP-COMPLETE
+      [=poss] -->
+      Attach 1st to c as poss.
+      Label c poss-np.
+      Run np-done next.}"
+    "{AS RULE POSSESSIVE-DET PRIORITY: 5 IN CPOOL
+      [=poss-np] -->
+      Create a new det node labelled ngstart, poss-det, ns, npl, n3p, def.
+      Attach 1st to c as np.
+      Drop c into the buffer.
+      Restore the buffer.}")
+  "gram3 possessive/genitive layer (Marcus gram3.l POSS-NP + POSSESSIVE-DET),
+   verbatim. Together they make a genitive NP the determiner of the following
+   noun (\"the man's dog\", \"mitch's dog\", \"my dog\"):
+   - POSS-NP: when a just-completed NP is followed by the possessive clitic `'s
+     (dict: `(df \\'s feats (poss))'), attach it as `poss and RE-LABEL the NP a
+     poss-np. Default priority 10 beats NP-COMPLETE's NP-DONE (15), so it fires
+     before the NP is finalised as an ordinary NP. (A proper name reaches poss-np
+     a different way -- END-OF-NAME in *proper-noun-rules* -- and a poss-pronoun
+     via the PRONOUN rule; all three feed POSSESSIVE-DET.)
+   - POSSESSIVE-DET: a poss-np in the buffer is wrapped in a fresh DET node
+     (ngstart + def), which then fires STARTNP/DETERMINER for the head noun -- so
+     the possessor becomes the head NP's determiner and the head NP is definite.
+     The possessor NP hangs under det->np (reachable for extraction).")
+
+
 (defparameter *wh-determiner-rules*
   '("{RULE WHAT-DIAG priority: 15 IN npool
       [=*what] [t] -->
@@ -983,7 +1010,7 @@
         *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*
         *proper-noun-rules* *wh-determiner-rules* *quantifier-rules*
         *which-rules* *relative-clause-rules* *long-distance-wh-rules*
-        *number-rules*)
+        *number-rules* *genitive-rules*)
   "EVERY validated rule group above, composed into one grammar -- the whole
    grammar the per-construction integration tests have built up, registered
    together instead of curated per test. Uses the COMPLETE *vp-np-full-rule*
