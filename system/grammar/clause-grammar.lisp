@@ -712,6 +712,27 @@
      The possessor NP hangs under det->np (reachable for extraction).")
 
 
+(defparameter *apposition-rules*
+  '("{RULE APPOSITIVE IN NP-COMPLETE
+      [=apunc] [=name] -->
+      Attach 1st to c as apunc.
+      Attach 2nd to c as appos.
+      Run np-done next.}")
+  "OUR extension -- the FIRST genuinely new grammar rule, NOT a Marcus port
+   (gram1-gram5 and the 1977 appendix have no apposition rule). A just-completed
+   common-noun NP directly followed by `, NAME' takes the name as an appositive
+   while KEEPING its own (specific) type: \"the dog , spot .\" -> a dog NP with an
+   `appos' daughter naming it spot, so the extractor can emit [DOG: Spot] instead
+   of the name marker's broad [ANIMAL: Spot].
+   Fires IN NP-COMPLETE at default priority 10 (ahead of NP-DONE at 15) on
+   [=apunc][=name]: the comma occupies 1st, so PROPNAME (an attention shift that
+   needs a [=name] in 1st) never triggers on the name; we consume the comma (1st)
+   AND the name (2nd) in one rule -- exactly as gram1 NP-UTTERANCE grabs 1st+2nd
+   -- attach the name under `appos', then Run np-done next to finalise the head
+   NP (which keeps its noun/type). Lives in *grammar-extensions*, not
+   *marcus-full-grammar*.")
+
+
 (defparameter *wh-determiner-rules*
   '("{RULE WHAT-DIAG priority: 15 IN npool
       [=*what] [t] -->
@@ -1034,7 +1055,7 @@
    `gram1-full-grammar-test'.")
 
 (defparameter *grammar-extensions*
-  '()
+  (list *apposition-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
    separate from *marcus-full-grammar* so (a) the original grammar stays
