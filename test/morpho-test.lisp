@@ -74,10 +74,17 @@
       (truthy "-er carries comp" (member 'comp (get 'faster 'features)))
 
       ;; --- adverb (-ly) ----------------------------------------------
-
-      (truthy "morpho resolves an -ly adverb" (morpho (rev "quickly")))
-      (check  "-ly root is quick" (get 'quickly 'root) 'quick)
-      (truthy "-ly carries adv" (member 'adv (get 'quickly 'features)))
+      ;; This exercises morpho's -ly DECOMPOSITION (quickly -> quick + adv),
+      ;; so `quickly' must not be a direct lexicon entry -- otherwise the
+      ;; direct-hit path short-circuits before stripping. supplement.dict
+      ;; now defines `quickly' as a manner adverb, so clear that plist for
+      ;; the duration of this check and restore it afterward.
+      (let ((saved-plist (symbol-plist 'quickly)))
+        (setf (symbol-plist 'quickly) nil)
+        (truthy "morpho resolves an -ly adverb" (morpho (rev "quickly")))
+        (check  "-ly root is quick" (get 'quickly 'root) 'quick)
+        (truthy "-ly carries adv" (member 'adv (get 'quickly 'features)))
+        (setf (symbol-plist 'quickly) saved-plist))
 
       ;; --- contraction (don't -> do, stripping n't) ------------------
 
