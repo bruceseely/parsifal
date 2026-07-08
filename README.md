@@ -154,10 +154,21 @@ ending with `gram1-object-control-test: passed`. The other files under
 `test/integration/` cover the remaining constructions (relative clauses,
 wh-questions, raising, existentials, quantifiers, numbers, …).
 
-To parse against the **whole grammar at once** rather than a curated slice,
-load `clause-grammar.lisp` and call `load-full-grammar`, then parse any
-supported sentence — the same loaded grammar handles every construction, and
-many sentences in one image:
+To parse against the **whole grammar at once** rather than a curated slice, the
+quickest path is the `load-parsifal.lisp` helper at the repo root — one `load`
+does the runtime `quickload`, loads `clause-grammar.lisp`, and registers the
+entire grammar (it also makes the repo ASDF-discoverable, so no
+`local-projects` symlink is needed):
+
+```lisp
+(load "load-parsifal.lisp")                      ; runtime + full grammar, one step
+(in-package :parsifal)
+(parse-sentence "the boy persuaded the girl to go ."
+                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
+```
+
+Or do the same by hand — the same loaded grammar handles every construction,
+and many sentences in one image:
 
 ```lisp
 (load "system/grammar/clause-grammar.lisp")   ; pulls in :parsifal + glang-cl
@@ -169,7 +180,9 @@ many sentences in one image:
                 :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
 ```
 
-`gram1-full-grammar-test.lisp` exercises this across one sentence per family.
+The rule table is image state: if you clear it, re-run `(load-full-grammar)`
+(or the helper) before parsing again. `gram1-full-grammar-test.lisp` exercises
+this across one sentence per family.
 
 For a walk-through of the setup, how to read the resulting tree and case
 frames, and how `(ql:quickload :parsifal)` locates the system, see
