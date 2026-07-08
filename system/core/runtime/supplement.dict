@@ -35,6 +35,7 @@
 (jlike tree block)      ; inanimate physobj count noun
 (jlike telescope block) ; inanimate physobj count noun  (cf. "...with the telescope")
 (jlike friend boy)      ; human animate noun
+(jlike hamburger block) ; inanimate physobj count noun ("...for a hamburger")
 
 ;; --- manner adverbs Marcus didn't enter ---
 ;; NB plain `df', not `df1': `df1' is Marcus's way of COMMENTING OUT a definition
@@ -44,3 +45,19 @@
 ;; grammar rule (*adverb-rules*, our *grammar-extensions*).
 (df quickly feats (adv manner))
 (df slowly  feats (adv manner))
+(df gladly  feats (adv manner))  ; attitudinal, but the one adverb bucket is `manner'
+
+;; --- verbs Marcus didn't enter ---
+;; `pay' is a give-class ditransitive transfer (recipient + optional amount),
+;; modelled on Marcus's `give' (cf ((*obj dat) neut (dat) agt)). Extensions over
+;; give, all optional, for "...pay you Tuesday for a hamburger today.":
+;;   (time) -- a native TIME case (cf. `schedule'), so "Tuesday"/"today" have a
+;;             slot to fill; (exch) -- the exchanged-for goods, which Marcus's
+;;             `for' preposition already marks (cases-marked-by ... exch ...).
+;; Present/base form only (used here as "will pay"); past "paid" is irregular and
+;; left unentered until a sentence needs it.
+(df pay feats (mainverb pres tnsless v-3s)
+     cf ((*obj dat) (neut) (dat) (time) (exch) agt)
+     neut (# money # physob abstr-ob)
+     preps (for (exch))
+     markers (act time))

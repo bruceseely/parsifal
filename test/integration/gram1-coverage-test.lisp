@@ -27,12 +27,13 @@
 ;;;     structural test and move it up to the passing list.
 ;;;
 ;;; CAVEAT -- "parses" here means "returns non-NIL," NOT "is semantically
-;;; correct." In particular several passing sentences contain a bare
-;;; temporal adjunct (`yesterday'/`tomorrow') that rides along as a BAD
-;;; node filling no TIME role; they complete, but the adjunct is dropped.
-;;; They are marked [TIME-DROPPED] below. (Their sibling "What did you give
-;;; Sue yesterday?" instead OVERFLOWS a full verb and is in the deferred
-;;; list.) Deep correctness lives in the per-construction tests.
+;;; correct." Deep correctness lives in the per-construction tests (e.g.
+;;; gram1-pay-time-exch-test asserts the full filled case frame).
+;;; (Bare temporal adjuncts USED to ride along as dropped BAD nodes here;
+;;; the *bare-time-rules* + give-class TIME case now fill TIME for verbs
+;;; that have a TIME slot -- see gram1-pay-time-exch-test. The lone holdout,
+;;; "What did you give Sue yesterday?", instead OVERFLOWS a full verb and is
+;;; still in the deferred list.)
 ;;;
 ;;; Invocation:
 ;;;   sbcl --noinform --non-interactive \
@@ -77,18 +78,21 @@
     "Who did you promise to schedule the meeting?"
     "Who did you say scheduled the meeting?"
     "Who did you persuade to do it?"
-    "Who did you give the book yesterday?"             ; [TIME-DROPPED]
+    "Who did you give the book yesterday?"             ; TIME now fills (give-class TIME)
     "Who did you ask to schedule the meeting?"
-    "Who do you want to give a book to tomorrow?"      ; [TIME-DROPPED]
+    "Who do you want to give a book to tomorrow?"      ; TIME now fills
     "Who did you want to give a book to Sue?"
-    "Who did you promise to give the book to Sue tomorrow?" ; [TIME-DROPPED]
+    "Who did you promise to give the book to Sue tomorrow?" ; TIME now fills
     "I saw the man with the telescope."
     "I told that boy that boys should do it."
     "There seems to be a jar broken."
     "I told the boy that I saw Sue."
     "I told the girl that you would schedule the meeting."
     "I gave the boy who you wanted to give the books to three books."
-    "Who did you promise to give the book to tomorrow?") ; [TIME-DROPPED]
+    "Who did you promise to give the book to tomorrow?" ; TIME now fills
+    "The man runs quickly."                             ; adverb: ADVERB-ADJUNCT (clause-final)
+    "I will gladly pay you."                            ; adverb: PREVERBAL-ADVERB (between modal & verb)
+    "I will gladly pay you Tuesday for a hamburger today.") ; flagship: pre-verbal adv + TRAILING-TIME-NP-TO-PP
   "Corpus that must PARSE under the whole grammar (coarse outcome only).")
 
 (defparameter *coverage-deferred*

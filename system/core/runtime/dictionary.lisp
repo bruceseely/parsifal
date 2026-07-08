@@ -75,8 +75,51 @@
   (load-dictionary file))
 
 
+(defparameter *give-class-time-verbs* '(give tell deliver)
+  "Give-class transfer verbs to receive a TIME case (see AUGMENT-GIVE-CLASS-TIME).
+   Base verbs only; jlike descendants (persuade/say/promise/ask/buy/change/hope)
+   inherit through *specregs* when expanded.")
+
+(defun augment-give-class-time (&optional (verbs *give-class-time-verbs*))
+  "OUR extension (NOT a Marcus port): give an optional, refillable TIME case to
+   the give-class transfer verbs, which take temporal adjuncts in English
+   (\"give Sue the book tomorrow\") but which Marcus entered with no TIME slot --
+   so a bare temporal had nowhere to land and dropped. We splice `(time opt)'
+   into each base verb's expanded `case-frame' via MODCASEF, right AFTER the
+   dictionary loads; the jlike descendants (persuade/promise/ask/..., expanded
+   lazily at parse time) then inherit the augmented frame via `case-frame' being
+   a *specreg*. With VP-TIME-NP-TO-PP (*bare-time-rules*) turning a bare temporal
+   into a `during'-PP, VP-PP now FILLS this TIME case (was: a dropped BAD object).
+
+   defs-dictionary.dict stays PRISTINE and the case-frame engine ports are
+   untouched -- this is a decoupled post-load pass, the lexical analogue of
+   *grammar-extensions*. Deliberately TARGETED, not a universal TIME slot: these
+   verbs carry no `for'/`to'/`on' case that a new TIME slot could compete with in
+   ppcasegen, so no existing PP changes which case it fills.
+
+   NB placement: `(time)' must go just BEFORE the clause-final SUBJECT case
+   (agt), matching every native-TIME frame Marcus wrote (schedule: (neut (time)
+   (loc) agt); pay). Appended AFTER agt (e.g. via MODCASEF, whose ordering is
+   degenerate with *caseorder* NIL) the during-PP does not fit the slot and TIME
+   drops -- verified. Marcus keeps the subject case last, so we splice before it.
+
+   We edit the RAW, unexpanded `cf' (not the expanded `case-frame'), so we do NOT
+   pre-expand the verb here: expansion is left lazy, EXPANDCF normalizes the added
+   `(time)' to `(time opt)' at first lookup, and the raw `feats' stay intact
+   (pre-expanding would consume them). Descendants still inherit: a jlike word
+   copies its model's expanded `case-frame' (a *specreg*) at its own expansion,
+   which by then reflects the augmented `cf'."
+  (dolist (v verbs)
+    (let ((cf (get v 'cf)))             ; RAW cf; leave expansion lazy
+      (when (and cf (not (find 'time cf :key (lambda (c) (if (consp c) (car c) c)))))
+        ;; splice (time) in just before the clause-final subject case:
+        (setf (get v 'cf) (append (butlast cf) '((time)) (last cf)))))))
+
+
 ;;; Populate the lexicon when the system loads: Marcus's dictionary first,
-;;; then our supplement (whose jlike targets it provides).
+;;; then our supplement (whose jlike targets it provides), then our lexical
+;;; extensions (give-class TIME case).
 (eval-when (:load-toplevel :execute)
   (load-dictionary)
-  (load-supplement))
+  (load-supplement)
+  (augment-give-class-time))

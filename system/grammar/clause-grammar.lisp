@@ -736,19 +736,40 @@
 (defparameter *adverb-rules*
   '("{RULE ADVERB-ADJUNCT IN SS-FINAL
       [=adv] -->
-      Attach 1st to c as adv.}")
+      Attach 1st to c as adv.}"
+    "{RULE PREVERBAL-ADVERB PRIORITY: 5 IN BUILD-AUX
+      [* is any of modal, *will] [=adv] [=tnsless] -->
+      Attach 2nd to the current s as adv.}")
   "OUR extension (NOT a Marcus port -- gram1-gram5 have no adverb-attachment
-   rule at all). Attaches a post-verbal adverb as an `adv' daughter of the
-   clause, so an unlicensed adverbial adjunct is kept instead of stalling the
-   parse: \"the man runs quickly .\" -> the S gains an `adv' daughter `quickly',
-   which the extractor reads as [RUN]-(manr)->[MANNER: Quickly].
-   Modelled on gram5's PP-UNDER-S-1 (IN SS-FINAL, attaches an unlicensed PP to
-   the S either way): after the main verb a major clause has SS-VP (VP-DONE at
-   priority 20) and SS-FINAL both active; ADVERB-ADJUNCT (default priority 10)
-   fires on [=adv] before VP-DONE drops the VP, attaching the adverb to the S.
-   Manner adverbs (quickly/slowly, added to supplement.dict with `(adv manner)')
-   were previously dropped as unknown AND had no home in the grammar. Lives in
-   *grammar-extensions*, not *marcus-full-grammar*.")
+   rule at all). Attaches an adverb as an `adv' daughter of the clause, so an
+   unlicensed adverbial adjunct is kept instead of stalling the parse. The
+   extractor reads such an `adv' daughter as [PRED]-(manr)->[MANNER]. Two
+   positions, two rules:
+
+   ADVERB-ADJUNCT (IN SS-FINAL) -- the CLAUSE-FINAL adverb, \"the man runs
+   quickly .\" -> the S gains an `adv' daughter `quickly'. Modelled on gram5's
+   PP-UNDER-S-1 (IN SS-FINAL, attaches an unlicensed PP to the S either way):
+   after the main verb a major clause has SS-VP (VP-DONE at priority 20) and
+   SS-FINAL both active; ADVERB-ADJUNCT (default priority 10) fires on [=adv]
+   before VP-DONE drops the VP, attaching the adverb to the S.
+
+   PREVERBAL-ADVERB (IN BUILD-AUX) -- the adverb wedged BETWEEN a modal/`will'
+   and the main verb, \"I will gladly pay you .\". Here the trouble is upstream
+   of the VP: MODAL/FUTURE (*modal-rules*) require [modal/*will][=tnsless]
+   adjacency to attach the modal, so an intervening adverb blocks them, the
+   empty aux completes, and MAIN-VERB then wrongly grabs `will' itself as the
+   main verb (dead-ending the parse). Modelled on THERE (*there-rules*, also IN
+   BUILD-AUX, priority 5, same `Attach 2nd to the current s' idiom): when the
+   buffer is [modal/*will][=adv][=tnsless], PREVERBAL-ADVERB attaches the adverb
+   (2nd) to the current S and splices it out, restoring [modal/*will][tnsless]
+   so MODAL/FUTURE fire normally. Priority 5 fires ahead of MODAL/FUTURE (10)
+   and AUX-COMPLETE (15). The [=tnsless] 3rd-cell guard keeps it to the genuine
+   pre-verbal position. (The subject-adjacent, aux-less case -- \"I gladly pay
+   you .\" -- is a SEPARATE gap in clause-start diagnosis, not handled here.)
+
+   Manner adverbs (quickly/slowly/gladly, added to supplement.dict with `(adv
+   manner)') were previously dropped as unknown AND had no home in the grammar.
+   Lives in *grammar-extensions*, not *marcus-full-grammar*.")
 
 
 (defparameter *wh-determiner-rules*
@@ -887,6 +908,48 @@
    one (give -- Marcus's literal \"give Sue yesterday\" examples) the PP attaches
    at the S level and TIME is not filled; that needs a universal-time-slot +
    S-level PP case-fill reconstruction, still deferred.")
+
+
+(defparameter *bare-time-rules*
+  '("{RULE VP-TIME-NP-TO-PP PRIORITY: 5 IN SS-VP
+      [=np, time] -->
+      Insert the word 'during' into the buffer before 1st.}"
+    "{RULE TRAILING-TIME-NP-TO-PP IN SS-FINAL
+      [=np, time] -->
+      Insert the word 'during' into the buffer before 1st.}")
+  "OUR extension: the CONTROLLED, *full-grammar*-safe reconstruction of Marcus's
+   TIME-NP-TO-PP (*temporal-adjunct-rules*), which turns a bare clause-level time
+   NP (\"Tuesday\", \"today\") into a `during'-PP -- inserting `during' before it,
+   so the CPOOL PP rule builds [during][NP] -> pp and the PP machinery attaches
+   it. A `during'-PP fills the verb's TIME case via ppcasegen (`during' is
+   cases-marked-by time, inherited from `before'), so -- crucially -- TIME now
+   actually FILLS instead of the time NP riding along as a BAD object.
+
+   Two positions, two rules, both keyed [=np, time]:
+
+   VP-TIME-NP-TO-PP (PRIORITY 5 IN SS-VP) -- the primary rule. It fires while the
+   VP is still open, AHEAD of OBJECTS (default priority 10), so a bare time NP is
+   converted to a `during'-PP that PP-UNDER-VP-1 attaches UNDER THE VP, where
+   VP-PP fills TIME. This is what makes \"I will pay you Tuesday .\" fill TIME
+   (was a BAD object). It also un-breaks a FOLLOWING PP: the old BAD time-object
+   corrupted the case frame so \"for a hamburger\" no longer fit EXCH; with the
+   time NP now cleanly a TIME-PP, \"...Tuesday for a hamburger...\" fills BOTH
+   TIME and EXCH.
+
+   TRAILING-TIME-NP-TO-PP (IN SS-FINAL) -- the fallback for a time NP that still
+   reaches clause-final position (e.g. after some non-time PP already closed the
+   VP via PP-UNDER-S-1). Attaches at the S level; coarse outcome (parses) but,
+   with the VP closed, VP-PP can't fill TIME -- the residual KNOWN LIMITATION.
+
+   The PACKET is the control Marcus's version lacked: his fired IN CPOOL on ANY
+   time NP, including a time-PP's object (inserting `during' inside \"for friday\"
+   and degrading \"schedule a meeting for friday .\"). Here 1st must be a built
+   time NP in SS-VP/SS-FINAL; a PP's object never surfaces there as 1st (its
+   preposition occupies 1st while the PP is assembled in CPOOL), so a bare time
+   ADJUNCT is caught but a PP-internal time NP is not. Lives in
+   *grammar-extensions*. NB: for a verb with NO TIME case (give), the `during'-PP
+   simply doesn't fit -> vp-done -> S-level, i.e. the prior BAD-object behavior,
+   no worse.")
 
 
 (defparameter *day-of-week-rules*
@@ -1073,7 +1136,7 @@
    `gram1-full-grammar-test'.")
 
 (defparameter *grammar-extensions*
-  (list *apposition-rules* *adverb-rules*)
+  (list *apposition-rules* *adverb-rules* *bare-time-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
    separate from *marcus-full-grammar* so (a) the original grammar stays
