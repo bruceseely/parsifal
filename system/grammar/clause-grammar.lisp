@@ -1,10 +1,14 @@
 ;;; -*- mode: lisp; base: 10; syntax: common-lisp; -*-
-;;; test/integration/clause-grammar.lisp
+;;; system/grammar/clause-grammar.lisp
 ;;;
-;;; Shared rule library for the gram1/gram3 integration tests. Each rule
-;;; is Marcus's verbatim grammar source (modulo whitespace); the tests
-;;; compile -> LINK -> register the groups they need via REGISTER-GRAMMAR
-;;; and supply their own (small) lexicon.
+;;; THE grammar. This is the canonical PARSIFAL grammar for real use, not a
+;;; test fixture: the integration tests AND cg-from-parse's runtime driver both
+;;; LOAD this file and call `load-full-grammar'. (It grew up out of the
+;;; per-construction integration tests and used to live under test/integration/;
+;;; it was promoted here once it became the one grammar of record.) Each rule is
+;;; Marcus's verbatim grammar source (modulo whitespace); consumers compile ->
+;;; LINK -> register the groups they need via REGISTER-GRAMMAR and supply their
+;;; own (small) lexicon.
 ;;;
 ;;;   *np-rules*           gram1 INITIAL-RULE + the gram3 NP-construction
 ;;;                        rules (det / qp / adj / noun / nbar, the two NR
@@ -15,18 +19,23 @@
 ;;;                        VP-DONE / S-DONE)
 ;;;   *vp-np-rule*         gram1 VP-NP crule (object case-frame filling)
 ;;;
-;;; LOAD this file from a test; it pulls in :parsifal and glang-cl.
+;;; LOAD this file; it pulls in :parsifal and glang-cl.
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :asdf)
-  (unless (find-package :parsifal)
-    (asdf:load-system :parsifal))
+  ;; Idempotent, NOT (unless (find-package :parsifal) ...): merely LOCATING the
+  ;; system (e.g. a caller's asdf:system-source-directory) reads parsifal.asd,
+  ;; which DEFINES the :parsifal package (symbols interned, unbound) without
+  ;; loading the code. A find-package guard would then skip the real load and
+  ;; leave every parsifal function undefined. load-system is a fast no-op once
+  ;; loaded, so just call it.
+  (asdf:load-system :parsifal)
   (unless (find-package :glang-cl)
-    (let* ((here  (or *load-truename* *compile-file-truename*))
-           (root  (make-pathname
-                   :defaults here
-                   :directory (butlast (pathname-directory here) 2)))
-           (glang (merge-pathnames "system/reference/glang-cl/" root)))
+    ;; glang-cl (the rule-language compiler) is a manual-load reference module,
+    ;; not part of the :parsifal asdf system -- locate it by system, so this is
+    ;; robust to where THIS file lives.
+    (let ((glang (asdf:system-relative-pathname
+                  :parsifal "system/reference/glang-cl/")))
       (dolist (f '("package" "tokens" "pratt" "fixes"
                    "denotations" "compiler"))
         (load (merge-pathnames (format nil "~a.lisp" f) glang))))))
@@ -1001,7 +1010,7 @@
       (eval (glang-cl::link (glang-cl::compile-rule src))))))
 
 
-(defparameter *full-grammar*
+(defparameter *marcus-full-grammar*
   (list *np-rules* *np-utterance-rule* *clause-rules* *vp-np-full-rule*
         *pronoun-rule* *imperative-rule* *qp1-done-rule* *pp-rules*
         *inf-complement-rules* *raising-rules* *perfect-rules* *modal-rules*
@@ -1011,21 +1020,51 @@
         *proper-noun-rules* *wh-determiner-rules* *quantifier-rules*
         *which-rules* *relative-clause-rules* *long-distance-wh-rules*
         *number-rules* *genitive-rules*)
-  "EVERY validated rule group above, composed into one grammar -- the whole
-   grammar the per-construction integration tests have built up, registered
-   together instead of curated per test. Uses the COMPLETE *vp-np-full-rule*
-   (with delta/raising binding); *vp-np-rule* is deliberately omitted because
-   it would collide with it on the rule name VP-NP -- they are the only two
-   groups that cannot coexist. The union composes with no parse-time conflicts:
-   gram1's INITIAL-RULE dispatches each sentence type to the right packets and
-   the diagnostic rules (THAT-DIAG, WHICH-DIAGN, SUBJ-QUEST?, REDUCED-RELATIVE,
-   ...) stay disjoint. See `gram1-full-grammar-test'.")
+  "EVERY validated rule group above, ALL of them verbatim ports of Marcus's
+   original grammar (gram1/gram3/gram4/gram5), composed into one grammar. This
+   is the `original Parsifal' baseline: register it ALONE (see
+   `load-marcus-grammar') and PARSE-SENTENCE handles every construction Marcus's
+   grammar supported, with none of our own additions. Uses the COMPLETE
+   *vp-np-full-rule* (with delta/raising binding); *vp-np-rule* is deliberately
+   omitted because it would collide with it on the rule name VP-NP -- they are
+   the only two groups that cannot coexist. The union composes with no
+   parse-time conflicts: gram1's INITIAL-RULE dispatches each sentence type to
+   the right packets and the diagnostic rules (THAT-DIAG, WHICH-DIAGN,
+   SUBJ-QUEST?, REDUCED-RELATIVE, ...) stay disjoint. See
+   `gram1-full-grammar-test'.")
+
+(defparameter *grammar-extensions*
+  '()
+  "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
+   Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
+   separate from *marcus-full-grammar* so (a) the original grammar stays
+   runnable on its own via `load-marcus-grammar', and (b) the provenance of
+   every rule is explicit: a group listed here is ours, a group in
+   *marcus-full-grammar* is his. To add a feature, define its rule group above
+   and append it here -- it then composes into *full-grammar* automatically.")
+
+(defparameter *full-grammar*
+  (append *marcus-full-grammar* *grammar-extensions*)
+  "The grammar we parse with: Marcus's baseline (*marcus-full-grammar*) plus our
+   extensions (*grammar-extensions*). While *grammar-extensions* is empty this is
+   exactly the Marcus baseline, so all existing tests are unaffected by the
+   split. `load-full-grammar' registers this; `load-marcus-grammar' registers the
+   baseline only.")
 
 (defun load-full-grammar ()
-  "Reset the rule table and register *FULL-GRAMMAR* as a single composed
-   grammar. After this one call, PARSE-SENTENCE parses ANY supported
-   construction with no per-test rule-group selection -- the whole-grammar
-   load path. (PARSE-SENTENCE resets per-parse state, so the same loaded
-   grammar can parse many sentences in one image.)"
+  "Reset the rule table and register *FULL-GRAMMAR* (Marcus's baseline + our
+   *grammar-extensions*) as a single composed grammar. After this one call,
+   PARSE-SENTENCE parses ANY supported construction with no per-test rule-group
+   selection -- the whole-grammar load path. (PARSE-SENTENCE resets per-parse
+   state, so the same loaded grammar can parse many sentences in one image.)"
   (reset-rule-table)
   (apply #'register-grammar *full-grammar*))
+
+(defun load-marcus-grammar ()
+  "Reset the rule table and register ONLY *MARCUS-FULL-GRAMMAR* -- the
+   original-Parsifal baseline, with none of our *grammar-extensions*. Identical
+   to `load-full-grammar' while *grammar-extensions* is empty; the two diverge
+   the moment we add a rule group of our own. This is the entry point for
+   running Parsifal as Marcus defined it."
+  (reset-rule-table)
+  (apply #'register-grammar *marcus-full-grammar*))

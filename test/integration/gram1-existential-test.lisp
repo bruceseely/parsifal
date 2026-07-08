@@ -23,8 +23,8 @@
 ;;;        --load test/integration/gram1-existential-test.lisp
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (load (merge-pathnames "clause-grammar.lisp"
-                         (or *load-truename* *compile-file-truename*))))
+  (load (merge-pathnames "system/grammar/clause-grammar.lisp"
+                         (asdf:system-source-directory :parsifal))))
 
 (in-package :parsifal)
 

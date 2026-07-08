@@ -183,7 +183,7 @@ which fills a verb's object case when an NP attaches to its VP).
 ```lisp
 ;; --- setup (once) ---
 (ql:quickload :parsifal)
-(load "test/integration/clause-grammar.lisp")   ; brings in :parsifal + glang-cl + rule groups
+(load "system/grammar/clause-grammar.lisp")   ; brings in :parsifal + glang-cl + rule groups
 (in-package :parsifal)
 (load-full-grammar)                              ; compile + register the whole grammar
 

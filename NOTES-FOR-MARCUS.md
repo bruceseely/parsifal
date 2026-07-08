@@ -40,7 +40,7 @@ stranded preposition deep in a want-complement) the embedded verb's recipient.
 ## One thing worth knowing about organisation
 
 The rules live as named, **composable groups** in
-`test/integration/clause-grammar.lisp`, not as `gram*.l` loaded as files.
+`system/grammar/clause-grammar.lisp`, not as `gram*.l` loaded as files.
 `load-full-grammar` registers them as a single grammar that parses every family
 the tests build. So it is *your rules, assembled* — not `(load "gram3.l")`.
 
