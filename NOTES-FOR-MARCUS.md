@@ -44,6 +44,13 @@ The rules live as named, **composable groups** in
 `load-full-grammar` registers them as a single grammar that parses every family
 the tests build. So it is *your rules, assembled* — not `(load "gram3.l")`.
 
+The groups are split so your work stays cleanly separable from ours:
+`*marcus-full-grammar*` is the verbatim-you baseline (**`(load-marcus-grammar)`**
+runs PARSIFAL with none of our additions), and `*grammar-extensions*` holds the
+handful of rules that are genuinely new. Every such departure — grammar or
+runtime — is listed, with a one-sentence example, in **`EXTENSIONS.md`**. If it
+is not in that file, it is your rule, not ours.
+
 ## What has been adapted (and why)
 
 The runtime is a hand port; the adaptations are small and almost all correct a
