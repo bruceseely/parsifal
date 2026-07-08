@@ -60,6 +60,29 @@ priority (10) beats `NP-DONE` (15), so it intercepts before the NP is finalised
 as a plain subject/object. This is the **first genuinely new grammar rule** in
 the project; gram1–gram5 and the 1977 grammar appendix have no apposition rule.
 
+### 2. Manner adverbs — the `ADVERB-ADJUNCT` rule (+ lexicon)
+
+*Group: `*adverb-rules*` (rule `ADVERB-ADJUNCT`), plus `quickly`/`slowly` in
+`system/core/runtime/supplement.dict`.*
+
+gram1–gram5 have **no adverb-attachment rule at all**, and Marcus's dictionary has
+no manner adverbs (his own `df1` adverbs like `ago`/`later` are commented out —
+`df1` is his way of disabling a `df`). So a manner adverb was doubly unhandled:
+dropped as an unknown word, and — once lexicalized — with nowhere to attach, it
+stalled the parse. This extension supplies both halves: the lexicon entries
+(`(df quickly feats (adv manner))`) and a rule to attach the adverb.
+
+> **"the man sees the dog quickly ."**
+> → `[SEE]-(agnt)→[MAN: #] (obj)→[DOG: #] (manr)→[QUICKLY]`
+
+Mechanism: `ADVERB-ADJUNCT` fires `IN SS-FINAL` on `[=adv]`, attaching the adverb
+as an `adv` daughter of the clause — modelled on gram5's `PP-UNDER-S-1`, which
+attaches an unlicensed PP to the S the same way. After the main verb a major
+clause has both `SS-VP` (with `VP-DONE` at priority 20) and `SS-FINAL` active; the
+rule's default priority (10) fires before `VP-DONE` drops the VP. The extractor
+then reads the adverb as `[PRED]-(manr)→[MANNER]`, the adverbial analog of an
+adjective's `[NOUN]-(attr)→[ADJ]`.
+
 ---
 
 ## Runtime / lexicon departures
@@ -69,7 +92,7 @@ parser behavior Marcus's own sources did not (usually because his lexicon
 morphology tagged a word in a way our lexicon port does not reproduce). Each is
 also commented at its source site.
 
-### 2. `name` added to `*as-types*` (`system/core/runtime/defs.lisp`)
+### 3. `name` added to `*as-types*` (`system/core/runtime/defs.lisp`)
 
 Marcus's `defs.l` attention-shift list omits `name`, so in our port a bare
 proper-name word would never trigger the `PROPNAME` attention shift on its own.
@@ -78,7 +101,7 @@ Adding `name` to `*as-types*` lets a proper name start its own name NP.
 > **"john sees the dog ."**
 > → `[SEE]-(agnt)→[PERSON: John] (obj)→[DOG: #]`
 
-### 3. `det\relpron-ambig` added to `*as-types*` (`system/core/runtime/defs.lisp`)
+### 4. `det\relpron-ambig` added to `*as-types*` (`system/core/runtime/defs.lisp`)
 
 Also added to `*as-types*` so the wh-determiner `what` (whose only other feature
 is `ngstart`) fires `STARTNP` and reaches `WHAT-DIAG` to be diagnosed as a

@@ -733,6 +733,24 @@
    *marcus-full-grammar*.")
 
 
+(defparameter *adverb-rules*
+  '("{RULE ADVERB-ADJUNCT IN SS-FINAL
+      [=adv] -->
+      Attach 1st to c as adv.}")
+  "OUR extension (NOT a Marcus port -- gram1-gram5 have no adverb-attachment
+   rule at all). Attaches a post-verbal adverb as an `adv' daughter of the
+   clause, so an unlicensed adverbial adjunct is kept instead of stalling the
+   parse: \"the man runs quickly .\" -> the S gains an `adv' daughter `quickly',
+   which the extractor reads as [RUN]-(manr)->[MANNER: Quickly].
+   Modelled on gram5's PP-UNDER-S-1 (IN SS-FINAL, attaches an unlicensed PP to
+   the S either way): after the main verb a major clause has SS-VP (VP-DONE at
+   priority 20) and SS-FINAL both active; ADVERB-ADJUNCT (default priority 10)
+   fires on [=adv] before VP-DONE drops the VP, attaching the adverb to the S.
+   Manner adverbs (quickly/slowly, added to supplement.dict with `(adv manner)')
+   were previously dropped as unknown AND had no home in the grammar. Lives in
+   *grammar-extensions*, not *marcus-full-grammar*.")
+
+
 (defparameter *wh-determiner-rules*
   '("{RULE WHAT-DIAG priority: 15 IN npool
       [=*what] [t] -->
@@ -1055,7 +1073,7 @@
    `gram1-full-grammar-test'.")
 
 (defparameter *grammar-extensions*
-  (list *apposition-rules*)
+  (list *apposition-rules* *adverb-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
    separate from *marcus-full-grammar* so (a) the original grammar stays

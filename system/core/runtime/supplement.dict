@@ -35,3 +35,12 @@
 (jlike tree block)      ; inanimate physobj count noun
 (jlike telescope block) ; inanimate physobj count noun  (cf. "...with the telescope")
 (jlike friend boy)      ; human animate noun
+
+;; --- manner adverbs Marcus didn't enter ---
+;; NB plain `df', not `df1': `df1' is Marcus's way of COMMENTING OUT a definition
+;; (it expands to NIL), which is why his own `df1' adverbs ago/later/very are
+;; inert. `manner' distinguishes these from temporal adverbs; the extractor reads
+;; a manner adverb as [PRED]-(manr)->[MANNER]. Attached by the ADVERB-ADJUNCT
+;; grammar rule (*adverb-rules*, our *grammar-extensions*).
+(df quickly feats (adv manner))
+(df slowly  feats (adv manner))
