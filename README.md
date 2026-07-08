@@ -280,24 +280,30 @@ The most useful entry points:
 
 ## License
 
-**Not yet licensed — please do not redistribute.** No open-source license has
-been granted, so ordinary copyright applies and all rights are reserved pending
-a formal license. Treat this repository as *source-available for reading*, and
-ask before reusing any of it.
+> **Status: draft, pending Mitchell Marcus's review.** The license texts below
+> (`LICENSE`, `NOTICE`, `notes/from-marcus/LICENSE`) are drafted from the written
+> permission Marcus gave by email (June 2026) and are awaiting his sign-off on the
+> exact wording.
 
-The repository bundles two distinct bodies of work, with different rights:
+The repository bundles two distinct bodies of work, licensed separately:
 
-- **The Common Lisp port** — everything outside `notes/from-marcus/` — is the
-  work of this project's author.
-- **Marcus's original sources** (`notes/from-marcus/`) and the OCR'd grammar
-  appendix remain Mitchell Marcus's work, reproduced here with his permission
-  (see *Provenance*).
+- **The Common Lisp port** — everything outside `notes/from-marcus/` — is
+  licensed under the **Apache License 2.0** (see [`LICENSE`](LICENSE) and
+  [`NOTICE`](NOTICE)). Copyright © 2026 Bruce Seely.
+- **Marcus's original sources** (`notes/from-marcus/`) remain the copyright of
+  **Mitchell P. Marcus**, reproduced and used with his written permission under
+  the separate terms in [`notes/from-marcus/LICENSE`](notes/from-marcus/LICENSE).
+  They are **not** covered by the Apache License.
 
-Mitchell Marcus has generously said this old work may be reproduced, but that
-informal permission is **not** a public license: it does not grant third parties
-the right to redistribute, modify, or build upon the code, and it cannot speak
-for any rights others may hold (e.g. AT&T/Bell Labs, where some of the source
-originated, or MIT Press, which published the 1980 book the grammar appendix is
-drawn from). A formal license — for the port, and covering the original sources —
-will be chosen in consultation with him and any other rights-holders before this
-repository is shared or advertised publicly.
+Marcus grants free use, redistribution, and modification (including the porting
+this project does), on one condition: **do not redistribute modified sources as
+if they were his original**, and make clear when code has been changed — if you
+are running PARSIFAL code not modified by Marcus, you should know that. The
+Apache License's requirement that modified files "carry prominent notices stating
+that You changed the files" (§4(b)) is chosen to honor that condition. This
+Common Lisp port is itself a modified work and is **not** Marcus's original
+program.
+
+One open item: the OCR'd grammar appendix is drawn from Marcus's book *A Theory
+of Syntactic Recognition for Natural Language* (MIT Press, 1980); any rights in
+that published text are a separate matter from the permissions above.
