@@ -187,8 +187,9 @@ even with the bare-temporal rules (#3) their `during`-PP had no slot to fill and
 splices an optional, refillable `(time)` case into each base verb's **raw `cf`**,
 just before the clause-final subject case (matching every native-`TIME` frame
 Marcus wrote, e.g. `schedule`: `(neut (time) (loc) agt)`); `jlike` descendants
-(`persuade`/`promise`/`ask`/`buy`/…) inherit it because `case-frame` is a
-`*specreg*`.
+(`persuade`/`promise`/`ask`/…) inherit it because `case-frame` is a `*specreg*`.
+(`buy` was such a descendant until #7 gave it a dedicated commercial frame — which
+also carries a `(time)` slot, so it keeps its temporal.)
 
 > **"who did you give the book yesterday ?"**
 > → `[GIVE]-(agnt)→[YOU] (rcpt)→[trace: who] (obj)→[BOOK] (time)→[YESTERDAY]`
@@ -200,6 +201,31 @@ and leaves expansion lazy, so `feats` are not consumed prematurely; and it is
 `TIME` vs their existing cases on many verbs, whereas these three carry no such
 preposition conflict. `defs-dictionary.dict` and the case-frame engine stay
 untouched.
+
+### 7. Commercial-transaction verbs `buy`/`sell` (+ `dollar`) — `system/core/runtime/supplement.dict`
+
+`pay`, `buy` and `sell` are three Fillmore **perspectives** on one commercial
+exchange, each foregrounding different participants — so each needs the case slots
+its perspective exposes. Marcus entered only `buy`, and only as `(jlike buy give)`
+— a plain ditransitive (`agt`/`dat`/`neut`) with **no seller or price slot**, so
+"buy a hamburger **from** you **for** two dollars" dropped both PPs; `sell` he
+never entered at all. This extension gives them dedicated commercial frames:
+
+- **`buy`** — `cf ((neut) (source) (exch) (time) agt)`: `agt`=buyer, `neut`=goods,
+  `source`=seller (`from`), `exch`=money (`for`). **This is the one place
+  `supplement.dict` supersedes a Marcus entry** (his incidental `jlike buy give`).
+- **`sell`** — `cf ((*obj dat) neut (dat) (exch) (time) agt)`: `agt`=seller,
+  `dat`=buyer, `neut`=goods, `exch`=money (`for`).
+- **`dollar`** — a `money`-marked count noun, so a bare amount ("...for two
+  dollars") reads as the price.
+
+> **"I buy a hamburger from you for two dollars."** and
+> **"You sell me a hamburger for two dollars."**
+> → the extractor's exchange frame promotes **both** (and `pay`) to the *same*
+> `[EXCHANGE]-(has-part)→[PAY]…[MONEY]/[DOLLAR] (has-part)→[GIVE]…[HAMBURGER]`.
+
+The CG-side perspective mapping that unifies the three verbs lives in the
+`cg-from-parse` back-end (`*commercial-perspectives*`), not the parser.
 
 ---
 

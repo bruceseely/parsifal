@@ -61,3 +61,30 @@
      neut (# money # physob abstr-ob)
      preps (for (exch))
      markers (act time))
+
+;; `buy' and `sell' complete the commercial-transaction trio: pay/buy/sell are
+;; three Fillmore PERSPECTIVES on one exchange, and the CG back-end
+;; (cg-from-parse emit-exchange) promotes all three to the SAME [EXCHANGE]. Each
+;; exposes the participants its perspective foregrounds, via these case slots:
+;;   pay  (above): agt=buyer  dat=seller     exch=goods(for)  [money=neut/implicit]
+;;   buy         : agt=buyer  source=seller(from)  neut=goods  exch=money(for)
+;;   sell        : agt=seller dat=buyer      neut=goods       exch=money(for)
+;; NB `buy' REPLACES Marcus's incidental `(jlike buy give)' -- a plain ditransitive
+;; (agt/dat/neut) with no seller or price slot, so "buy a hamburger FROM you FOR
+;; two dollars" dropped both PPs. This is the ONE place this file supersedes a
+;; Marcus entry; `sell' he never entered. Present/base form only (irregular past
+;; bought/sold left unentered until a sentence needs it).
+(df buy feats (mainverb pres tnsless v-3s)
+     cf ((neut) (source) (exch) (time) agt)
+     neut (# hanim # anim inanim physob)
+     preps (from (source) for (exch))
+     markers (act))
+(df sell feats (mainverb pres tnsless v-3s)
+     cf ((*obj dat) neut (dat) (exch) (time) agt)
+     neut (# hanim # anim inanim physob)
+     preps (for (exch))
+     markers (act))
+
+;; currency noun for an exchanged amount ("...for two dollars"); `money' marker
+;; (as in pay's neut) so it reads as the price, not the goods.
+(df dollar feats (noun ns n3p) markers (money inanim physob))
