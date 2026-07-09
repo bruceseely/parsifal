@@ -79,6 +79,7 @@
     "Who did you say scheduled the meeting?"
     "Who did you persuade to do it?"
     "Who did you give the book yesterday?"             ; TIME now fills (give-class TIME)
+    "What did you give Sue yesterday?"                 ; TIME now fills (embedded WH-VP bare-time rule; was TOO-MANY-NPS)
     "Who did you ask to schedule the meeting?"
     "Who do you want to give a book to tomorrow?"      ; TIME now fills
     "Who did you want to give a book to Sue?"
@@ -96,8 +97,7 @@
   "Corpus that must PARSE under the whole grammar (coarse outcome only).")
 
 (defparameter *coverage-deferred*
-  '("What did you give Sue yesterday?"        ; bare time adjunct overflows give
-    "To whom did you promise to give the book?" ; pied-piping (Marcus strands)
+  '("To whom did you promise to give the book?" ; pied-piping (Marcus strands)
     "the meeting scheduled for friday meets."  ; participial reduced relative (Marcus gap)
     "Is there a meeting scheduled for friday?") ; existential vs reduced-relative ordering
   "Corpus known NOT to parse today (=> NIL). Asserting NIL documents the

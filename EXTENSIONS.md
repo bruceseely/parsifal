@@ -105,7 +105,8 @@ is a separate clause-start-diagnosis gap, not handled.)
 
 ### 3. Bare temporal adjuncts fill TIME — `*bare-time-rules*`
 
-*Group: `*bare-time-rules*` (rules `VP-TIME-NP-TO-PP`, `TRAILING-TIME-NP-TO-PP`).*
+*Group: `*bare-time-rules*` (rules `VP-TIME-NP-TO-PP`, `TRAILING-TIME-NP-TO-PP`,
+`EMB-WH-VP-TIME-NP-TO-PP`, `EMB-VP-TIME-NP-TO-PP`).*
 
 A bare time NP (`Tuesday`, `today`, `yesterday`) can't fill a verb's `TIME` case
 positionally — `TIME` is not an object case, and case-fill only happens through a
@@ -132,6 +133,19 @@ gated:
 - **`TRAILING-TIME-NP-TO-PP`** (`IN SS-FINAL`) — the fallback for a time NP that
   reaches clause-final position after some non-time PP already closed the VP;
   attaches at the S level (parses, but with the VP closed `TIME` can't fill).
+- **`EMB-WH-VP-TIME-NP-TO-PP`** (`PRIORITY: 5 IN WH-VP`) and
+  **`EMB-VP-TIME-NP-TO-PP`** (`PRIORITY: 5 IN EMBEDDED-S-VP`) — the embedded-clause
+  siblings, for a bare temporal *inside* a relative or complement clause (which
+  runs in `wh-vp`/`embedded-s-vp`, not `ss-vp`). Without them a temporal inside a
+  reduced relative — "a hamburger you give me **today**" — is never rewritten, so
+  `WH-WITH-NP-NEXT` grabs it as a spurious second object of the relative verb, the
+  relative closes without binding its gap, and the stray gap-trace + time leak up
+  into the matrix verb's open `NEUT`/`TIME` slots. At priority 5 they fire ahead
+  of `WH-WITH-NP-NEXT` (10) / `WH-WITH-NP-PP-NEXT` (7) / `OBJ-IN-EMBEDDED-S`, so
+  the temporal becomes a `during`-PP that fills the *relative* verb's `TIME` and
+  the gap binds correctly. This also fixed a deferred item — **"What did you give
+  Sue yesterday?"** (a bare temporal in a wh-question that used to overflow
+  `give`'s objects → `TOO-MANY-NPS` → NIL) now parses, `yesterday` filling `TIME`.
 
 Together with the give-class TIME case (#6) this makes the flagship **"I will
 gladly pay you Tuesday for a hamburger today."** fill its whole frame:

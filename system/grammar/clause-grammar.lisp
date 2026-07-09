@@ -916,6 +916,12 @@
       Insert the word 'during' into the buffer before 1st.}"
     "{RULE TRAILING-TIME-NP-TO-PP IN SS-FINAL
       [=np, time] -->
+      Insert the word 'during' into the buffer before 1st.}"
+    "{RULE EMB-WH-VP-TIME-NP-TO-PP PRIORITY: 5 IN WH-VP
+      [=np, time] -->
+      Insert the word 'during' into the buffer before 1st.}"
+    "{RULE EMB-VP-TIME-NP-TO-PP PRIORITY: 5 IN EMBEDDED-S-VP
+      [=np, time] -->
       Insert the word 'during' into the buffer before 1st.}")
   "OUR extension: the CONTROLLED, *full-grammar*-safe reconstruction of Marcus's
    TIME-NP-TO-PP (*temporal-adjunct-rules*), which turns a bare clause-level time
