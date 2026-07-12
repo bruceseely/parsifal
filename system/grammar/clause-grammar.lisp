@@ -1110,6 +1110,33 @@
    whole wh-comp apparatus.")
 
 
+(defparameter *existential-relative-rules*
+  '("{RULE REDUCED-RELATIVE IN NP-COMPLETE
+      [=np; * is not relpron-np][=verb]
+      [** c; the noun of the nbar of the binding of the np of the current s is not *there] -->
+      Insert the word 'wh-' into the buffer before 1st.}")
+  "EXTENSION (override) -- a guarded copy of Marcus's REDUCED-RELATIVE (gram2, in
+   *relative-clause-rules*). It adds ONE condition: do not fire when the enclosing
+   clause is an existential `there' clause (its subject noun is *there). Placed in
+   *grammar-extensions*, so under *full-grammar* it REPLACES the verbatim original
+   by re-registration (same rule name, later wins), while *marcus-full-grammar* /
+   `load-marcus-grammar' keeps Marcus's rule untouched. This is the first
+   extension that OVERRIDES a Marcus rule rather than adding a brand-new one; see
+   EXTENSIONS.md.
+
+   WHY: on \"Is there a meeting scheduled for friday?\" the original
+   REDUCED-RELATIVE fires on [a meeting][scheduled] and commits to a participial
+   reduced-relative reading Marcus's grammar cannot finish (INSERT-TO-BE lives
+   only in raising packets, never a relative packet), dead-ending at
+   TOO-MANY-NPS. The existential-passive reading Marcus DOES support (THERE +
+   *raising-rules*) needs that fork to go the other way. With the guard,
+   REDUCED-RELATIVE defers, `a meeting' finalizes, THERE relabels the clause
+   existential and attaches it, and `scheduled for friday' parses as the passive
+   predicate. Normal reduced relatives (\"the boy you met\") are unaffected --
+   their clause subject is not *there. This only steers the existing fork; it
+   invents no construction.")
+
+
 (defun register-grammar (&rest groups)
   "Compile, LINK, and register each rule in GROUPS. Each group is a rule
    source string or a list of them."
@@ -1142,7 +1169,8 @@
    `gram1-full-grammar-test'.")
 
 (defparameter *grammar-extensions*
-  (list *apposition-rules* *adverb-rules* *bare-time-rules*)
+  (list *apposition-rules* *adverb-rules* *bare-time-rules*
+        *existential-relative-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
    separate from *marcus-full-grammar* so (a) the original grammar stays

@@ -227,6 +227,47 @@ never entered at all. This extension gives them dedicated commercial frames:
 The CG-side perspective mapping that unifies the three verbs lives in the
 `cg-from-parse` back-end (`*commercial-perspectives*`), not the parser.
 
+### 8. Existential vs. reduced-relative fork — the `REDUCED-RELATIVE` override (`*existential-relative-rules*`)
+
+*Group: `*existential-relative-rules*` — the project's **first override** of a
+Marcus rule, rather than a brand-new one.*
+
+Marcus's `REDUCED-RELATIVE` (gram2, in `*relative-clause-rules*`) fires on a
+completed NP followed by a verb (`[=np][=verb]`), inserting `wh-` to open a
+reduced relative. On the canonical existential
+
+> **"Is there a meeting scheduled for friday ?"**
+
+it fires on `[a meeting][scheduled]` and commits to a *participial* reduced-relative
+reading his grammar cannot finish (`INSERT-TO-BE` lives only in the raising
+packets, never a relative packet), dead-ending at `TOO-MANY-NPS`. But the
+existential-passive reading Marcus *does* support — `THERE` relabels the clause
+`existential`, and `scheduled for friday` parses as a passive predicate via
+`*raising-rules*` — needs that fork to go the other way. (In isolation, the curated
+existential grammar *without* `*relative-clause-rules*` parses it: see
+`gram1-existential-passive-test`.)
+
+The override is Marcus's rule verbatim plus one guard:
+
+> `[** c; the noun of the nbar of the binding of the np of the current s is not *there]`
+
+— don't take the reduced-relative when the enclosing clause is an existential
+`there` clause (a signal already computed, and used, by the `THERE` rule; the
+`there` subject is attached by `AUX-INVERSION` long before this fork). With it,
+`REDUCED-RELATIVE` defers, the NP finalizes, `THERE` fires, and the passive
+predicate attaches.
+
+**Why an override, not an edit.** `*relative-clause-rules*` stays byte-for-byte in
+`*marcus-full-grammar*`; the guarded copy lives here in `*grammar-extensions*`.
+Because `*full-grammar*` registers extensions after Marcus, re-registering the same
+rule name **replaces** the original there (verified), so `load-full-grammar` gets
+the guard while `load-marcus-grammar` runs the pristine rule — under which the
+existential correctly still fails, faithful to Marcus. Normal reduced relatives
+("the boy you met") are untouched (their clause subject is not `*there`). This only
+steers an existing fork; it invents no construction — the *participial* relative
+("the meeting scheduled for friday meets") remains a genuine Marcus gap and stays
+deferred. Guarded by `gram1-existential-full-test` and the coverage test.
+
 ---
 
 ## Not extensions (faithful Marcus ports)

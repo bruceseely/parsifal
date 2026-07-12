@@ -95,13 +95,13 @@
     "I will gladly pay you."                            ; adverb: PREVERBAL-ADVERB (between modal & verb)
     "I will gladly pay you Tuesday for a hamburger today." ; flagship: pre-verbal adv + TRAILING-TIME-NP-TO-PP
     "I buy a hamburger from you for two dollars."          ; commercial: buy (source=seller, exch=money)
-    "You sell me a hamburger for two dollars.")            ; commercial: sell (dat=buyer, exch=money)
+    "You sell me a hamburger for two dollars."             ; commercial: sell (dat=buyer, exch=money)
+    "Is there a meeting scheduled for friday?")            ; existential-passive: *existential-relative-rules* override wins the reduced-relative fork
   "Corpus that must PARSE under the whole grammar (coarse outcome only).")
 
 (defparameter *coverage-deferred*
   '("To whom did you promise to give the book?" ; pied-piping (Marcus strands)
-    "the meeting scheduled for friday meets."  ; participial reduced relative (Marcus gap)
-    "Is there a meeting scheduled for friday?") ; existential vs reduced-relative ordering
+    "the meeting scheduled for friday meets.") ; participial reduced relative (Marcus gap)
   "Corpus known NOT to parse today (=> NIL). Asserting NIL documents the
    deferred boundary; a sentence that starts parsing flips this test RED on
    purpose -- promote it to *COVERAGE-PASSING* (with a real structural
