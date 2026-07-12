@@ -1,5 +1,7 @@
 # Parsifal
 
+[![whole-stack tests](https://github.com/bruceseely/parsifal/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bruceseely/parsifal/actions/workflows/tests.yml)
+
 A Common Lisp port-in-progress of Mitchell Marcus's PARSIFAL, the deterministic
 wait-and-see parser described in *A Theory of Syntactic Recognition for Natural
 Language* (MIT Press, 1980).
