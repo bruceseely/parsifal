@@ -154,6 +154,21 @@ ending with `gram1-object-control-test: passed`. The other files under
 `test/integration/` cover the remaining constructions (relative clauses,
 wh-questions, raising, existentials, quantifiers, numbers, …).
 
+To run **every** integration test at once, use the runner — it launches each
+file in its own fresh SBCL process (they register grammar rules and dictionary
+entries into global state, so batching them in one image cross-contaminates),
+prints a per-file rollup, and exits non-zero if any fail:
+
+```bash
+test/integration/run-integration.sh        # ~23s for all files; SBCL=/path overrides the binary
+```
+
+This parser sits under the [`cg-from-parse`](https://github.com/bruceseely/cg-from-parse)
+conceptual-graph extractor, whose `test/run-all-suites.sh` is a **whole-stack
+gate**: it runs this integration suite alongside the parsifal unit suite
+(`pa::test-all`), the `cgraph` engine suite, and the extractor's own suite —
+each in its own process — for a single combined pass/fail across all four repos.
+
 To parse against the **whole grammar at once** rather than a curated slice, the
 quickest path is the `load-parsifal.lisp` helper at the repo root — one `load`
 does the runtime `quickload`, loads `clause-grammar.lisp`, and registers the
