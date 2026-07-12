@@ -23,7 +23,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: parsifal
-          token: ${{ secrets.STACK_CHECKOUT_TOKEN }}
 
       - name: Checkout cgraph
         uses: actions/checkout@v4
