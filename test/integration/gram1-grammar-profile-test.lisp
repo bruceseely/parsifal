@@ -78,7 +78,23 @@
         ;; 4. Reloading :full restores the omitted construction.
         (load-grammar :full)
         (truthy "reloading :full restores the that-complement"
-                (parses "the man knows that the boy sees the dog ."))))
+                (parses "the man knows that the boy sees the dog ."))
+
+        ;; 5. The SHIPPED :core profile: accepts simple declaratives (clauses,
+        ;; ditransitives, adjectives, manner adverbs, pronouns, proper names) and
+        ;; rejects everything that embeds or fronts.
+        (truthy ":core is a registered profile" (assoc :core *grammar-profiles*))
+        (load-grammar :core)
+        (truthy ":core accepts a simple clause"    (parses "the man sees the dog ."))
+        (truthy ":core accepts a ditransitive"     (parses "the man gives the woman the book ."))
+        (truthy ":core accepts an adjective"       (parses "the big dog sees the man ."))
+        (truthy ":core accepts a manner adverb"    (parses "the man sees the dog quickly ."))
+        (truthy ":core accepts a pronoun object"   (parses "the man sees him ."))
+        (truthy ":core accepts a proper name"      (parses "mitch sees the dog ."))
+        (falsy  ":core rejects a that-complement"  (parses "the man knows that the boy sees the dog ."))
+        (falsy  ":core rejects a relative clause"  (parses "the man that sees the dog runs ."))
+        (falsy  ":core rejects a genitive"         (parses "the man 's dog sees the woman ."))
+        (falsy  ":core rejects apposition"         (parses "the dog , spot sees the woman ."))))
 
     (format t "~&gram1-grammar-profile-test: ~:[FAILED <<<~;passed~]~%" results)
     results))

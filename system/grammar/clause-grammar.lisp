@@ -1221,12 +1221,30 @@
 ;;; its own regression test. The hook is here so adding such a profile later is a
 ;;; single `register-grammar-profile' call plus a test, with no plumbing to build.
 
+(defparameter *core-grammar*
+  (list *np-rules* *np-utterance-rule* *clause-rules* *vp-np-full-rule*
+        *pronoun-rule* *pp-rules* *proper-noun-rules* *adverb-rules*)
+  "The FIRST scoped subset: simple declarative clauses only. Noun phrases (det +
+adjective), transitive AND ditransitive clauses, pronouns, proper names, locative/
+instrumental PP adjuncts, and manner adverbs -- and NOTHING that embeds or fronts:
+NO clausal complements, relative clauses, wh-inversion, genitives, apposition,
+numbers/quantifiers, or temporal-PP handling. Loading this profile makes
+PARSE-SENTENCE REJECT (return NIL on) every one of those out-of-scope
+constructions, so it is a controlled-language front end that only admits basic
+clauses. This is a COHERENT subset: the groups here reference no rule the set omits
+(dropping e.g. *quantifier-rules* would leave a dangling QUANT-DONE and ERROR, not
+reject). Paired with cg-from-parse's :core ONTOLOGY profile, whose required-type
+tags are exactly the constructions this grammar can produce.")
+
 (defparameter *grammar-profiles*
   (list (cons :full   *full-grammar*)
-        (cons :marcus *marcus-full-grammar*))
+        (cons :marcus *marcus-full-grammar*)
+        (cons :core   *core-grammar*))
   "Registry of named grammar profiles: keyword -> a list of rule groups (each a
 rule source string or a list of them, as `register-grammar' takes). :full is
-Marcus's baseline plus our extensions; :marcus is the pure baseline. Extend via
+Marcus's baseline plus our extensions; :marcus is the pure baseline; :core is a
+scoped subset that accepts only simple declaratives and rejects everything else
+(the input-scope companion to cg-from-parse's :core ontology profile). Extend via
 `register-grammar-profile'.")
 
 (defun register-grammar-profile (name groups)
