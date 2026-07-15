@@ -1204,3 +1204,54 @@
    running Parsifal as Marcus defined it."
   (reset-rule-table)
   (apply #'register-grammar *marcus-full-grammar*))
+
+;;; --- Grammar profiles (named, scoped grammars) ----------------------------
+;;; A profile is a NAME (keyword) -> the list of rule groups to register. This is
+;;; the EXTENSION POINT for scoped grammars: `register-grammar-profile' adds one,
+;;; `load-grammar' brings it up. The payoff of a RESTRICTED profile is that
+;;; PARSE-SENTENCE simply FAILS (returns NIL) on any construction whose rule
+;;; groups the profile omits -- it REJECTS out-of-scope input instead of parsing
+;;; it, which is the whole point of a scoped grammar (e.g. a controlled-language
+;;; front end that must only ever accept simple clauses).
+;;;
+;;; Only :full and :marcus ship today -- both already validated. Scoped SUBSETS
+;;; (say a `core' SVO+adjuncts grammar) are deliberately NOT defined yet: the rule
+;;; groups are not freely detachable (VP-NP binding, INITIAL-RULE packet dispatch,
+;;; diagnostic rules), so a profile must be a COHERENT subset and each one wants
+;;; its own regression test. The hook is here so adding such a profile later is a
+;;; single `register-grammar-profile' call plus a test, with no plumbing to build.
+
+(defparameter *grammar-profiles*
+  (list (cons :full   *full-grammar*)
+        (cons :marcus *marcus-full-grammar*))
+  "Registry of named grammar profiles: keyword -> a list of rule groups (each a
+rule source string or a list of them, as `register-grammar' takes). :full is
+Marcus's baseline plus our extensions; :marcus is the pure baseline. Extend via
+`register-grammar-profile'.")
+
+(defun register-grammar-profile (name groups)
+  "Register (or replace) grammar profile NAME (a keyword) as GROUPS -- a list of
+rule groups. This is the one call needed to add a scoped grammar; `load-grammar'
+can then bring it up. Returns NAME."
+  (check-type name keyword)
+  (setf *grammar-profiles*
+        (acons name groups (remove name *grammar-profiles* :key #'car)))
+  name)
+
+(defun grammar-profile-groups (name)
+  "The rule-group list registered for profile NAME, or a clear error naming the
+known profiles."
+  (let ((entry (assoc name *grammar-profiles*)))
+    (if entry
+        (cdr entry)
+        (error "Unknown grammar profile ~s. Known profiles: ~{~s~^ ~}"
+               name (mapcar #'car *grammar-profiles*)))))
+
+(defun load-grammar (&optional (profile :full))
+  "Reset the rule table and register grammar PROFILE (default :full). The general
+entry point behind `load-full-grammar' (:full) and `load-marcus-grammar' (:marcus);
+a restricted profile makes PARSE-SENTENCE reject (return NIL on) any construction
+whose rule groups the profile omits. Returns PROFILE."
+  (reset-rule-table)
+  (apply #'register-grammar (grammar-profile-groups profile))
+  profile)
