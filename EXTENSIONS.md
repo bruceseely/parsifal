@@ -270,6 +270,40 @@ deferred. Guarded by `gram1-existential-full-test` and the coverage test.
 
 ---
 
+## Tooling / introspection
+
+Unlike everything above, these change **no parse and no parser behavior** — they
+are read-only utilities for inspecting the ported system. They earn an entry only
+because they are non-Marcus code, and this catalogue is meant to be exhaustive.
+
+### 9. Lexicon inventory — `lexicon-words` / `lexicon-noise-p` (`system/core/runtime/lexicon.lisp`)
+
+Marcus's `com.l` can *resolve* a word (`morpho`/`expandsim`) but never *enumerate*
+the lexicon: defined words are `:parsifal` symbols with their definitions hung on
+the CL property list, with no registry of what exists. `lexicon-words` recovers the
+inventory by walking the `:parsifal` package for the symbols that carry a dictionary
+definition — a `feats`/`features` entry (a `df`), an `irreg` form, or a `jlike`
+similar-word link, exactly the properties `expandsim` resolves on — so membership
+matches what `morpho` can actually look up.
+
+`lexicon-noise-p` is the companion classifier: the lexicon also holds punctuation
+tokens (`.`, `?`, `,`) and clitic fragments (`'d`, `'ll`, `'s`) that are real entries
+but not words one would add to a sentence, and it flags them so `lexicon-words` can
+omit them by default (`:all t` returns the complete inventory). It spots punctuation
+by its `punc`-family feature and a clitic by its leading apostrophe, resolving
+through a `jlike` model where needed (`:` is `jlike` `,`) and treating a lone
+abbreviation symbol as none (number words store `feats` as the atom `tens`, expanded
+lazily by `expandm`) — all **without calling `expandsim`**, so merely listing the
+lexicon never expands its entries as a side effect.
+
+> `(pa:lexicon-words :sort t)` → 422 content words (`ABOUT` … `YOUR`);
+> `:all t` adds the 9 punctuation/clitic entries (`. , : ? 'd 'll 'm 's 'til`).
+
+The `cg-from-parse` driver's `cfp:browse-lexicon` is a REPL lister built on this —
+the lexicon-side counterpart to its `browse-types` concept-type browser.
+
+---
+
 ## Not extensions (faithful Marcus ports)
 
 For the avoidance of doubt, these are **ports, not additions**, even though each
