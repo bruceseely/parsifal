@@ -390,3 +390,53 @@
 (defmacro abbrev (&rest l)
   "Define an abbreviation expanded by EXPANDM: (abbrev NAME EXPANSION)."
   `(%abbrev ',l))
+
+
+;;; ===========================================================
+;;; Lexicon inventory
+;;; ===========================================================
+
+(defun lexicon-noise-p (word)
+  "True if WORD is a punctuation token (`.', `?', `,', ...) or a clitic fragment
+   (`'d', `'ll', `'m', `'s', ...) rather than a word one would add to a sentence
+   to parse. These are genuine lexicon entries -- MORPHO resolves them -- but
+   they are what LEXICON-WORDS omits unless asked for ALL. Punctuation is spotted
+   by its `punc'-family feature (present on the raw `feats' too, so no expansion
+   is needed); a clitic by its leading apostrophe."
+  (labels ((punc-feats (w)
+             ;; W's feature list for classification. Follow a `jlike' model when
+             ;; W has no own features yet (`:' is `jlike' `,', so its punctuation
+             ;; shows only through the model). A lone abbreviation SYMBOL (number
+             ;; words store `tens'/`tenth', expanded lazily by EXPANDM) is not a
+             ;; feature list and never punctuation, so it resolves to none.
+             (let ((f (or (get w 'features) (get w 'feats))))
+               (cond ((consp f) f)
+                     ((get w 'jlike) (punc-feats (get w 'jlike)))
+                     (t nil)))))
+    (let ((nm (symbol-name word)))
+      (or (and (plusp (length nm)) (char= (char nm 0) #\'))
+          (and (intersection (punc-feats word)
+                             '(punc apunc finalpunc qpunc initpunc midpunc))
+               t)))))
+
+(defun lexicon-words (&key sort all)
+  "The words currently defined in the lexicon, as :parsifal symbols. A word is
+   any symbol carrying a dictionary definition -- a `feats' entry (a `df',
+   pre-expansion) or the `features' it expands into, an `irreg' irregular-form
+   entry, or a `jlike' similar-word entry. These are exactly the properties on
+   which EXPANDSIM resolves a word, so membership here matches what MORPHO can
+   look up (numbers, which MORPHO recognises dynamically rather than storing, are
+   the one resolvable class not enumerable this way).
+
+   By default punctuation and clitic fragments (see LEXICON-NOISE-P) are omitted,
+   leaving the words one would actually add to a sentence; pass ALL non-nil for
+   the complete inventory. With SORT non-nil the list is returned sorted by name."
+  (let ((words nil)
+        (pkg (find-package :parsifal)))
+    (do-symbols (s pkg)
+      (when (and (eq (symbol-package s) pkg)
+                 (or (get s 'feats) (get s 'features)
+                     (get s 'irreg) (get s 'jlike))
+                 (or all (not (lexicon-noise-p s))))
+        (push s words)))
+    (if sort (sort words #'string<) words)))

@@ -33,6 +33,7 @@
    #:df               #:df1                 #:df+
    #:jlike            #:abbrev
    #:get-string       #:put-string          #:reset-lexicon
+   #:lexicon-words    #:lexicon-noise-p
    #:buildword        #:buildnumber         #:buildirregword
    #:expandsim        #:expanddef           #:expandm
    #:add-redunds      #:expandcf            #:modcasef
