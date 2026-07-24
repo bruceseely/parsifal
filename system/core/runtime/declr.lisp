@@ -48,6 +48,18 @@
 (in-package :parsifal)
 
 
+;;; Parsifal is a verbatim MacLISP port that keeps several CL-standard names
+;;; (NTH, and the ones listed in the naming note above) as its own special
+;;; variables -- glang-cl emits those names directly into compiled rule bodies,
+;;; so they can't be renamed.  Declaring them special requires the COMMON-LISP
+;;; package to be unlocked.  We do it here, in the first file the system loads,
+;;; so `(ql:quickload :parsifal)` works in any SBCL image -- rather than relying
+;;; on the user having `(sb-ext:unlock-package :common-lisp)` in their own init.
+#+sbcl
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (sb-ext:unlock-package :common-lisp))
+
+
 ;;; ===========================================================
 ;;; Special variable declarations
 ;;; ===========================================================
