@@ -37,6 +37,14 @@
 (jlike friend boy)      ; human animate noun
 (jlike hamburger block) ; inanimate physobj count noun ("...for a hamburger")
 (jlike pie block)       ; inanimate physobj count noun ("...ate the pie")
+
+;; --- proper names ---
+;; `name', not `propnoun': `name' is the feature the apposition rule and the
+;; extractor look for ("the dog , fido" -> [DOG: Fido]). The marker types the
+;; name when it stands ALONE -- anim -> ANIMAL, the way Marcus's `mitch'
+;; (hanim) types as a person -- and is overridden by the head noun in an
+;; apposition, which is the point of the construction.
+(df fido feats (name ns n3p) markers (anim))
 ;; A PLACE, not a plain physobj: the `place' marker is what gets a locative PP
 ;; the `place' case, which cg-from-parse maps to (loc). Modelled on Marcus's
 ;; `chicago' minus the propnoun feature, since this one takes a determiner.
