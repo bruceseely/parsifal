@@ -42,6 +42,24 @@
 ;; `chicago' minus the propnoun feature, since this one takes a determiner.
 (df kitchen feats (noun ns n3p place) markers (place))
 
+;; --- verbs Marcus didn't enter (2) ---
+;; A plain transitive, modelled on his `see' minus the complement-taking
+;; features (`ing-obj'/`to-less-inf-obj' are for "see him leaving"). NEUT is
+;; narrowed from see's `all' to a physical inanimate: what gets eaten is a
+;; thing, not a situation. The -s form needs no entry of its own -- `v-3s' on
+;; the base is what lets "the dog eats" derive, the way "breaks" does.
+;;
+;; NB Marcus enters the past as (jlike ate broke), which copies broke's
+;; features and leaves `ate' with no root, so it is NOT linked to this entry --
+;; his own mechanism for that is `irreg', as in (df went irreg (go ...)).
+;; Correcting it here would override a Marcus definition, which this file does
+;; not do; cg-from-parse resolves ATE to EAT from cgraph's irregular-verb table
+;; instead.
+(df eat feats (mainverb pres tnsless v-3s)
+     cf (neut agt)
+     neut (# physob inanim #)
+     markers act)
+
 ;; --- manner adverbs Marcus didn't enter ---
 ;; NB plain `df', not `df1': `df1' is Marcus's way of COMMENTING OUT a definition
 ;; (it expands to NIL), which is why his own `df1' adverbs ago/later/very are
