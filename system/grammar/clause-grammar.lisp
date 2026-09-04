@@ -273,6 +273,30 @@
    priority conflict (PERFECTIVE needs *have, PASSIVE-AUX needs *be).")
 
 
+(defparameter *progressive-rules*
+  '("{RULE PROGRESSIVE IN BUILD-AUX
+      [=*be] [=ing] --> Attach 1st to c as prog. Label c prog.}")
+  "gram1 progressive aux layer (gram1:115), verbatim. PROGRESSIVE builds the
+   progressive aux ([be][ing], `is eating'): it attaches `be' under the aux as
+   prog and labels the aux prog, so the participle stays in the buffer for
+   MAIN-VERB to take as the genuine main verb.
+
+   Without it BUILD-AUX had no rule for [*be][ing] and fell through to
+   AUX-COMPLETE (priority 15), which drops the aux; AUX-ATTACH then attached it
+   and MAIN-VERB took `is' ITSELF as the verb, stranding `eating' with no rule
+   that accepts it -- so every progressive sentence dead-ended. (`be' is
+   `auxverb' only in Marcus's dictionary, hence no main-verb reading of it.)
+   PASSIVE-AUX ([*be][en]) was registered all along, which is why passives
+   parsed and progressives did not.
+
+   Disjoint from the other BUILD-AUX stackers by its second element: PERFECTIVE
+   needs [*have][en], PASSIVE-AUX [*be][en], MODAL/FUTURE a tnsless, DO-SUPPORT
+   [*do]. So they compose -- `should have been eating' is MODAL, PERFECTIVE,
+   PROGRESSIVE -- and all fire at the default priority 10, ahead of
+   AUX-COMPLETE. NB THERE (priority 5, [*be][np]) is checked first and needs an
+   np, so the existential reading still wins where it applies.")
+
+
 (defparameter *modal-rules*
   '("{RULE MODAL IN BUILD-AUX
       [=modal] [=tnsless] --> Attach 1st to c as modal. Label c modal.}"
@@ -1148,7 +1172,8 @@
 (defparameter *marcus-full-grammar*
   (list *np-rules* *np-utterance-rule* *clause-rules* *vp-np-full-rule*
         *pronoun-rule* *imperative-rule* *qp1-done-rule* *pp-rules*
-        *inf-complement-rules* *raising-rules* *perfect-rules* *modal-rules*
+        *inf-complement-rules* *raising-rules* *perfect-rules*
+        *progressive-rules* *modal-rules*
         *delta-complement-rules* *two-object-inf-rules* *that-complement-rules*
         *wh-question-rules* *inversion-rules* *object-wh-rules*
         *ditransitive-wh-rules* *there-rules* *yes-no-rules* *wh-pp-rules*
