@@ -1197,7 +1197,9 @@
   (list *apposition-rules* *adverb-rules* *bare-time-rules*
         *existential-relative-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
-   Marcus's grammar. EMPTY until the first genuinely new rule lands. Kept
+   Marcus's grammar. Each one is documented, with its rationale and the
+   evidence that gram1-gram5 and the 1977 appendix lack it, in EXTENSIONS.md.
+   Kept
    separate from *marcus-full-grammar* so (a) the original grammar stays
    runnable on its own via `load-marcus-grammar', and (b) the provenance of
    every rule is explicit: a group listed here is ours, a group in
@@ -1207,10 +1209,11 @@
 (defparameter *full-grammar*
   (append *marcus-full-grammar* *grammar-extensions*)
   "The grammar we parse with: Marcus's baseline (*marcus-full-grammar*) plus our
-   extensions (*grammar-extensions*). While *grammar-extensions* is empty this is
-   exactly the Marcus baseline, so all existing tests are unaffected by the
-   split. `load-full-grammar' registers this; `load-marcus-grammar' registers the
-   baseline only.")
+   extensions (*grammar-extensions*). These are NO LONGER the same grammar --
+   *grammar-extensions* is non-empty (see EXTENSIONS.md), so this union is
+   strictly larger than the Marcus baseline. `load-full-grammar' registers this;
+   `load-marcus-grammar' registers the baseline only. To run Parsifal as Marcus
+   defined it, with none of our additions, use `load-marcus-grammar'.")
 
 (defun load-full-grammar ()
   "Reset the rule table and register *FULL-GRAMMAR* (Marcus's baseline + our
@@ -1223,10 +1226,10 @@
 
 (defun load-marcus-grammar ()
   "Reset the rule table and register ONLY *MARCUS-FULL-GRAMMAR* -- the
-   original-Parsifal baseline, with none of our *grammar-extensions*. Identical
-   to `load-full-grammar' while *grammar-extensions* is empty; the two diverge
-   the moment we add a rule group of our own. This is the entry point for
-   running Parsifal as Marcus defined it."
+   original-Parsifal baseline, with none of our *grammar-extensions*. The two
+   entry points HAVE diverged: *grammar-extensions* is non-empty, so
+   `load-full-grammar' now registers a strictly larger grammar than this one.
+   This is the entry point for running Parsifal as Marcus defined it."
   (reset-rule-table)
   (apply #'register-grammar *marcus-full-grammar*))
 
