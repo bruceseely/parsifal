@@ -224,6 +224,34 @@ The rule table is image state: if you clear it, re-run `(load-full-grammar)`
 (or the helper) before parsing again. `gram1-full-grammar-test.lisp` exercises
 this across one sentence per family.
 
+### Vocabulary for your own corpus
+
+The parser drops any word the lexicon lacks — silently, so the parse simply
+runs on a shorter sentence and fails several words later. Two files supply the
+words it knows: Marcus's verbatim `defs-dictionary.dict`, then our
+`supplement.dict` (18 words he never entered). Both are the port's own data.
+
+Vocabulary for *your* corpus belongs with your project, not inside a checkout
+of this repository. Name a lexicon file and it loads last, on top of both, so
+it can `jlike` anything in either:
+
+```lisp
+(defparameter cl-user::*parsifal-user-lexicon* "~/corpora/medical/lexicon.dict")
+;; ... then load parsifal by any route
+```
+
+or set `PARSIFAL_USER_LEXICON` in the environment. Either is read once when the
+`:parsifal` system loads, so every entry point honors it — `ql:quickload`,
+`load-parsifal.lisp`, and downstream systems such as `cg-from-parse`. Set it
+*before* loading; afterwards call `(pa:load-user-lexicon "…")` directly, which
+also takes a list of files loaded in order.
+
+The file uses the same definers as `supplement.dict` — `(jlike quark block)`
+clones an existing word's features, `df` defines from scratch — and its header
+documents the useful clone targets. Definitions accumulate on symbol plists
+and there is no unload, so switching a project's vocabulary means a fresh
+image; within one project that has not come up, since definitions are additive.
+
 ### Running Marcus's grammar, with none of our additions
 
 `(load-full-grammar)` registers two things: Marcus's baseline

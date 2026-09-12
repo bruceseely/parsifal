@@ -75,6 +75,42 @@
   (load-dictionary file))
 
 
+(defvar *user-lexicon-files* nil
+  "Project lexicon files loaded by LOAD-USER-LEXICON, most recent last.
+   Informational: what a caller last asked for, not a load-time hook.")
+
+(defun load-user-lexicon (files)
+  "Load one project lexicon file, or a list of them in order, on top of the
+   lexicon already in the image. FILES may be a pathname, a namestring, or a
+   list of either; a missing file is an error, since silently parsing without
+   the vocabulary you asked for is how a lexicon gap gets mistaken for a
+   grammar gap. Returns the list of files loaded.
+
+   This is the lexicon counterpart of cgraph's `:external-types-directory':
+   vocabulary for YOUR corpus belongs with your project, not inside a checkout
+   of this repository. Marcus's dictionary and our `supplement.dict' are
+   already loaded when this runs -- they are the port's own data, which every
+   test and example depends on -- so `jlike' targets from either are available,
+   and a project file can simply add to them.
+
+   Definitions accumulate on symbol plists and there is no unload, so switching
+   a project's vocabulary means starting a fresh image. Within one project that
+   has not come up: word definitions are additive, and several files loaded in
+   order compose into a single vocabulary.
+
+     (load-user-lexicon "~/corpora/medical/lexicon.dict")
+     (load-user-lexicon '("base.dict" "trial-42.dict"))"
+  (let ((files (if (listp files) files (list files))))
+    (dolist (f files)
+      (let ((path (probe-file f)))
+        (unless path
+          (error "No such lexicon file: ~a" f))
+        (load-dictionary path)
+        (setf *user-lexicon-files*
+              (append *user-lexicon-files* (list path)))))
+    files))
+
+
 (defparameter *give-class-time-verbs* '(give tell deliver)
   "Give-class transfer verbs to receive a TIME case (see AUGMENT-GIVE-CLASS-TIME).
    Base verbs only; jlike descendants (persuade/say/promise/ask/buy/change/hope)
@@ -116,10 +152,28 @@
         (setf (get v 'cf) (append (butlast cf) '((time)) (last cf)))))))
 
 
+(defun user-lexicon-from-environment ()
+  "The project lexicon named by `cl-user::*parsifal-user-lexicon*' (a path or
+   list of paths) or, failing that, the PARSIFAL_USER_LEXICON environment
+   variable -- or NIL if neither is set. Consulted once, when this system
+   loads, so EVERY entry point honors it: `(ql:quickload :parsifal)',
+   `load-parsifal.lisp', and downstream systems like cg-from-parse that load
+   the runtime themselves. Set it BEFORE loading; afterwards call
+   LOAD-USER-LEXICON directly."
+  (let ((sym (find-symbol "*PARSIFAL-USER-LEXICON*" :cl-user)))
+    (or (and sym (boundp sym) (symbol-value sym))
+        (let ((env (uiop:getenv "PARSIFAL_USER_LEXICON")))
+          (and env (plusp (length env)) env)))))
+
+
 ;;; Populate the lexicon when the system loads: Marcus's dictionary first,
-;;; then our supplement (whose jlike targets it provides), then our lexical
-;;; extensions (give-class TIME case).
+;;; then our supplement (whose jlike targets it provides), then any project
+;;; lexicon the caller named, then our lexical extensions (give-class TIME
+;;; case). The project lexicon loads LAST of the three data files so it can
+;;; `jlike' anything in either of ours.
 (eval-when (:load-toplevel :execute)
   (load-dictionary)
   (load-supplement)
+  (let ((user (user-lexicon-from-environment)))
+    (when user (load-user-lexicon user)))
   (augment-give-class-time))

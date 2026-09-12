@@ -34,6 +34,8 @@
    #:jlike            #:abbrev
    #:get-string       #:put-string          #:reset-lexicon
    #:lexicon-words    #:lexicon-noise-p
+   #:load-dictionary  #:load-supplement
+   #:load-user-lexicon                      #:*user-lexicon-files*
    #:buildword        #:buildnumber         #:buildirregword
    #:expandsim        #:expanddef           #:expandm
    #:add-redunds      #:expandcf            #:modcasef

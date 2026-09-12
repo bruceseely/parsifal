@@ -16,6 +16,11 @@
 ;;;     (parse-sentence "the boy scheduled the meeting ."
 ;;;                     :initial-rule (intern "INITIAL-RULE" :parsifal))
 ;;;
+;;; To load vocabulary for your own corpus, set either
+;;; `cl-user::*parsifal-user-lexicon*' (a path or list of paths) or the
+;;; PARSIFAL_USER_LEXICON environment variable before loading this file; see
+;;; step 4 below and `pa:load-user-lexicon'.
+;;;
 ;;; Why this is needed: `(ql:quickload :parsifal)' loads only the runtime
 ;;; (the ASDF system). The GRAMMAR -- the rule groups, *full-grammar*, and
 ;;; `load-full-grammar' -- lives in system/grammar/clause-grammar.lisp, which
@@ -54,6 +59,11 @@
 
   ;; 3. Register *full-grammar* into the rule table.
   (funcall (read-from-string "parsifal::load-full-grammar"))
+
+  ;; NOTE: a PROJECT lexicon (cl-user::*parsifal-user-lexicon* or
+  ;;    PARSIFAL_USER_LEXICON) is picked up by the :parsifal system itself in
+  ;;    step 1 -- see `user-lexicon-from-environment' in dictionary.lisp -- so
+  ;;    every entry point honors it, not just this loader. Nothing to do here.
 
   (format t "~&;; Parsifal loaded: runtime + full grammar registered.~%~
                ;; Parse with (in-package :parsifal) then~%~
