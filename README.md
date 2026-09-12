@@ -327,10 +327,10 @@ The most useful entry points:
 
 ## License
 
-> **Status: draft, pending Mitchell Marcus's review.** The license texts below
-> (`LICENSE`, `NOTICE`, `notes/from-marcus/LICENSE`) are drafted from the written
-> permission Marcus gave by email (June 2026) and are awaiting his sign-off on the
-> exact wording.
+> The terms in `notes/from-marcus/LICENSE` are this project's good-faith
+> restatement of permission Mitchell Marcus granted by email (June 2026), not
+> language he drafted. Where the restatement and his own statement of his intent
+> differ, his statement governs. Corrections from him are welcome at any time.
 
 The repository bundles two distinct bodies of work, licensed separately:
 
