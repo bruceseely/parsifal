@@ -332,7 +332,7 @@ Expected: 14 suites, all `passed`.
 ```
 
 **Integration tests** — one end-to-end sentence parse per construction, checked
-down to its case roles. There are 61 of them and they're the real coverage map.
+down to its case roles. There are 62 of them and they're the real coverage map.
 From the shell:
 
 ```bash

@@ -107,6 +107,12 @@ parsifal/
 Requires SBCL (or another ANSI Common Lisp) and Quicklisp. The dependencies
 `cl-lex` and `yacc` are pulled in automatically on first load.
 
+On Windows, [`notes/sbcl-on-wsl.md`](notes/sbcl-on-wsl.md) and
+[`notes/running-parsifal-on-wsl.md`](notes/running-parsifal-on-wsl.md) walk
+through the whole thing under WSL — installing SBCL and Quicklisp, cloning the
+repo, parsing a sentence, running the suites — from a plain shell and a plain
+REPL, with no Emacs required.
+
 From a fresh REPL, started anywhere, one form is enough:
 
 ```lisp
@@ -324,6 +330,10 @@ The most useful entry points:
   here, with mail headers preserved for provenance
 - `notes/ocr-cleanup-inventory.md` — the full history of cleaning the 1977
   OCR'd corpus, including a translation table for each kind of OCR damage
+- `notes/sbcl-on-wsl.md`, `notes/running-parsifal-on-wsl.md` — start-to-finish
+  setup on Windows via WSL, ending in a parsed sentence and a green test run.
+  The second includes a short Common Lisp orientation for a MacLISP/Franz
+  reader — mostly about packages, which is what bites first.
 - `notes/cl-adaptation.md` (planned) — minimal-change ruleset for the
   MacLISP → Common Lisp port, plus per-file porting notes
 
