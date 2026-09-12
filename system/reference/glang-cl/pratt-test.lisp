@@ -11,7 +11,34 @@
 (in-package #:glang-cl)
 
 
+;;; `(' and `)' are NOT test-only tokens: the real glang vocabulary in
+;;; denotations.lisp gives `(' both a grouping nud and the function-call
+;;; led (`F(A, B)', glang.l 382) and marks `)' a delimiter. Tearing all
+;;; four tokens down unconditionally therefore wiped out those real
+;;; denotations too, so every later glang parse of a call -- `plus(x, y)'
+;;; -- failed for the rest of the image. Save what was there and put it
+;;; back, which leaves the table exactly as PRATT-TEST found it.
+
+(defparameter *pratt-test-tokens* '(add mul |(| |)|))
+
+(defvar *saved-denotations* nil
+  "Denotations displaced by INSTALL-PRATT-TEST-DENOTATIONS, for restoral.")
+
+(defun save-denotations (syms)
+  (mapcar (lambda (sym)
+            (list sym (get sym :nud) (get sym :led) (get sym :lbp)))
+          syms))
+
+(defun restore-denotations (saved)
+  (dolist (entry saved)
+    (destructuring-bind (sym nud led lbp) entry
+      (if nud (setf (get sym :nud) nud) (remprop sym :nud))
+      (if led (setf (get sym :led) led) (remprop sym :led))
+      (if lbp (setf (get sym :lbp) lbp) (remprop sym :lbp)))))
+
+
 (defun install-pratt-test-denotations ()
+  (setf *saved-denotations* (save-denotations *pratt-test-tokens*))
   ;; left-associative infix `add', lower precedence
   (infix add 10 (list 'add *left* (right)))
   ;; left-associative infix `mul', higher precedence
@@ -23,10 +50,8 @@
 
 
 (defun clear-pratt-test-denotations ()
-  (dolist (sym '(add mul |(| |)|))
-    (remprop sym :nud)
-    (remprop sym :led)
-    (remprop sym :lbp)))
+  (restore-denotations *saved-denotations*)
+  (setf *saved-denotations* nil))
 
 
 (defun pratt-test (&optional verbose)

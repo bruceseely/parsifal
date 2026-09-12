@@ -130,7 +130,11 @@ dictionary).
 ### Load the `glang-cl` Pratt parser and run its tests
 
 The Pratt port is not yet wrapped as a separate ASDF system; load its files
-in order:
+in order. Run this from the repo root, with the runtime already loaded (the
+section above, or `load-parsifal.lisp`): the paths below are relative to the
+repo root, and `glang-cl`'s package `:use`s `:parsifal`, so out of that order
+you get `file does not exist` or `The name "PARSIFAL" does not designate any
+package`.
 
 ```lisp
 (dolist (f '("package" "tokens" "pratt" "fixes" "denotations" "compiler"
