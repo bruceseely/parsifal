@@ -37,6 +37,8 @@
 (jlike friend boy)      ; human animate noun
 (jlike hamburger block) ; inanimate physobj count noun ("...for a hamburger")
 (jlike pie block)       ; inanimate physobj count noun ("...ate the pie")
+(jlike fruit block)     ; inanimate physobj count noun ("...ate the fruit")
+(jlike cherry block)    ; inanimate physobj count noun ("...ate the cherry")
 
 ;; --- proper names ---
 ;; `name', not `propnoun': `name' is the feature the apposition rule and the
