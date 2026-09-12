@@ -107,16 +107,38 @@ parsifal/
 Requires SBCL (or another ANSI Common Lisp) and Quicklisp. The dependencies
 `cl-lex` and `yacc` are pulled in automatically on first load.
 
-To make the repo discoverable to ASDF, either symlink it under
-`~/quicklisp/local-projects/`:
+From a fresh REPL, started anywhere, one form is enough:
+
+```lisp
+(load "/path/to/parsifal/load-parsifal.lisp")
+```
+
+That loads the runtime, loads the grammar, and registers the whole grammar
+into the rule table. It also does the two bits of setup everything below
+assumes: it pushes the repo onto `asdf:*central-registry*` (so no
+`~/quicklisp/local-projects` symlink is needed) and makes the repo root the
+current directory, for both Lisp and the OS — so the relative paths used in
+the rest of this README resolve afterwards.
+
+Parse something:
+
+```lisp
+(in-package :parsifal)
+(parse-sentence "the boy persuaded the girl to go ."
+                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
+```
+
+### Load and test the runtime
+
+`load-parsifal.lisp` covers this; to load only the runtime — the ASDF system,
+without the grammar — do it by hand instead. This needs the repo already
+discoverable, either via the symlink
 
 ```bash
 ln -s /path/to/parsifal ~/quicklisp/local-projects/parsifal
 ```
 
-or push it onto `asdf:*central-registry*` at the REPL.
-
-### Load and test the runtime
+or by pushing it onto `asdf:*central-registry*` at the REPL. Then:
 
 ```lisp
 (ql:quickload :parsifal)
@@ -130,11 +152,11 @@ dictionary).
 ### Load the `glang-cl` Pratt parser and run its tests
 
 The Pratt port is not yet wrapped as a separate ASDF system; load its files
-in order. Run this from the repo root, with the runtime already loaded (the
-section above, or `load-parsifal.lisp`): the paths below are relative to the
-repo root, and `glang-cl`'s package `:use`s `:parsifal`, so out of that order
-you get `file does not exist` or `The name "PARSIFAL" does not designate any
-package`.
+in order, from the repo root and with the runtime already loaded —
+`load-parsifal.lisp` does both (see [Quickstart](#quickstart)). The paths
+below are relative to the repo root, and `glang-cl`'s package `:use`s
+`:parsifal`, so out of that order you get `file does not exist` or
+`The name "PARSIFAL" does not designate any package`.
 
 ```lisp
 (dolist (f '("package" "tokens" "pratt" "fixes" "denotations" "compiler"
@@ -175,18 +197,9 @@ gate**: it runs this integration suite alongside the parsifal unit suite
 (`pa::test-all`), the `cgraph` engine suite, and the extractor's own suite —
 each in its own process — for a single combined pass/fail across all four repos.
 
-To parse against the **whole grammar at once** rather than a curated slice, the
-quickest path is the `load-parsifal.lisp` helper at the repo root — one `load`
-does the runtime `quickload`, loads `clause-grammar.lisp`, and registers the
-entire grammar (it also makes the repo ASDF-discoverable, so no
-`local-projects` symlink is needed):
-
-```lisp
-(load "load-parsifal.lisp")                      ; runtime + full grammar, one step
-(in-package :parsifal)
-(parse-sentence "the boy persuaded the girl to go ."
-                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
-```
+To parse against the **whole grammar at once** rather than a curated slice,
+use the `load-parsifal.lisp` helper shown under [Quickstart](#quickstart) —
+one `load` gives you the runtime plus the entire grammar registered.
 
 Or do the same by hand — the same loaded grammar handles every construction,
 and many sentences in one image:

@@ -6,7 +6,11 @@
 ;;;     (load "/path/to/parsifal/load-parsifal.lisp")
 ;;;
 ;;; and you are ready to parse -- no need to remember the quickload +
-;;; grammar-file + register-grammar sequence. After this returns:
+;;; grammar-file + register-grammar sequence. It may be LOADed by absolute
+;;; path from any directory: it makes the repo ASDF-discoverable itself (no
+;;; ~/quicklisp/local-projects symlink needed) and leaves the repo root as
+;;; the current directory, so the relative paths used elsewhere in the
+;;; README resolve afterwards. After this returns:
 ;;;
 ;;;     (in-package :parsifal)
 ;;;     (parse-sentence "the boy scheduled the meeting ."
@@ -27,6 +31,17 @@
   ;; Make the repo discoverable to ASDF from wherever it lives, so this works
   ;; without a ~/quicklisp/local-projects symlink.
   (pushnew root asdf:*central-registry* :test #'equal)
+
+  ;; Make the repo the current directory, for Lisp and for the OS. These are
+  ;; two independent settings: `uiop:chdir' moves the OS process cwd, while
+  ;; relative pathnames handed to `load' / `probe-file' / `compile-file'
+  ;; resolve against *default-pathname-defaults*. Setting only the former
+  ;; leaves the relative loads this README documents -- e.g.
+  ;;   (load "system/reference/glang-cl/package.lisp")
+  ;; -- still failing with "file does not exist". ROOT already ends in a
+  ;; directory component, so no trailing-slash fixup is needed here.
+  (uiop:chdir root)
+  (setf *default-pathname-defaults* root)
 
   ;; 1. Runtime (the ASDF system). Prefer Quicklisp (pulls cl-lex/yacc), fall
   ;;    back to plain ASDF if Quicklisp isn't present.
