@@ -218,6 +218,27 @@ The rule table is image state: if you clear it, re-run `(load-full-grammar)`
 (or the helper) before parsing again. `gram1-full-grammar-test.lisp` exercises
 this across one sentence per family.
 
+### Running Marcus's grammar, with none of our additions
+
+`(load-full-grammar)` registers two things: Marcus's baseline
+(`*marcus-full-grammar*`, all verbatim ports of `gram1`–`gram5`) and our own
+additions (`*grammar-extensions*`). To run Parsifal **as Marcus defined it**,
+register the baseline alone:
+
+```lisp
+(load-marcus-grammar)                            ; Marcus's rules only
+(parse-sentence "the boy who met you scheduled the meeting ."
+                :initial-rule (intern "INITIAL-RULE" :parsifal))   ; => T
+```
+
+The two are genuinely different grammars — 31 groups versus 35 — and a few
+sentences parse only under the full one. The canonical
+*"Is there a meeting scheduled for friday ?"* is the clearest case: it needs
+our `REDUCED-RELATIVE` override, because Marcus's own rule commits to a
+participial reading his grammar cannot finish. Every such departure, with the
+evidence that `gram1`–`gram5` and the 1977 appendix lack it, is documented in
+[`EXTENSIONS.md`](EXTENSIONS.md).
+
 For a walk-through of the setup, how to read the resulting tree and case
 frames, and how `(ql:quickload :parsifal)` locates the system, see
 [A worked example](GLOSSARY.md#a-worked-example) and the
@@ -290,6 +311,10 @@ The most useful entry points:
 - `NOTES-FOR-MARCUS.md` — a one-page orientation for a PARSIFAL expert: what is
   faithful, what was adapted and why, and what is deferred (with the blockers,
   several of them Marcus's own annotations).
+- `EXTENSIONS.md` — every rule in this repository that is **not** a verbatim
+  port of Marcus's grammar: what it does, why it was needed, and the evidence
+  that `gram1`–`gram5` and the 1977 appendix have no equivalent. The companion
+  to `(load-marcus-grammar)`, which runs the baseline without any of them.
 - `test/integration/` — the working coverage map: one heavily-commented
   end-to-end test per construction, each tracing the rules that fire and why.
   `clause-grammar.lisp` holds the shared, composable rule groups they draw on.
