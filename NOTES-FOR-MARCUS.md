@@ -20,7 +20,7 @@ sent in June 2026. Three pieces run today:
 - **A broad slice of the 1987 grammar.** English sentences parse end to end into
   your case-frame structures.
 
-**47 example sentences — many of them yours — parse with their predicate-argument
+**62 example sentences — many of them yours — parse with their predicate-argument
 structure checked, all green.** They run from "Who broke the jar?" up to "I gave
 the boy who you wanted to give the books to three books," where a single NP, *the
 boy*, is recovered as the main-clause dative, a relative pronoun, and (through a
@@ -99,6 +99,13 @@ occasionally interfere; the test suite does one parse per process.
 worked parse; and `test/integration/*.lisp` is one commented sentence each —
 each parses a sentence and checks its case roles, so they double as a tour of the
 grammar.
+
+If you are on Windows, the README also links two setup guides written with you
+in mind — `notes/sbcl-on-wsl.md` and `notes/running-parsifal-on-wsl.md`. They go
+from a bare machine to a parsed sentence and a green test run under WSL, using a
+plain shell and a plain REPL, with no Emacs required; the second has a short
+Common Lisp orientation aimed at a MacLISP and Franz reader, mostly about
+packages, which is the thing that bites first.
 
 ---
 
