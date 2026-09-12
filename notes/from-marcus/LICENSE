@@ -1,0 +1,38 @@
+Original PARSIFAL sources
+Copyright (c) Mitchell P. Marcus
+
+The files in this directory (notes/from-marcus/) are the original PARSIFAL
+sources, written by Mitchell P. Marcus while a graduate student at MIT.
+They are reproduced here verbatim and used with his written permission
+(email to Bruce Seely, June 2026). Mitchell Marcus retains full copyright;
+to his knowledge no other party (e.g. AT&T/Bell Labs) holds rights in these
+files.
+
+These files are made available under the following terms, granted by the
+author:
+
+  PERMISSION. You may freely use, redistribute, and modify these sources,
+  including modifying them as required to get them running under another
+  language (as the Common Lisp port in the parent repository does).
+
+  CONDITION. You may NOT modify these sources and then redistribute them as
+  if they were the original. If you distribute or run a modified version,
+  you must make clear that it has been changed and is not Mitchell Marcus's
+  original source. The author makes specific claims about PARSIFAL's
+  behavior in his published work and asks that any program represented as
+  PARSIFAL continue to meet those claims.
+
+These terms apply to the source files Mitchell Marcus authored. The grammar
+appendix reproduced (OCR'd) elsewhere in this project is drawn from his book
+"A Theory of Syntactic Recognition for Natural Language" (MIT Press, 1980);
+any rights in that published text are a separate matter from this grant.
+
+------------------------------------------------------------------------
+ON THIS WORDING. The terms above are this project's good-faith restatement
+of permission Mitchell Marcus granted by email (June 2026). They are not
+language he drafted. Where this restatement and his own statement of his
+intent differ, his statement governs, not this file. Corrections from him
+are welcome at any time and will be applied promptly — including to the
+copyright years, his name as he wants it shown, and the wording of the
+condition.
+------------------------------------------------------------------------

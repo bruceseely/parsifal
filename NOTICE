@@ -1,0 +1,31 @@
+PARSIFAL — Common Lisp port
+Copyright 2026 Bruce Seely
+
+Licensed under the Apache License, Version 2.0 (the "License"); see the
+LICENSE file. The Apache License covers the Common Lisp port — everything
+in this repository EXCEPT the directory notes/from-marcus/.
+
+------------------------------------------------------------------------
+Original work
+------------------------------------------------------------------------
+
+This software is a port of PARSIFAL, the wait-and-see parser written by
+Mitchell P. Marcus (MacLISP / Franz Lisp). The original sources are
+preserved verbatim under notes/from-marcus/ and remain the copyright of
+Mitchell P. Marcus. They are NOT covered by the Apache License above;
+they are reproduced and used with his written permission under the
+separate terms in notes/from-marcus/LICENSE.
+
+This Common Lisp port is a MODIFIED work and is not Mitchell Marcus's
+original program. At the author's request:
+
+  - If you are running PARSIFAL code that was not modified by Mitchell
+    Marcus, be aware that this is a port and may differ in behavior from
+    his original.
+  - Do not redistribute modified sources as if they were Mitchell
+    Marcus's original.
+
+The grammar appendix reproduced (OCR'd) in this project is drawn from
+Mitchell P. Marcus, "A Theory of Syntactic Recognition for Natural
+Language" (MIT Press, 1980); any rights in that published text are a
+separate matter from the permissions above.
