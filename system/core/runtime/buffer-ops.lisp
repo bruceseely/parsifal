@@ -42,9 +42,9 @@
 ;;; ===========================================================
 
 (setf *buffer* (make-array 10 :initial-element nil))
-(setf *1stfvec* (make-array 512 :element-type 'bit :initial-element 0))
-(setf *2ndfvec* (make-array 512 :element-type 'bit :initial-element 0))
-(setf *3rdfvec* (make-array 512 :element-type 'bit :initial-element 0))
+(setf *1stfvec* (make-array +fvec-size+ :element-type 'bit :initial-element 0))
+(setf *2ndfvec* (make-array +fvec-size+ :element-type 'bit :initial-element 0))
+(setf *3rdfvec* (make-array +fvec-size+ :element-type 'bit :initial-element 0))
 (setf *index-to-fvec-alist*
       (list (cons 0 *1stfvec*)
             (cons 1 *2ndfvec*)

@@ -116,6 +116,15 @@
 (defvar *2ndfvec*        nil)
 (defvar *3rdfvec*        nil)
 
+;;; Width of a feature vector, in bits. Feature indices are interned
+;;; lazily as rules are tested (see FEATINDEXIFY), so the high-water mark
+;;; rises with the size of the loaded grammar, not with the sentence: the
+;;; full grammar pushes it well past 64. Anything allocating an fvec --
+;;; the runtime below, and the tests that rebind these three -- must use
+;;; this one value, or a vector sized for a small grammar overflows once
+;;; a larger one has been loaded.
+(defconstant +fvec-size+ 512)
+
 ;;; --- Rule indexing ---------------------------------------------------
 (defvar *int-index*           nil)
 (defvar *nr-types*            nil)
