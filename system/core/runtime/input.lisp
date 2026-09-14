@@ -121,11 +121,20 @@
 (define-condition unknown-words-warning (warning)
   ((words :initarg :words :reader unknown-words-of))
   (:report (lambda (c stream)
+             ;; Name a FULL path, and the right file. A bare
+             ;; "system/core/runtime/supplement.dict" leaves you guessing
+             ;; which checkout it means, and sends you into this repository
+             ;; even when you have a project lexicon of your own -- which is
+             ;; where your corpus's vocabulary belongs. See LOAD-USER-LEXICON.
              (format stream
                      "read-sentence dropped unknown word(s) not in the ~
-                      lexicon: ~{~a~^ ~}. Add them to ~
-                      system/core/runtime/supplement.dict."
-                     (unknown-words-of c))))
+                      lexicon: ~{~a~^ ~}. Add them to ~a."
+                     (unknown-words-of c)
+                     (or (car (last *user-lexicon-files*))
+                         (ignore-errors
+                          (asdf:system-relative-pathname
+                           :parsifal "system/core/runtime/supplement.dict"))
+                         "parsifal's system/core/runtime/supplement.dict"))))
   (:documentation
    "Signalled by READ-SENTENCE when it drops out-of-vocabulary tokens.
     A dedicated WARNING subclass (not a SIMPLE-WARNING) so it survives a

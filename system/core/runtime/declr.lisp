@@ -178,6 +178,12 @@
 (defvar *nodelist*            nil)
 (defvar *sentence-types*      nil)
 
+;;; --- Lexicon sources --------------------------------------------------
+;;; Declared here, not in dictionary.lisp where LOAD-USER-LEXICON lives,
+;;; because input.lisp loads earlier and names it when it reports a dropped
+;;; word -- the report should send you to YOUR lexicon when you have one.
+(defvar *user-lexicon-files*  nil)
+
 ;;; --- Frame / semantic state ------------------------------------------
 (defvar hypoth-frames         nil)
 (defvar certain-frame         nil)

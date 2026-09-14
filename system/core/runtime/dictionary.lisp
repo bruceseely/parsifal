@@ -75,9 +75,9 @@
   (load-dictionary file))
 
 
-(defvar *user-lexicon-files* nil
-  "Project lexicon files loaded by LOAD-USER-LEXICON, most recent last.
-   Informational: what a caller last asked for, not a load-time hook.")
+;;; *USER-LEXICON-FILES* -- project lexicon files loaded by LOAD-USER-LEXICON,
+;;; most recent last. Declared in declr.lisp, which loads early enough for
+;;; input.lisp's unknown-word report to name it.
 
 (defun load-user-lexicon (files)
   "Load one project lexicon file, or a list of them in order, on top of the
