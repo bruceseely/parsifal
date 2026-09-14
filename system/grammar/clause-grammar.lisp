@@ -757,6 +757,55 @@
    *marcus-full-grammar*.")
 
 
+(defparameter *noun-compound-rules*
+  '("{RULE NOUN-COMPOUND PRIORITY: 5 IN PARSE-ADJ
+      [=noun ; * is not time ; * is not place]
+      [=noun ; * is not time ; * is not place] -->
+      Attach 1st to c as nmod.}")
+  "OUR extension (NOT a Marcus port). gram1-gram5 and the 1977 appendix have NO
+   noun-noun compound rule: his NOUN rule (gram3:131) takes a single [=noun]
+   into a fresh nbar, and ADJ (gram3:114) handles attributive ADJECTIVES only.
+   So \"a cherry pie\" parsed as TWO NPs -- `a cherry' plus a determiner-less
+   `pie' that NP-DONE labels `bad' -- and the extractor took the first as the
+   object, yielding [CHERRY] and silently dropping the head noun.
+
+   NOUN-COMPOUND fires IN PARSE-ADJ, the packet that already runs just before
+   PARSE-NOUN, on two adjacent nouns. It attaches the FIRST as an `nmod'
+   daughter of the NP and lets the second continue as the head, so the compound
+   is head-final: \"cherry pie\" is a PIE. Priority 5 puts it ahead of ADJ's
+   [t] catch-all (default 10), which would otherwise deactivate PARSE-ADJ and
+   hand the first noun to NOUN as a head in its own right.
+
+   Proper names do not match: `name' is its own feature (fido is (name ns n3p)),
+   not `noun', so a ditransitive like \"Bob gave Sue a book\" is untouched.
+
+   PSEUDOPROPNOUNS ARE EXCLUDED from BOTH cells, and the guard is Marcus's own
+   category, not one invented here. He enters the deictics and calendar words as
+   ordinary nouns -- `there' is (noun pseudopropnoun place ns n3p), `monday' is
+   (noun ns n3p day-of-week time) -- so an adjunct sits two nouns side by side:
+   \"...gave the girl a book yesterday .\" is [book][yesterday], and \"...sees
+   the dog here .\" is [dog][here]. Unguarded, this rule ate both as compounds,
+   losing the DATIVE case in one and the LOC relation in the other
+   (gram1-give-time-test, gram1-pay-time-exch-test and cg-from-parse's
+   extract-deictic-headless all caught it).
+
+   `pseudopropnoun' is the right guard because Marcus already treats it as the
+   not-an-ordinary-noun marker: his NBAR rule (gram3:138) reads \"If the noun of
+   1st is any of propnoun, pseudopropnoun then label c not-modifiable.\" A word
+   he calls not-modifiable has no business being a compound's head OR its
+   modifier, so both cells carry the test. Guarding on `time' alone -- the first
+   thing tried -- fixed the calendar cases and left the place deictics broken.
+
+   MODIFIERS STACK FLAT. Three nouns (\"cherry pie crust\") fire the rule twice,
+   giving two `nmod' daughters on one head rather than a nested [cherry [pie
+   crust]]. Compound bracketing is genuinely ambiguous and Marcus's grammar
+   offers no guidance; flat is the honest under-commitment.
+
+   The extractor emits an `nmod' as [HEAD]-(kind)->[MODIFIER] -- NOT (attr),
+   whose dest-type is ATTRIBUTE, a type CHERRY (under food/fruit) does not have.
+   See EXTENSIONS.md.")
+
+
 (defparameter *adverb-rules*
   '("{RULE ADVERB-ADJUNCT IN SS-FINAL
       [=adv] -->
@@ -1195,7 +1244,7 @@
 
 (defparameter *grammar-extensions*
   (list *apposition-rules* *adverb-rules* *bare-time-rules*
-        *existential-relative-rules*)
+        *existential-relative-rules* *noun-compound-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. Each one is documented, with its rationale and the
    evidence that gram1-gram5 and the 1977 appendix lack it, in EXTENSIONS.md.

@@ -276,6 +276,73 @@ Unlike everything above, these change **no parse and no parser behavior** — th
 are read-only utilities for inspecting the ported system. They earn an entry only
 because they are non-Marcus code, and this catalogue is meant to be exhaustive.
 
+### 10. Noun-noun compounds — the `NOUN-COMPOUND` rule (`*noun-compound-rules*`)
+
+*Group: `*noun-compound-rules*` (rule `NOUN-COMPOUND`), plus the extractor's
+`kind` relation in `cgraph-types`.*
+
+`gram1`–`gram5` and the 1977 appendix have **no noun-noun compound rule**.
+Marcus's `NOUN` (gram3:131) takes a single `[=noun]` into a fresh nbar, and
+`ADJ` (gram3:114) handles attributive **adjectives** only. Nominal compounds
+were never in scope, so "a cherry pie" parsed as *two* NPs:
+
+```
+np: NP2 (NS N3P INDEF DET NP)     ← "a cherry"
+  det: a
+  nbar: NBAR2 → noun: cherry
+np: NP3 (BAD N3P NP)              ← "pie", determiner-less, so NP-DONE says bad
+  nbar: NBAR3 → noun: pie
+```
+
+The extractor took the first as the object and dropped the BAD node, so
+`(obj)→[CHERRY]` — the head noun vanished. Every `jlike block` food noun hit
+this: "hamburger pie", "fruit pie", all the same.
+
+`NOUN-COMPOUND` fires `IN PARSE-ADJ` — the packet that already runs immediately
+before `PARSE-NOUN` — on two adjacent nouns, attaching the first as an `nmod`
+daughter and letting the second continue as the head. The compound is
+head-final: a cherry pie is a PIE.
+
+**Priority 5**, ahead of `ADJ`'s `[t]` catch-all at the default 10, which would
+otherwise deactivate `PARSE-ADJ` and hand the first noun to `NOUN` as a head in
+its own right.
+
+**Both cells exclude `time` and `place`.** Marcus enters the deictics and
+calendar words as ordinary nouns — `there` is `(noun pseudopropnoun place ns
+n3p)`, `monday` is `(noun ns n3p day-of-week time)` — so an adjunct puts two
+nouns side by side: "…gave the girl a book **yesterday** ." is `[book][yesterday]`,
+"…sees the dog **here** ." is `[dog][here]`. Unguarded, the rule ate both as
+compounds, losing the DATIVE case in one and LOC in the other.
+`gram1-give-time-test`, `gram1-pay-time-exch-test` and cg-from-parse's
+`extract-deictic-headless` all caught it. (Guarding on `pseudopropnoun` — the
+category Marcus's NBAR rule uses for "not-modifiable" — was tried first and is
+**not** sufficient: `yesterday` is `jlike wednesday → monday`, and `monday`
+carries `time` but no `pseudopropnoun`.)
+
+**Modifiers stack flat.** Three nouns ("cherry pie crust") fire the rule twice,
+giving two `nmod` daughters on one head rather than a nested `[cherry [pie
+crust]]`. Compound bracketing is genuinely ambiguous and Marcus's grammar offers
+no guidance, so flat is the honest under-commitment.
+
+**The relation is `kind`, not `attr`.** `attr`'s dest-type is `ATTRIBUTE`, and a
+modifying noun like `CHERRY` lives under `PHYSICAL → SUBSTANCE → FOOD → FRUIT`,
+so `[PIE]→(attr)→[CHERRY]` is type-invalid and is silently dropped. `kind` is
+new in `cgraph-types` (`entity → entity`) and says what a speaker means by
+"cherry pie": a *kind* of pie, as against apple or mince. Adjective modifiers
+still emit `attr`; the extractor picks by what the parser saw — an `nmod`
+daughter rather than an `adj` one.
+
+```
+"a red pie"     →  (attr)→[RED]
+"a cherry pie"  →  (kind)→[CHERRY]
+```
+
+**Known cost.** More word-salad now parses. With an unknown word dropped, "the
+girl zorks pie ." leaves `[girl][pie]`, which is now a well-formed compound NP
+and so a successful np-utterance parse where it used to fail — see the note in
+cg-from-parse's `extract-diagnose-headless.lisp`. This is inherent to admitting
+compounds at all, and is the usual argument for keeping the rule narrow.
+
 ### 9. Lexicon inventory — `lexicon-words` / `lexicon-noise-p` (`system/core/runtime/lexicon.lisp`)
 
 Marcus's `com.l` can *resolve* a word (`morpho`/`expandsim`) but never *enumerate*
