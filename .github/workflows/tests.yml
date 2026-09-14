@@ -18,6 +18,11 @@ jobs:
       # Make every checked-out repo ASDF-discoverable; ql:quickload falls back to
       # ASDF for systems not in the Quicklisp dist.
       CL_SOURCE_REGISTRY: '(:source-registry (:tree "${{ github.workspace }}") :inherit-configuration)'
+      # PINNED so CI runs the same Lisp as the dev machine. `apt-get install sbcl'
+      # gave Debian's package -- 2.2.9, from 2022 -- which silently drifted four
+      # years behind local (2.6.6) and failed where local passed. Bump this one
+      # line to move both together.
+      SBCL_VERSION: '2.6.6'
     steps:
       - name: Checkout parsifal (this repo, pushed ref)
         uses: actions/checkout@v4
@@ -38,14 +43,20 @@ jobs:
           path: cg-from-parse
           token: ${{ secrets.STACK_CHECKOUT_TOKEN }}
 
-      - name: Install SBCL
-        run: sudo apt-get update && sudo apt-get install -y sbcl
+      - name: Install SBCL ${{ env.SBCL_VERSION }}
+        run: |
+          set -eu
+          url="https://downloads.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
+          curl -sSL --fail -o /tmp/sbcl.tar.bz2 "$url"
+          tar -xjf /tmp/sbcl.tar.bz2 -C /tmp
+          (cd "/tmp/sbcl-${SBCL_VERSION}-x86-64-linux" && sudo sh install.sh)
+          sbcl --version
 
       - name: Cache Quicklisp
         uses: actions/cache@v4
         with:
           path: ~/quicklisp
-          key: quicklisp-${{ runner.os }}
+          key: quicklisp-${{ runner.os }}-sbcl-${{ env.SBCL_VERSION }}
 
       - name: Bootstrap Quicklisp + SBCL init
         run: |
