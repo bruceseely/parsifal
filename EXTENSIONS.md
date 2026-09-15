@@ -343,6 +343,49 @@ and so a successful np-utterance parse where it used to fail — see the note in
 cg-from-parse's `extract-diagnose-headless.lisp`. This is inherent to admitting
 compounds at all, and is the usual argument for keeping the rule narrow.
 
+### 11. Possessive `her` — the `POSS-PRONOUN-DIAG` rule (`*possessive-pronoun-rules*`) + `supplement.dict`
+
+*Group: `*possessive-pronoun-rules*` (rule `POSS-PRONOUN-DIAG`), plus the `her`
+entry in `system/core/runtime/supplement.dict`.*
+
+`her` is two words in English — the accusative pronoun and the possessive
+determiner:
+
+```
+"the woman sees her ."      →  object = her        (pron-np)
+"the woman sees her dog ."  →  object = "her dog"  (poss-det + noun)
+```
+
+Marcus's dictionary enters only the first, `(df her irreg (she nil nil))`, and
+gives the possessive to `hers` — which in English is the **independent**
+possessive ("the dog is hers") and never a determiner. So "her dog" parsed as
+the object `her` followed by a stranded `dog` that nothing could attach, and the
+head noun was **dropped without a word**: the sentence came out
+`[SEE]-(agnt)→[WOMAN: #] (obj)→[PERSON: She]`.
+
+Marking `her` `poss-pronoun` in the lexicon instead would fix that sentence by
+breaking the other one: `PRONOUN` labels any poss-pronoun NP a `poss-np`, and
+`POSSESSIVE-DET` then waits for a head noun that never comes. The ambiguity is
+lexical and has to be resolved from **context** — and Marcus already shows how,
+in `WHAT-DIAG` (#5), which diagnoses det\relpron-ambiguous `what` by looking at
+the next buffer cell. This is the same shape:
+
+- `supplement.dict` gives `her` the feature `poss-ambig` — "both readings".
+- **`POSS-PRONOUN-DIAG`** (`PRIORITY: 4 IN npool`) reads the cell *after* it and
+  adds `poss-pronoun` when a noun group starts there (`2nd is ngstart and 2nd is
+  not det`). Priority 4 puts the diagnosis ahead of `PRONOUN` (default 10),
+  which would otherwise consume the word first.
+- It marks the word `poss-diag` on **both** branches. That mark is what stops
+  the no-op branch — nothing follows that starts a noun group — from leaving the
+  buffer unchanged and matching itself forever.
+
+`PRONOUN` then does the rest, exactly as it already did for `my`. Only `her`
+needs this: `his`/`its`/`my`/`your`/`our`/`their` are unambiguously determiners
+in Marcus's dictionary, and `him`/`them`/`me`/`us` unambiguously accusative.
+
+Test: `test/integration/gram1-possessive-pronoun-test.lisp` (both readings, the
+subject genitive, and the unambiguous pronouns left alone).
+
 ### 9. Lexicon inventory — `lexicon-words` / `lexicon-noise-p` (`system/core/runtime/lexicon.lisp`)
 
 Marcus's `com.l` can *resolve* a word (`morpho`/`expandsim`) but never *enumerate*

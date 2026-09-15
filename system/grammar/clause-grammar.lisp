@@ -1242,9 +1242,46 @@
    SUBJ-QUEST?, REDUCED-RELATIVE, ...) stay disjoint. See
    `gram1-full-grammar-test'.")
 
+(defparameter *possessive-pronoun-rules*
+  '("{RULE POSS-PRONOUN-DIAG PRIORITY: 4 IN npool
+      [=poss-ambig ; * is not poss-diag] [t] -->
+      Label 1st poss-diag.
+      If 2nd is ngstart and 2nd is not det then label 1st poss-pronoun.}")
+  "OUR extension (NOT a Marcus port). `her' is two words: the accusative
+   pronoun (\"the woman sees her .\") and the possessive determiner (\"the woman
+   sees her dog .\"). Marcus's dictionary enters only the first -- (df her irreg
+   (she nil nil)) -- and gives the possessive to `hers', which in English is the
+   INDEPENDENT possessive (\"the dog is hers\") and never a determiner. So \"her
+   dog\" parsed as the object `her' plus a stranded `dog', and the head noun was
+   dropped: \"the woman sees her dog .\" came out [SEE]-(agnt)->[WOMAN:#]
+   (obj)->[PERSON: She].
+
+   Marking `her' poss-pronoun in the lexicon instead would fix that sentence by
+   breaking \"sees her\", because the PRONOUN rule labels any poss-pronoun NP a
+   poss-np and POSSESSIVE-DET then waits for a head noun that never comes. The
+   ambiguity is lexical and must be resolved from CONTEXT, which is what this
+   rule does -- and Marcus already shows how: WHAT-DIAG (*wh-determiner-rules*)
+   diagnoses det\\relpron-ambiguous `what' from the next buffer cell, and this is
+   the same shape. supplement.dict marks `her' `poss-ambig'; POSS-PRONOUN-DIAG
+   reads the cell after it and adds `poss-pronoun' when a noun group starts
+   there, so PRONOUN (which follows, at the default priority 10) builds a poss-np
+   for \"her dog\" and a plain pron-np for \"sees her .\"
+
+   PRIORITY 4 puts the diagnosis ahead of PRONOUN, which would otherwise consume
+   the word first. `poss-diag' is the mark that the diagnosis has RUN: without
+   it the no-op branch (nothing follows that starts a noun group) would leave the
+   buffer unchanged and the rule would match itself forever.
+
+   Only `her' needs this. `his'/`its'/`my'/`your'/`our'/`their' are
+   unambiguously determiners in Marcus's dictionary, and `him'/`them'/`me'/`us'
+   unambiguously accusative. Lives in *grammar-extensions*, not
+   *marcus-full-grammar*.")
+
+
 (defparameter *grammar-extensions*
   (list *apposition-rules* *adverb-rules* *bare-time-rules*
-        *existential-relative-rules* *noun-compound-rules*)
+        *existential-relative-rules* *noun-compound-rules*
+        *possessive-pronoun-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. Each one is documented, with its rationale and the
    evidence that gram1-gram5 and the 1977 appendix lack it, in EXTENSIONS.md.

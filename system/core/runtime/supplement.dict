@@ -121,3 +121,21 @@
 ;; currency noun for an exchanged amount ("...for two dollars"); `money' marker
 ;; (as in pay's neut) so it reads as the price, not the goods.
 (df dollar feats (noun ns n3p) markers (money inanim physob))
+
+;; `her' is BOTH the accusative pronoun ("the woman sees her") and the
+;; possessive determiner ("the woman sees her dog"). Marcus's dictionary
+;; gives it only the first reading -- (df her irreg (she nil nil)) -- and
+;; puts the possessive on `hers', which in English is the INDEPENDENT
+;; possessive ("the dog is hers"), never a determiner. So "her dog" parsed
+;; as the object `her' followed by a stranded `dog' that nothing could
+;; attach, and the head noun was silently dropped.
+;;
+;; The ambiguity is real and has to be resolved by CONTEXT, so the entry
+;; only MARKS it: `poss-ambig' says "this word has both readings", and the
+;; POSS-PRONOUN-DIAG rule (our *possessive-pronoun-rules*) diagnoses which
+;; one applies from the next word, exactly as Marcus's own WHAT-DIAG does
+;; for det/relpron-ambiguous `what'. Adding `poss-pronoun' here instead
+;; would fix "her dog" by breaking "sees her".
+;;
+;; This is the second place this file supersedes a Marcus entry (see `buy').
+(df her irreg (she (poss-ambig) nil))
