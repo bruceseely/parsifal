@@ -2,8 +2,8 @@ name: whole-stack tests
 
 # A push to parsifal runs the whole-stack gate (owned by cg-from-parse) against
 # THIS repo's pushed code plus current cgraph and cg-from-parse, each suite in
-# its own SBCL process. Self-contained: no cross-repo token needed -- the two
-# dependency repos are public and checked out directly.
+# its own SBCL process. Self-contained: no cross-repo token needed -- all three
+# repos are public, so a pull request from a fork runs it too.
 
 on:
   push:
@@ -34,14 +34,12 @@ jobs:
         with:
           repository: bruceseely/cgraph
           path: cgraph
-          token: ${{ secrets.STACK_CHECKOUT_TOKEN }}
 
       - name: Checkout cg-from-parse
         uses: actions/checkout@v4
         with:
           repository: bruceseely/cg-from-parse
           path: cg-from-parse
-          token: ${{ secrets.STACK_CHECKOUT_TOKEN }}
 
       - name: Install SBCL ${{ env.SBCL_VERSION }}
         run: |
