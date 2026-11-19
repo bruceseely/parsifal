@@ -23,6 +23,10 @@
 ;;;   what `lowcaseify' (which folds to upper, see lexicon.lisp) produces
 ;;;   and what CL's reader interns. EQ comparisons line up.
 ;;;
+;;; - One departure: a word with no inflectional ending gets no spelling
+;;;   change undone (see the NOTE in MORPHO), so `ann' is no longer read as
+;;;   `an'.
+;;;
 ;;; - Three faithful reproductions of what look like errata in Marcus's
 ;;;   canonical source, flagged inline: the `(member (cdddr *rt*) ...)'
 ;;;   at the doubled-vowel test (a list is never EQ a vowel), the
@@ -168,6 +172,14 @@
                      (ends-in '(r d)) (ends-in '(t h))))
             (modfe '(ord) nil)))
          (when (try) (return-from morpho t))
+         ;; NOTE: a DEPARTURE from com.l. With no ending stripped there is no
+         ;; spelling change to undo, but Marcus fell through to the undo
+         ;; anyway: a bare word ending in a doubled consonant lost a letter,
+         ;; and when the rest was a word it was silently read as that word --
+         ;; `ann' as the article `an', `inn' as the preposition `in'. An
+         ;; unknown word should be reported unknown, not misread.
+         (unless (or (car *modfelist*) (cadr *modfelist*))
+           (return-from morpho nil))
          ;; Undo the spelling change that the ending triggered, then
          ;; retry at TEST.
          (setq first (car *rt*) secnd (cadr *rt*))

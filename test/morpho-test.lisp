@@ -100,6 +100,17 @@
 
       (check "morpho returns NIL for an unknown word" (morpho (rev "qxz")) nil)
 
+      ;; --- a bare doubled consonant is not an inflection -------------
+      ;; Marcus undid the doubling even with no ending stripped, so an
+      ;; unknown `catt' came back as `cat' -- and `ann' as the article `an'.
+      ;; The doubling is still undone when an ending was stripped (running,
+      ;; above).
+
+      (check "a bare word ending in a doubled consonant is not shortened"
+             (morpho (rev "catt")) nil)
+      (truthy "but a doubled consonant before an ending still is"
+              (morpho (rev "catting")))
+
       ;; --- origcase --------------------------------------------------
 
       (setf (get 'tw-oc 'origword) 'orig-cat)

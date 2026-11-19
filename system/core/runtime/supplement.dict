@@ -47,6 +47,9 @@
 ;; (hanim) types as a person -- and is overridden by the head noun in an
 ;; apposition, which is the point of the construction.
 (df fido feats (name ns n3p) markers (anim))
+;; A person, like Marcus's own names (dave, sue, mary): `jlike mitch'. Without
+;; an entry, morpho shortened `ann' to the article `an'.
+(jlike ann mitch)
 ;; A PLACE, not a plain physobj: the `place' marker is what gets a locative PP
 ;; the `place' case, which cg-from-parse maps to (loc). Modelled on Marcus's
 ;; `chicago' minus the propnoun feature, since this one takes a determiner.
