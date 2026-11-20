@@ -83,6 +83,13 @@
 (df slowly  feats (adv manner))
 (df gladly  feats (adv manner))  ; attitudinal, but the one adverb bucket is `manner'
 
+;; --- negation Marcus didn't enter ---
+;; `not' is no part of speech the grammar builds on: the NEGATION rule
+;; (*negation-rules*, our *grammar-extensions*) finds it by name, [=*not], right
+;; after the first auxiliary, and hangs it on the aux as `neg'. A contraction
+;; arrives as this same word -- TOKENIZE splits `doesn't' into `does' `not'.
+(df not feats (neg))
+
 ;; --- verbs Marcus didn't enter ---
 ;; `pay' is a give-class ditransitive transfer (recipient + optional amount),
 ;; modelled on Marcus's `give' (cf ((*obj dat) neut (dat) agt)). Extensions over

@@ -93,16 +93,40 @@
 (defun whitespacep (ch)
   (member ch '(#\Space #\Tab #\Newline #\Return #\Linefeed #\Page)))
 
+(defparameter *irregular-negative-contractions*
+  '(("can't" "can") ("won't" "will") ("shan't" "shall") ("ain't" "is"))
+  "Negative contractions whose host is not simply the word minus `n't'.")
+
+(defun split-negative-contraction (token)
+  "A list of the words TOKEN stands for: `doesn't' -> (\"does\" \"not\"),
+   `won't' -> (\"will\" \"not\"); any other token -> a list of itself.
+
+   MORPHO strips a trailing `n't' as it does `'s' -- faithfully to com.l --
+   and the `not' it stood for was simply lost, so `the girl doesn't eat pie'
+   parsed, without a word of warning, as `the girl does eat pie'. Splitting it
+   off here gives the grammar the same two words `does not' would, so a
+   negation is either read or reported, never dropped."
+  (let ((n (length token)))
+    (cond ((and (> n 3) (string-equal "n't" token :start2 (- n 3)))
+           (let ((irregular (assoc token *irregular-negative-contractions*
+                                   :test #'string-equal)))
+             (list (if irregular (second irregular) (subseq token 0 (- n 3)))
+                   "not")))
+          (t (list token)))))
+
 (defun tokenize (string)
   "Split STRING into tokens on whitespace, peeling any trailing
    punctuation characters off into their own tokens (so `cats.' ->
-   `cats' `.'). This stands in for sentin's character-level
+   `cats' `.'), and a negative contraction into its two words (see
+   SPLIT-NEGATIVE-CONTRACTION). This stands in for sentin's character-level
    *nextmorph* splitting."
   (let ((tokens nil)
         (run    (make-string-output-stream)))
     (flet ((flush ()
              (let ((s (get-output-stream-string run)))
-               (when (plusp (length s)) (push s tokens)))))
+               (when (plusp (length s))
+                 (dolist (word (split-negative-contraction s))
+                   (push word tokens))))))
       (loop for ch across string do
         (cond ((whitespacep ch) (flush))
               ((punctuation-char-p ch)

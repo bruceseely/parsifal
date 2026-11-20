@@ -1278,10 +1278,37 @@
    *marcus-full-grammar*.")
 
 
+(defparameter *negation-rules*
+  '("{RULE NEGATION PRIORITY: 5 IN BUILD-AUX
+      [=auxverb] [=*not] -->
+      Attach 2nd to c as neg. Label c neg.}")
+  "OUR extension (NOT a Marcus port -- gram1-gram5 have no rule for `not', and
+   his dictionary no entry for it). Clausal negation sits right after the first
+   auxiliary: `does not eat', `is not eating', `will not pay', `has not
+   scheduled', `should not have gone'. In BUILD-AUX the buffer is then
+   [aux][not][...], and `not' keeps every stacking rule from seeing the
+   adjacency it needs (DO-SUPPORT wants [*do][tnsless], PROGRESSIVE
+   [*be][ing], and so on), so the empty aux completed and MAIN-VERB took the
+   auxiliary itself as the verb.
+
+   NEGATION (priority 5, ahead of the stackers at 10 and AUX-COMPLETE at 15)
+   attaches `not' to the aux node as `neg' and labels the aux `neg', splicing
+   it out of the buffer -- the PREVERBAL-ADVERB idiom -- so the auxiliary
+   stacks as it would have without it. The extractor reads the `neg' label on
+   a clause's aux as a denial of that clause.
+
+   A contraction reaches here as the same two words: TOKENIZE splits `doesn't'
+   into `does' `not' (and `can't', `won't', `shan't' into can/will/shall), so
+   there is one rule for both spellings.
+
+   The do-support it relies on is DO-SUPPORT (*inversion-rules*); `does' with
+   no `not' was already parsed through it.")
+
+
 (defparameter *grammar-extensions*
   (list *apposition-rules* *adverb-rules* *bare-time-rules*
         *existential-relative-rules* *noun-compound-rules*
-        *possessive-pronoun-rules*)
+        *possessive-pronoun-rules* *negation-rules*)
   "Our OWN grammar rule groups -- additions that are NOT verbatim ports of
    Marcus's grammar. Each one is documented, with its rationale and the
    evidence that gram1-gram5 and the 1977 appendix lack it, in EXTENSIONS.md.

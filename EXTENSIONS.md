@@ -386,6 +386,47 @@ in Marcus's dictionary, and `him`/`them`/`me`/`us` unambiguously accusative.
 Test: `test/integration/gram1-possessive-pronoun-test.lisp` (both readings, the
 subject genitive, and the unambiguous pronouns left alone).
 
+### 12. Clausal negation — the `NEGATION` rule (`*negation-rules*`) + `not` + contractions
+
+*Group: `*negation-rules*` (rule `NEGATION`), the `not` entry in
+`system/core/runtime/supplement.dict`, and `split-negative-contraction` in
+`system/core/runtime/input.lisp`.*
+
+Marcus's grammar has no negation and his dictionary no `not`. That left two
+failures, and the second one was silent:
+
+```
+"the girl does not eat pie ."  →  `not' dropped as unknown (with a warning),
+                                  parsed as "the girl does eat pie"
+"the girl doesn't eat pie ."   →  morpho strips `n't' as it strips `'s',
+                                  parsed as "the girl does eat pie" — no warning
+```
+
+Either way the parse said the opposite of the sentence.
+
+- **`not`** is entered as `(df not feats (neg))`. It is no part of speech the
+  grammar builds on; the rule finds it by name.
+- **`NEGATION`** (`PRIORITY: 5 IN BUILD-AUX`, `[=auxverb] [=*not]`) attaches
+  `not` to the aux node as `neg` and labels the aux `neg`. That splices it out
+  of the buffer, so the auxiliary stacks exactly as it would without it.
+  `not` sits after the first auxiliary, where it would otherwise break the
+  adjacency every stacking rule needs: DO-SUPPORT `[*do][tnsless]`,
+  PROGRESSIVE `[*be][ing]`, PASSIVE-AUX `[*be][en]`, PERFECTIVE, MODAL,
+  FUTURE. Priority 5 fires ahead of all of them (10) and AUX-COMPLETE (15).
+  This is the `PREVERBAL-ADVERB` idiom (#2).
+- **Contractions.** `tokenize` splits `doesn't` into `does` `not`, so the
+  grammar sees the same two words either way. `can't`, `won't`, `shan't`,
+  and `ain't` map to can/will/shall/is.
+
+The extractor in cg-from-parse reads the `neg` label on a clause's aux as a
+denial of that clause.
+
+Not covered: negation without an auxiliary in front of it. That means an
+infinitive (`wants not to eat`), a constituent (`not the girl`), and `never`.
+
+Test: `test/integration/gram1-negation-test.lisp` covers each auxiliary, the
+contractions, a negated that-complement, and the rule group's absence.
+
 ### 9. Lexicon inventory — `lexicon-words` / `lexicon-noise-p` (`system/core/runtime/lexicon.lisp`)
 
 Marcus's `com.l` can *resolve* a word (`morpho`/`expandsim`) but never *enumerate*
