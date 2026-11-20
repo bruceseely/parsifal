@@ -150,15 +150,20 @@
              ;; which checkout it means, and sends you into this repository
              ;; even when you have a project lexicon of your own -- which is
              ;; where your corpus's vocabulary belongs. See LOAD-USER-LEXICON.
-             (format stream
-                     "read-sentence dropped unknown word(s) not in the ~
-                      lexicon: ~{~a~^ ~}. Add them to ~a."
-                     (unknown-words-of c)
-                     (or (car (last *user-lexicon-files*))
-                         (ignore-errors
-                          (asdf:system-relative-pathname
-                           :parsifal "system/core/runtime/supplement.dict"))
-                         "parsifal's system/core/runtime/supplement.dict"))))
+             ;; "Add them to" starts a line of its own, aligned under the
+             ;; first: a logical block, so a WARNING: prefix's indentation
+             ;; carries onto the second line, and *PRINT-PRETTY* bound on, so
+             ;; the break is still made where the text is printed plainly.
+             (let ((*print-pretty* t))
+               (format stream
+                      "~@<read-sentence dropped unknown word(s) not in the ~
+                       lexicon: ~{~a~^ ~}.~:@_Add them to ~a.~:>"
+                      (unknown-words-of c)
+                      (or (car (last *user-lexicon-files*))
+                          (ignore-errors
+                           (asdf:system-relative-pathname
+                            :parsifal "system/core/runtime/supplement.dict"))
+                          "parsifal's system/core/runtime/supplement.dict")))))
   (:documentation
    "Signalled by READ-SENTENCE when it drops out-of-vocabulary tokens.
     A dedicated WARNING subclass (not a SIMPLE-WARNING) so it survives a
