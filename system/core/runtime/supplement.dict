@@ -30,6 +30,13 @@
 ;;; When you hit a missing word, prefer adding one line here over editing
 ;;; Marcus's source.
 
+;; --- punctuation Marcus didn't enter ---
+;; The tokenizer splits `!' off like `.' and `?' (input.lisp), but the
+;; dictionary had no entry, so "drive the car !" was an unknown word and the
+;; sentence never ended. Ends a sentence as `.' does; nothing reads an
+;; exclamation as different from a statement.
+(df ! feats (finalpunc punc))
+
 ;; --- common nouns Marcus didn't enter ---
 (df hair feats (noun massn ns n3p) markers (inanim physob)) ; MASS noun: "red hair"
 (jlike tree block)      ; inanimate physobj count noun
