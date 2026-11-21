@@ -135,6 +135,60 @@
                '(noun ns name))
         (truthy "df+ records the phrase tokens in *wstring-list*"
                 (and (member (intern "NEW" :parsifal) *wstring-list*)
-                     (member (intern "YORK" :parsifal) *wstring-list*)))))
+                     (member (intern "YORK" :parsifal) *wstring-list*))))
+
+      ;; --- redefinition reaches the words built from a word ----------
+      ;; An irregular form and a jlike word copy their root's case-frame
+      ;; when built, and EXPANDSIM never rebuilt a word that had features --
+      ;; so redefining the root (a re-read project lexicon) left them on
+      ;; the old frame.
+
+      (dolist (w '(tw-go tw-went tw-trek tw-acc))
+        (setf (symbol-plist w) nil))
+      (df tw-go feats (mainverb tnsless) cf (neut agt) neut (|#| hanim |#|))
+      (df tw-went irreg (tw-go (past) (tnsless)))
+      (jlike tw-trek tw-go)
+      (expandsim 'tw-went)
+      (expandsim 'tw-trek)
+      (check "an irregular form copies its root's case-frame"
+             (get 'tw-went 'case-frame) '((neut oblig) (agt oblig)))
+      (check "so does a jlike word"
+             (get 'tw-trek 'case-frame) '((neut oblig) (agt oblig)))
+      (check "the root records the words built from it"
+             (sort (copy-list (get 'tw-go 'derived-words)) #'string< :key #'symbol-name)
+             '(tw-trek tw-went))
+
+      (df tw-go feats (mainverb tnsless) cf (ins agt))
+      (check "redefining the root forgets the irregular form's copy"
+             (get 'tw-went 'features) nil)
+      (check "  and the jlike word's" (get 'tw-trek 'features) nil)
+      (check "  but keeps their own definitions"
+             (list (car (get 'tw-went 'irreg)) (get 'tw-trek 'jlike))
+             '(tw-go tw-go))
+      (expandsim 'tw-went)
+      (expandsim 'tw-trek)
+      (check "the irregular form is rebuilt on the new frame"
+             (get 'tw-went 'case-frame) '((ins oblig) (agt oblig)))
+      (check "  and the jlike word"
+             (get 'tw-trek 'case-frame) '((ins oblig) (agt oblig)))
+      (check "the root's case-frame is the new one"
+             (get 'tw-go 'case-frame) '((ins oblig) (agt oblig)))
+      (check "a property deleted from the entry is gone, not left over"
+             (get 'tw-go 'neut) nil)
+
+      (df tw-went irreg (tw-go (past vspl) (tnsless)))
+      (check "redefining a built word itself forgets its build"
+             (get 'tw-went 'features) nil)
+      (expandsim 'tw-went)
+      (truthy "  and it is rebuilt from its new definition"
+              (member 'vspl (get 'tw-went 'features)))
+
+      ;; Before any expansion, definitions still accumulate: Marcus's
+      ;; dictionary defines `time' as a markerset and then as a noun.
+      (df tw-acc markerset (|#| time |#|))
+      (df tw-acc feats (noun ns))
+      (check "unexpanded definitions accumulate, as in Marcus"
+             (list (get 'tw-acc 'markerset) (get 'tw-acc 'feats))
+             '((|#| time |#|) (noun ns))))
 
     results))

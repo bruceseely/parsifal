@@ -111,6 +111,22 @@
       (truthy "but a doubled consonant before an ending still is"
               (morpho (rev "catting")))
 
+      ;; --- an inflected form follows its root's redefinition ---------
+      ;; MORPHO builds `zooms' with a COPY of zoom's case-frame; redefining
+      ;; zoom (a re-read project lexicon) used to leave `zooms' on the old
+      ;; frame for the rest of the session.
+
+      (dolist (w '(zoom zooms)) (setf (symbol-plist w) nil))
+      (df zoom feats (mainverb pres tnsless v-3s) cf (neut agt))
+      (truthy "morpho builds an inflected verb" (morpho (rev "zooms")))
+      (check  "  with its root's case-frame"
+              (get 'zooms 'case-frame) '((neut oblig) (agt oblig)))
+      (df zoom feats (mainverb pres tnsless v-3s) cf (ins agt))
+      (truthy "after the root is redefined, morpho resolves it again"
+              (morpho (rev "zooms")))
+      (check  "  on the root's new case-frame"
+              (get 'zooms 'case-frame) '((ins oblig) (agt oblig)))
+
       ;; --- origcase --------------------------------------------------
 
       (setf (get 'tw-oc 'origword) 'orig-cat)

@@ -238,6 +238,7 @@
         (t (return-from expandsim nil)))
       ;; Fell through the COND: WORD is `jlike' SIMW -- inherit.
       (setf (get word 'expanded) t)
+      (note-derived word simw)
       (setf (get word 'features)
             (cons (implode (cons '* (explodec word)))
                   (feat-minus (get simw 'features)
@@ -292,7 +293,8 @@
   (mapc (lambda (regtype)
           (let ((v (get root regtype)))
             (when v (setf (get word regtype) v))))
-        *specregs*))
+        *specregs*)
+  (note-derived word root))
 
 (defun buildnumber (numword number)
   "Define NUMWORD as the numeral NUMBER, computing its size feature
@@ -328,9 +330,78 @@
 ;;; Ported as macros that quote their unevaluated argument list and
 ;;; hand it to a worker function (fexpr semantics in CL).
 
+;;; -----------------------------------------------------------
+;;; Redefinition (OUR extension, not in com.l)
+;;; -----------------------------------------------------------
+;;;
+;;; Marcus loaded the dictionary once, before any word was expanded, so
+;;; a definition never changed under an expanded word. A project lexicon
+;;; is re-read when edited (cg-from-parse's ENSURE-DOMAIN-LEXICON), and
+;;; then it does: `drive' gets a new `cf', but `drives' and `drove' were
+;;; built by BUILDWORD with a COPY of drive's case-frame (and the other
+;;; *specregs*), and EXPANDSIM returns early for any word that already
+;;; has `features' -- so the old frame went on being used until a fresh
+;;; image, while a new `neut' marker list (read live off the root by
+;;; SMQVAL) took effect at once. Half an edit applied is worse than none.
+;;;
+;;; So every word built from another records itself on that word's
+;;; `derived-words', and redefining an already-expanded word forgets what
+;;; was built from it: the derived words lose their copies and are
+;;; rebuilt from the new definition the next time they are read.
+;;;
+;;; Raw properties still ACCUMULATE across definers, as in Marcus: the
+;;; dictionary relies on it (`time' is a markerset and then a noun, `last'
+;;; a verb and then an ordinal). Only expansion PRODUCTS are dropped, and
+;;; only for a word that has been expanded -- which no word is while the
+;;; dictionary first loads, so that load is unchanged.
+
+(defun note-derived (word source)
+  "Record that WORD was built from SOURCE (its root or `jlike' model)."
+  (when (and source (symbolp source) (not (eq word source)))
+    (pushnew word (get source 'derived-words))))
+
+(defun forget-derived-expansion (word)
+  "Drop everything WORD inherited when it was built from another word
+   (BUILDWORD, or the `jlike' branch of EXPANDSIM), then do the same for
+   the words built from it. Its own raw definition (`irreg', `jlike',
+   `except') stays, so EXPANDSIM / MORPHO rebuild it on the next read."
+  (let ((derived (get word 'derived-words)))
+    (remprop word 'derived-words)
+    (dolist (prop (list* 'features 'expanded 'root 'type *specregs*))
+      (remprop word prop))
+    (mapc #'forget-derived-expansion derived)))
+
+(defun note-redefinition (word new-props)
+  "Called before WORD gets NEW-PROPS, a (PROP VALUE)* list. If WORD has
+   been expanded, forget its derived words' copies -- and its own
+   expansion, when it was itself derived, when it is being made `jlike'
+   or `irreg' of another word (inheriting everything anew), or when
+   NEW-PROPS carry the `feats' that EXPANDDEF will rebuild it from.
+
+   That last case replaces what the old definition expanded to --
+   features, case-frame, and the per-word marker lists (`neut', `ess',
+   `preps', `markers') -- so a property DELETED from an edited entry is
+   gone too, not left over from the previous reading. Safe because it
+   only happens to a word already expanded, i.e. on a re-read: the
+   dictionary's own accumulating definitions all land before any
+   expansion."
+  (when (get word 'features)
+    (let ((derived (get word 'derived-words)))
+      (remprop word 'derived-words)
+      (mapc #'forget-derived-expansion derived))
+    (cond ((or (get word 'root) (get word 'expanded)
+               (loop for (prop) on new-props by #'cddr
+                     thereis (member prop '(jlike irreg))))
+           (forget-derived-expansion word))
+          ((loop for (prop) on new-props by #'cddr thereis (eq prop 'feats))
+           (dolist (prop '(features type case-frame neut ess preps markers))
+             (remprop word prop))))))
+
 (defun %df (l)
   "Worker for DF: walk the (PROP VALUE)* tail of L, storing each on the
-   word (car L). Mirrors com.l 360."
+   word (car L). Mirrors com.l 360, plus NOTE-REDEFINITION for a word
+   that was already expanded."
+  (note-redefinition (car l) (cdr l))
   (do ((word (car l))
        (plist (cdr l) (cddr plist)))
       ((null plist) word)
@@ -368,10 +439,13 @@
    another, optionally with `except' overrides. Mirrors com.l 367."
   (let (nword)
     (cond ((atom (car l))
+           (note-redefinition (car l) (list 'jlike (cadr l)))
            (setf (get (setq nword (car l)) 'jlike) (cadr l)))
           (t
+           (note-redefinition (caar l) (list 'jlike (caadr l)))
            (setf (get (setq nword (caar l)) 'jlike) (caadr l))
            (mapc (lambda (newirreg oirreg)
+                   (note-redefinition newirreg (list 'irreg t))
                    (setf (get newirreg 'irreg)
                          (cons (caar l) (cdr (get oirreg 'irreg)))))
                  (cdar l) (cdadr l))))
