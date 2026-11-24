@@ -29,6 +29,12 @@ jobs:
         with:
           path: parsifal
 
+      - name: Checkout clopt
+        uses: actions/checkout@v4
+        with:
+          repository: bruceseely/clopt
+          path: clopt
+
       - name: Checkout cgraph
         uses: actions/checkout@v4
         with:
